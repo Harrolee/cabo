@@ -29,6 +29,9 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "attribute.actor"      = "assertion.actor"
     "attribute.repository" = "assertion.repository"
   }
+
+  # Add attribute condition to restrict to specific repository
+  attribute_condition = "attribute.repository == \"${var.github_repo}\""
 }
 
 # Create Service Account for GitHub Actions
