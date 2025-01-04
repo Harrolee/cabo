@@ -71,11 +71,6 @@ variable "motivation_function_url" {
   type        = string
 }
 
-variable "signup_function_url" {
-  description = "URL of the Signup Cloud Function"
-  type        = string
-}
-
 variable "allowed_origins" {
   description = "Comma-separated list of allowed origins for CORS"
   type        = string

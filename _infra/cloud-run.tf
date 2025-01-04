@@ -41,11 +41,6 @@ resource "google_cloud_run_service" "webapp" {
           }
         }
 
-        env {
-          name  = "VITE_SIGNUP_FUNCTION_URL"
-          value = var.signup_function_url
-        }
-
         ports {
           container_port = 80
         }
