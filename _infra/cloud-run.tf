@@ -31,6 +31,21 @@ resource "google_cloud_run_service" "webapp" {
           }
         }
 
+        env {
+          name  = "REPLICATE_API_TOKEN"
+          value_from {
+            secret_key_ref {
+              name = google_secret_manager_secret.replicate_key.secret_id
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name  = "VITE_SIGNUP_FUNCTION_URL"
+          value = var.signup_function_url
+        }
+
         ports {
           container_port = 80
         }
@@ -82,6 +97,27 @@ resource "google_secret_manager_secret_version" "supabase_key_version" {
 # Grant Cloud Run access to Secret Manager
 resource "google_secret_manager_secret_iam_member" "secret_access" {
   secret_id = google_secret_manager_secret.supabase_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cloud_run_service_account.email}"
+}
+
+# Create Secret for Replicate API key
+resource "google_secret_manager_secret" "replicate_key" {
+  secret_id = "replicate-api-key"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "replicate_key_version" {
+  secret      = google_secret_manager_secret.replicate_key.id
+  secret_data = var.replicate_api_key
+}
+
+# Grant Cloud Run access to Replicate secret
+resource "google_secret_manager_secret_iam_member" "replicate_secret_access" {
+  secret_id = google_secret_manager_secret.replicate_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.cloud_run_service_account.email}"
 }
