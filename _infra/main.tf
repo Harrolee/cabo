@@ -14,7 +14,7 @@ resource "google_storage_bucket" "function_bucket" {
 # Create a ZIP archive of the function source
 data "archive_file" "function_zip" {
   type        = "zip"
-  source_dir  = "${path.root}/../functions"
+  source_dir  = "${path.root}/functions"
   output_path = "${path.root}/tmp/function.zip"
   excludes    = ["node_modules"]
 }
