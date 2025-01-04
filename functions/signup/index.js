@@ -13,11 +13,29 @@ const getSupabase = () => createClient(
 );
 
 exports.handleSignup = (req, res) => {
+  // Log incoming request details
+  console.log('Incoming request:', {
+    method: req.method,
+    headers: req.headers,
+    origin: req.headers.origin,
+    allowedOrigins: process.env.ALLOWED_ORIGINS.split(',')
+  });
+
   return cors(req, res, async () => {
+    // Log that we passed CORS middleware
+    console.log('Passed CORS middleware');
+
+    if (req.method === 'OPTIONS') {
+      console.log('Handling OPTIONS request');
+      return res.status(204).send();
+    }
+
     try {
       const { phone, name } = req.body;
+      console.log('Processing signup request for:', { name, phone: phone?.slice(-4) }); // Log last 4 digits only for privacy
       
       if (!phone || !name) {
+        console.log('Validation failed: missing phone or name');
         return res.status(400).json({
           success: false,
           message: 'Phone and name are required'
@@ -25,12 +43,18 @@ exports.handleSignup = (req, res) => {
       }
 
       const supabase = getSupabase();
+      console.log('Attempting Supabase insert');
+
       const { error } = await supabase
         .from('user_profiles')
         .insert([{ phone, name }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
+      console.log('Signup successful');
       res.status(200).json({ 
         success: true, 
         message: 'Successfully signed up!' 

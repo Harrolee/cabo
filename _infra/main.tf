@@ -106,7 +106,6 @@ resource "google_cloudfunctions2_function_iam_member" "invoker" {
   member         = "serviceAccount:${google_service_account.function_invoker.email}"
 }
 
-# Create the Signup Cloud Function
 resource "google_cloudfunctions2_function" "signup_function" {
   name        = "handle-user-signup"
   location    = var.region
@@ -142,12 +141,11 @@ resource "google_cloudfunctions2_function" "signup_function" {
   ]
 }
 
-# Create a separate IAM binding for the signup function
+# IAM binding for the signup function
 resource "google_cloudfunctions2_function_iam_member" "signup_invoker" {
   project        = google_cloudfunctions2_function.signup_function.project
   location       = google_cloudfunctions2_function.signup_function.location
   cloud_function = google_cloudfunctions2_function.signup_function.name
   role           = "roles/cloudfunctions.invoker"
-  # Allow unauthenticated access since this is a public signup endpoint
   member         = "allUsers"
 } 
