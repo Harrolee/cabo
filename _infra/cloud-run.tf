@@ -18,11 +18,11 @@ resource "google_cloud_run_service" "webapp" {
 
         # Environment variables if needed
         env {
-          name  = "SUPABASE_URL"
+          name  = "VITE_SUPABASE_URL"
           value = var.supabase_url
         }
         env {
-          name  = "SUPABASE_PUBLIC_KEY"
+          name  = "VITE_SUPABASE_PUBLIC_KEY"
           value_from {
             secret_key_ref {
               name = google_secret_manager_secret.supabase_key.secret_id
