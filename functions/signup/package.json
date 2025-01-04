@@ -1,0 +1,13 @@
+{
+  "name": "workout-motivation-signup",
+  "description": "Cloud Function to allow signups for Workout Motivation app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": "18"
+  }
+} 

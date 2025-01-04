@@ -64,4 +64,20 @@ variable "replicate_api_token" {
   description = "Replicate API Token"
   type        = string
   sensitive   = true
+}
+
+variable "cloud_function_url" {
+  description = "URL of the Cloud Function"
+  type        = string
+}
+
+variable "signup_function_url" {
+  description = "URL of the Signup Cloud Function"
+  type        = string
+}
+
+variable "allowed_origins" {
+  description = "Comma-separated list of allowed origins for CORS"
+  type        = string
+  default     = "http://localhost:5173,https://workout-motivation-webapp-206335683265.us-central1.run.app"
 } 
