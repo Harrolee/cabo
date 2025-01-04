@@ -1,24 +1,10 @@
-const cors = require('cors')();
+const cors = require('cors')({
+  origin: process.env.ALLOWED_ORIGINS.split(','),
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 3600
+});
 const { createClient } = require('@supabase/supabase-js');
-
-// Shared CORS handling
-const handleCors = (req, res) => {
-  const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
-  const origin = req.headers.origin;
-  
-  if (allowedOrigins.includes(origin)) {
-    res.set('Access-Control-Allow-Origin', origin);
-    res.set('Access-Control-Allow-Methods', 'POST');
-    res.set('Access-Control-Allow-Headers', 'Content-Type');
-    res.set('Access-Control-Max-Age', '3600');
-    
-    if (req.method === 'OPTIONS') {
-      res.status(204).send('');
-      return true;
-    }
-  }
-  return false;
-};
 
 // Initialize Supabase client
 const getSupabase = () => createClient(
@@ -27,8 +13,6 @@ const getSupabase = () => createClient(
 );
 
 exports.handleSignup = (req, res) => {
-  if (handleCors(req, res)) return;
-
   return cors(req, res, async () => {
     try {
       const { phone, name } = req.body;
