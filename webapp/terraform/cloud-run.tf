@@ -5,6 +5,7 @@ resource "google_cloud_run_service" "webapp" {
 
   template {
     spec {
+      service_account_name = google_service_account.cloud_run_service_account.email
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.repository_name}/${var.image_name}:latest"
         
@@ -29,6 +30,10 @@ resource "google_cloud_run_service" "webapp" {
             }
           }
         }
+
+        ports {
+          container_port = 80
+        }
       }
     }
 
@@ -46,6 +51,10 @@ resource "google_cloud_run_service" "webapp" {
   }
 
   autogenerate_revision_name = true
+
+  depends_on = [
+    google_project_iam_member.secret_manager_access
+  ]
 }
 
 # Create public access
@@ -82,4 +91,11 @@ resource "google_service_account" "cloud_run_service_account" {
   account_id   = "cloud-run-webapp"
   display_name = "Cloud Run Service Account"
   description  = "Service account for Cloud Run webapp"
+}
+
+# Grant Secret Manager access to the Cloud Run service account
+resource "google_project_iam_member" "secret_manager_access" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.cloud_run_service_account.email}"
 } 
