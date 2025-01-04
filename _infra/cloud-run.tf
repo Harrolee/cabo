@@ -69,8 +69,8 @@ resource "google_cloud_run_service" "webapp" {
 
 # Create public access
 resource "google_cloud_run_service_iam_member" "public_access" {
-  service  = google_cloud_run_service.webapp.name
   location = google_cloud_run_service.webapp.location
+  service  = google_cloud_run_service.webapp.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
@@ -129,4 +129,30 @@ resource "google_project_iam_member" "secret_manager_access" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccessor"
   member  = "serviceAccount:${google_service_account.cloud_run_service_account.email}"
+}
+
+# Add at the top of the file
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
+# Add with other secrets
+resource "google_secret_manager_secret" "supabase_service_key" {
+  secret_id = "supabase-service-key"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "supabase_service_key_version" {
+  secret      = google_secret_manager_secret.supabase_service_key.id
+  secret_data = var.supabase_service_role_key
+}
+
+# Add IAM binding for the service key
+resource "google_secret_manager_secret_iam_member" "supabase_service_key_access" {
+  secret_id = google_secret_manager_secret.supabase_service_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cloud_run_service_account.email}"
 } 

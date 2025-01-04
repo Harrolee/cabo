@@ -32,7 +32,7 @@ variable "supabase_url" {
 }
 
 variable "supabase_service_role_key" {
-  description = "Supabase Service Role Key"
+  description = "Supabase service role key for backend access"
   type        = string
   sensitive   = true
 }
