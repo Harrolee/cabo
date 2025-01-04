@@ -3,15 +3,16 @@ const { createClient } = require('@supabase/supabase-js');
 
 // Shared CORS handling
 const handleCors = (req, res) => {
-  if (req.method === 'OPTIONS') {
-    const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
-    const origin = req.headers.origin;
+  const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
+  const origin = req.headers.origin;
+  
+  if (allowedOrigins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Access-Control-Allow-Methods', 'POST');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Max-Age', '3600');
     
-    if (allowedOrigins.includes(origin)) {
-      res.set('Access-Control-Allow-Origin', origin);
-      res.set('Access-Control-Allow-Methods', 'POST');
-      res.set('Access-Control-Allow-Headers', 'Content-Type');
-      res.set('Access-Control-Max-Age', '3600');
+    if (req.method === 'OPTIONS') {
       res.status(204).send('');
       return true;
     }

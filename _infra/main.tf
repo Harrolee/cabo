@@ -135,6 +135,11 @@ resource "google_cloudfunctions2_function" "signup_function" {
     ingress_settings = "ALLOW_ALL"
     all_traffic_on_latest_revision = true
   }
+
+  # Ensure the bucket object is fully created before creating function
+  depends_on = [
+    google_storage_bucket_object.signup_source
+  ]
 }
 
 # Create a separate IAM binding for the signup function
