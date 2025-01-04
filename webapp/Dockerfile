@@ -10,6 +10,12 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
+# Add build arguments
+ARG VITE_SIGNUP_FUNCTION_URL
+
+# Set environment variables for the build
+ENV VITE_SIGNUP_FUNCTION_URL=$VITE_SIGNUP_FUNCTION_URL
+
 # Copy all source files
 COPY . .
 
