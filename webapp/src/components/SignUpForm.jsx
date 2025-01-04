@@ -22,6 +22,9 @@ export function SignUpForm({ signupUrl }) {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 409) {
+          throw new Error('This phone number has already been registered');
+        }
         throw new Error(data.message || 'Failed to sign up');
       }
 
@@ -30,7 +33,7 @@ export function SignUpForm({ signupUrl }) {
       setPhone('');
     } catch (error) {
       console.error('Signup error:', error);
-      toast.error(error.message || 'Failed to sign up');
+      toast.error(error.message);
     } finally {
       setIsLoading(false);
     }
