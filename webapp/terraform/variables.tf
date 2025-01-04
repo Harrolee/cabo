@@ -58,4 +58,10 @@ variable "supabase_public_key" {
   description = "Supabase Public Key (anon key)"
   type        = string
   sensitive   = true
+}
+
+variable "replicate_api_token" {
+  description = "Replicate API Token"
+  type        = string
+  sensitive   = true
 } 
