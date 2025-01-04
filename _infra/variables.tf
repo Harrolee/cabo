@@ -60,14 +60,14 @@ variable "supabase_public_key" {
   sensitive   = true
 }
 
-variable "replicate_api_token" {
-  description = "Replicate API Token"
+variable "replicate_api_key" {
+  description = "API key for Replicate AI"
   type        = string
   sensitive   = true
 }
 
-variable "cloud_function_url" {
-  description = "URL of the Cloud Function"
+variable "motivation_function_url" {
+  description = "URL of the Motivation Cloud Function"
   type        = string
 }
 

@@ -4,6 +4,7 @@ import { SignUpForm } from './components/SignUpForm';
 
 // Use the signup function URL specifically
 const SIGNUP_FUNCTION_URL = import.meta.env.VITE_SIGNUP_FUNCTION_URL;
+console.log(SIGNUP_FUNCTION_URL);
 
 export function App() {
   return (
