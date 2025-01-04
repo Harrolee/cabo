@@ -4,8 +4,9 @@
   "description": "Cloud Functions for workout motivation app",
   "main": "sendMotivationalImages.js",
   "dependencies": {
-    "twilio": "^4.x.x",
-    "@supabase/supabase-js": "^2.x.x"
+    "twilio": "^4.20.0",
+    "@supabase/supabase-js": "^2.39.1",
+    "replicate": "1.0.1"
   },
   "engines": {
     "node": ">=18"

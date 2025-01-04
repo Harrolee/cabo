@@ -53,6 +53,7 @@ resource "google_cloudfunctions2_function" "motivation_function" {
       TWILIO_PHONE_NUMBER      = var.twilio_phone_number
       SUPABASE_URL             = var.supabase_url
       SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+      REPLICATE_API_TOKEN      = var.replicate_api_token
     }
   }
 }

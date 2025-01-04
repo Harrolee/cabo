@@ -8,9 +8,13 @@ resource "google_artifact_registry_repository" "webapp" {
 
 # Create Workload Identity Pool
 resource "google_iam_workload_identity_pool" "github_pool" {
-  workload_identity_pool_id = "github-actions-pool"
+  workload_identity_pool_id = "github-actions-pool-${random_id.suffix.hex}"
   display_name             = "GitHub Actions Pool"
   description             = "Identity pool for GitHub Actions"
+}
+
+resource "random_id" "suffix" {
+  byte_length = 4
 }
 
 # Create Workload Identity Provider
@@ -54,6 +58,10 @@ resource "google_service_account_iam_binding" "workload_identity_user" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.workloadIdentityUser"
   members = [
-    "principalSet://iam.googleapis.com/projects/${var.project_id}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_pool.workload_identity_pool_id}/attribute.repository/${var.github_repo}"
+    "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}"
   ]
-} 
+
+  depends_on = [
+    google_iam_workload_identity_pool.github_pool
+  ]
+}
