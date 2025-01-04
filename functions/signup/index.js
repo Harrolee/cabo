@@ -47,10 +47,22 @@ exports.handleSignup = (req, res) => {
 
       const { error } = await supabase
         .from('user_profiles')
-        .insert([{ phone, name }]);
+        .insert([{ 
+          phone_number: phone,
+          full_name: name
+        }]);
 
       if (error) {
         console.error('Supabase error:', error);
+        
+        // Check for duplicate phone number error
+        if (error.code === '23505' && error.message.includes('phone_number')) {
+          return res.status(409).json({
+            success: false,
+            message: 'This phone number has already been registered'
+          });
+        }
+        
         throw error;
       }
 
