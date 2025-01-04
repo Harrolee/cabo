@@ -1,0 +1,14 @@
+{
+  "name": "workout-motivation-images",
+  "description": "Cloud Function to send motivational images to users",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "twilio": "^5.4.0",
+    "replicate": "latest"
+  },
+  "engines": {
+    "node": "18"
+  }
+} 

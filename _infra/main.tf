@@ -11,19 +11,32 @@ resource "google_storage_bucket" "function_bucket" {
   uniform_bucket_level_access = true
 }
 
-# Create a ZIP archive of the function source
-data "archive_file" "function_zip" {
+# Create ZIP archives for each function
+data "archive_file" "motivational_images_zip" {
   type        = "zip"
-  source_dir  = "${path.root}/functions"
-  output_path = "${path.root}/tmp/function.zip"
+  source_dir  = "${path.root}/../functions/motivational-images"
+  output_path = "${path.root}/tmp/motivational-images.zip"
   excludes    = ["node_modules"]
 }
 
-# Upload the function source to Cloud Storage
-resource "google_storage_bucket_object" "function_source" {
-  name   = "function-source-${data.archive_file.function_zip.output_md5}.zip"
+data "archive_file" "signup_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/signup"
+  output_path = "${path.root}/tmp/signup.zip"
+  excludes    = ["node_modules"]
+}
+
+# Upload the function sources to Cloud Storage
+resource "google_storage_bucket_object" "motivational_images_source" {
+  name   = "motivational-images-${data.archive_file.motivational_images_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
-  source = data.archive_file.function_zip.output_path
+  source = data.archive_file.motivational_images_zip.output_path
+}
+
+resource "google_storage_bucket_object" "signup_source" {
+  name   = "signup-${data.archive_file.signup_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.signup_zip.output_path
 }
 
 # Create the Cloud Function
@@ -38,7 +51,7 @@ resource "google_cloudfunctions2_function" "motivation_function" {
     source {
       storage_source {
         bucket = google_storage_bucket.function_bucket.name
-        object = google_storage_bucket_object.function_source.name
+        object = google_storage_bucket_object.motivational_images_source.name
       }
     }
   }
@@ -50,11 +63,14 @@ resource "google_cloudfunctions2_function" "motivation_function" {
     environment_variables = {
       TWILIO_ACCOUNT_SID        = var.twilio_account_sid
       TWILIO_AUTH_TOKEN         = var.twilio_auth_token
-      TWILIO_PHONE_NUMBER      = var.twilio_phone_number
+      TWILIO_PHONE_NUMBER       = var.twilio_phone_number
       SUPABASE_URL             = var.supabase_url
       SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
-      REPLICATE_API_TOKEN      = var.replicate_api_token
+      REPLICATE_API_TOKEN       = var.replicate_api_token
+      ALLOWED_ORIGINS          = var.allowed_origins
     }
+    ingress_settings = "ALLOW_ALL"
+    all_traffic_on_latest_revision = true
   }
 }
 
@@ -88,4 +104,45 @@ resource "google_cloudfunctions2_function_iam_member" "invoker" {
   cloud_function = google_cloudfunctions2_function.motivation_function.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.function_invoker.email}"
+}
+
+# Create the Signup Cloud Function
+resource "google_cloudfunctions2_function" "signup_function" {
+  name        = "handle-user-signup"
+  location    = var.region
+  description = "Function to handle new user signups"
+
+  build_config {
+    runtime     = "nodejs18"
+    entry_point = "handleSignup"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.function_bucket.name
+        object = google_storage_bucket_object.signup_source.name
+      }
+    }
+  }
+
+  service_config {
+    max_instance_count = 1
+    available_memory   = "256M"
+    timeout_seconds    = 60
+    environment_variables = {
+      SUPABASE_URL             = var.supabase_url
+      SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+      ALLOWED_ORIGINS          = var.allowed_origins
+    }
+    ingress_settings = "ALLOW_ALL"
+    all_traffic_on_latest_revision = true
+  }
+}
+
+# Create a separate IAM binding for the signup function
+resource "google_cloudfunctions2_function_iam_member" "signup_invoker" {
+  project        = google_cloudfunctions2_function.signup_function.project
+  location       = google_cloudfunctions2_function.signup_function.location
+  cloud_function = google_cloudfunctions2_function.signup_function.name
+  role           = "roles/cloudfunctions.invoker"
+  # Allow unauthenticated access since this is a public signup endpoint
+  member         = "allUsers"
 } 
