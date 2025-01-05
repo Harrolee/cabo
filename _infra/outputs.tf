@@ -36,4 +36,17 @@ output "cloud_run_url" {
 output "cloud_run_service_account" {
   description = "Service account used by Cloud Run"
   value       = google_service_account.cloud_run_service_account.email
+}
+
+output "video_bucket_url" {
+  description = "Base URL for the video bucket"
+  value       = "https://storage.googleapis.com/${google_storage_bucket.workout_videos.name}"
+}
+
+output "video_urls" {
+  description = "URLs for the workout videos"
+  value = [
+    for video in local.video_files :
+    "https://storage.googleapis.com/${google_storage_bucket.workout_videos.name}/videos/${video}"
+  ]
 } 

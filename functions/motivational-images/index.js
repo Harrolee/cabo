@@ -62,19 +62,12 @@ async function sendImagesToUser(phoneNumber, images) {
 
 exports.sendMotivationalImages = async (event, context) => {
   try {
-    // 1. Generate motivational images
-    const images = await generateMotivationalImages();
-    
-    if (!images || images.length === 0) {
-      throw new Error("No images were generated");
-    }
-
-    // 2. Get all users from the database
+    // 1. Get all users from the database
     const { data: users, error } = await supabaseClient
-      .from("user_profile")
-      .select("phone_number, name")
+      .from("user_profiles")
+      .select("phone_number, full_name")
       .eq("active", true);  // Only select active users
-
+      console.log(`Got users`);
     if (error) {
       throw new Error(`Error fetching users: ${error.message}`);
     }
@@ -86,11 +79,20 @@ exports.sendMotivationalImages = async (event, context) => {
       };
     }
 
+    // 2. Generate motivational images
+    const images = await generateMotivationalImages();
+    
+    if (!images || images.length === 0) {
+      throw new Error("No images were generated");
+    }
+
+    console.log(`constructing promises`);
     // 3. Send images to each user
     const sendPromises = users.map((user) =>
       sendImagesToUser(user.phone_number, images)
-    );
-
+  );
+  
+    console.log(`sending images`);
     await Promise.all(sendPromises);
 
     return {
