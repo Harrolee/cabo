@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { SignUpForm } from './components/SignUpForm';
+import { MoreInfoSection } from './components/MoreInfoSection';
+import { TermsOfService } from './components/TermsOfService';
+import { DataHandling } from './components/DataHandling';
+import { Modal } from './components/Modal';
 
 const SIGNUP_FUNCTION_URL = import.meta.env.VITE_SIGNUP_FUNCTION_URL;
 
@@ -38,6 +42,9 @@ const WORKOUT_VIDEOS = [
 export function App() {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [nextVideoIndex, setNextVideoIndex] = useState(1);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const currentVideoRef = useRef(null);
   const nextVideoRef = useRef(null);
 
@@ -63,6 +70,17 @@ export function App() {
       nextVideoRef.current.load();
     }
   }, [nextVideoIndex]);
+
+  const toggleInfoVisibility = () => {
+    setShowInfo(!showInfo);
+  };
+
+  // Close modals when clicking outside
+  const handleModalClose = () => {
+    setShowInfo(false);
+    setShowTerms(false);
+    setShowPrivacy(false);
+  };
 
   return (
     <div className="relative min-h-screen">
@@ -112,8 +130,59 @@ export function App() {
             <SignUpForm signupUrl={SIGNUP_FUNCTION_URL} />
           </div>
         </div>
+
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setShowInfo(true)}
+            className="text-sm text-blue-500 hover:underline"
+          >
+            More Information
+          </button>
+        </div>
+
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setShowTerms(true)}
+            className="text-sm text-blue-500 hover:underline"
+          >
+            Terms of Service
+          </button>
+          {' | '}
+          <button
+            onClick={() => setShowPrivacy(true)}
+            className="text-sm text-blue-500 hover:underline"
+          >
+            Privacy Policy
+          </button>
+        </div>
+
         <Toaster position="top-center" />
       </div>
+
+      {/* Modals */}
+      <Modal
+        isOpen={showInfo}
+        onClose={handleModalClose}
+        title="More Information"
+      >
+        <MoreInfoSection />
+      </Modal>
+
+      <Modal
+        isOpen={showTerms}
+        onClose={handleModalClose}
+        title="Terms of Service"
+      >
+        <TermsOfService />
+      </Modal>
+
+      <Modal
+        isOpen={showPrivacy}
+        onClose={handleModalClose}
+        title="Privacy Policy"
+      >
+        <DataHandling />
+      </Modal>
     </div>
   );
 }
