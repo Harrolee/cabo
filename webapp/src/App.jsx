@@ -5,6 +5,7 @@ import { MoreInfoSection } from './components/MoreInfoSection';
 import { TermsOfService } from './components/TermsOfService';
 import { DataHandling } from './components/DataHandling';
 import { Modal } from './components/Modal';
+import { MessageFlowInfo } from './components/MessageFlowInfo';
 
 const SIGNUP_FUNCTION_URL = import.meta.env.VITE_SIGNUP_FUNCTION_URL;
 
@@ -136,7 +137,7 @@ export function App() {
             onClick={() => setShowInfo(true)}
             className="text-sm text-blue-500 hover:underline"
           >
-            More Information
+            Message Flow Information
           </button>
         </div>
 
@@ -163,9 +164,9 @@ export function App() {
       <Modal
         isOpen={showInfo}
         onClose={handleModalClose}
-        title="More Information"
+        title="Message Flow Information"
       >
-        <MoreInfoSection />
+        <MessageFlowInfo />
       </Modal>
 
       <Modal

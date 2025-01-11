@@ -5,9 +5,14 @@ export function SignUpForm({ signupUrl }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isAgreed, setIsAgreed] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isAgreed) {
+      alert('You must agree to receive motivational messages.');
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -76,12 +81,26 @@ export function SignUpForm({ signupUrl }) {
         </div>
       </div>
 
+      <div className="mt-4 flex items-center">
+        <input
+          id="marketing-consent"
+          name="marketing-consent"
+          type="checkbox"
+          checked={isAgreed}
+          onChange={() => setIsAgreed(!isAgreed)}
+          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+        />
+        <label htmlFor="marketing-consent" className="ml-2 block text-sm text-gray-900">
+          I agree to receive daily workout motivation texts from Daily Workout Motivation at the phone number provided. I have read and agree to the Terms of Service, Privacy Policy, and Message Flow Information. I understand I will receive one message and two motivational images per day. Reply STOP to opt-out, HELP for help. Standard messaging rates may apply.
+        </label>
+      </div>
+
       <div>
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || !isAgreed}
           className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+            isLoading || !isAgreed ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >
           {isLoading ? 'Signing up...' : 'Sign up'}
