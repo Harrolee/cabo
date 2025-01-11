@@ -49,4 +49,9 @@ output "video_urls" {
     for video in local.video_files :
     "https://storage.googleapis.com/${google_storage_bucket.workout_videos.name}/videos/${video}"
   ]
+}
+
+output "call_to_action_image_url" {
+  description = "Public URL of the call-to-action image"
+  value       = "https://storage.googleapis.com/${google_storage_bucket.image_bucket.name}/${google_storage_bucket_object.call_to_action_image.name}"
 } 
