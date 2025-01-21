@@ -29,7 +29,14 @@ async function generateMotivationalImages(prompt = "A motivational fitness scene
           num_outputs: 2,
           guidance_scale: 7.5,
           num_inference_steps: 50
+        },
+        wait: {
+          type: "block",  // Hold connection opens until complete
+          timeout: 300    // Wait up to 5 minutes
         }
+      },
+      (prediction) => {
+        console.log(`Generation status: ${prediction.status}, logs: ${prediction.logs}`);
       }
     );
 

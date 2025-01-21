@@ -59,7 +59,7 @@ resource "google_cloudfunctions2_function" "motivation_function" {
   service_config {
     max_instance_count = 1
     available_memory   = "256M"
-    timeout_seconds    = 60
+    timeout_seconds    = 300
     environment_variables = {
       TWILIO_ACCOUNT_SID        = var.twilio_account_sid
       TWILIO_AUTH_TOKEN         = var.twilio_auth_token
