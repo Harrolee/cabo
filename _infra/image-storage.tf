@@ -10,6 +10,17 @@ resource "google_storage_bucket" "image_bucket" {
     response_header = ["Content-Type"]
     max_age_seconds = 3600
   }
+
+  # Add lifecycle rule to clean up old generated images
+  lifecycle_rule {
+    condition {
+      age = 7  # Delete generated images after 7 days
+      matches_prefix = ["generated-images/"]
+    }
+    action {
+      type = "Delete"
+    }
+  }
 }
 
 resource "google_storage_bucket_object" "call_to_action_image" {
@@ -34,4 +45,11 @@ resource "google_storage_bucket_iam_member" "public_read_expanded_image" {
   bucket = google_storage_bucket.image_bucket.name
   role   = "roles/storage.objectViewer"
   member = "allUsers"
+}
+
+# Create empty folder for generated images
+resource "google_storage_bucket_object" "generated_images_folder" {
+  name    = "generated-images/"  # Trailing slash is important
+  content = " "                  # Single space as content
+  bucket  = google_storage_bucket.image_bucket.name
 } 

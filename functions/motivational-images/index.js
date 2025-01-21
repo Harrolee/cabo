@@ -1,66 +1,110 @@
 const { Twilio } = require("twilio");
 const { createClient } = require("@supabase/supabase-js");
 const Replicate = require("replicate");
+const { Storage } = require('@google-cloud/storage');
 
-// Initialize Twilio client
 const twilioClient = new Twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
-// Initialize Supabase client
 const supabaseClient = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Generate images using Replicate API
-async function generateMotivationalImages(prompt = "A motivational fitness scene with dynamic lighting and inspiring atmosphere, photorealistic") {
+const storage = new Storage();
+const projectId = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
+const bucketName = `${projectId}-image-bucket`;
+
+async function saveImageToBucket(imageUrl, filename) {
+  try {
+    const bucket = storage.bucket(bucketName);
+    const response = await fetch(imageUrl);
+    const buffer = await response.blob();
+    
+    const file = bucket.file(`generated-images/${filename}`);
+    const writeStream = file.createWriteStream({
+      metadata: {
+        contentType: 'image/png',
+        cacheControl: 'public, max-age=3600',
+      },
+    });
+
+    const reader = buffer.stream().getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      writeStream.write(value);
+    }
+    writeStream.end();
+
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+    });
+
+    return `https://storage.googleapis.com/${bucketName}/generated-images/${filename}`;
+  } catch (error) {
+    console.error('Error saving image to bucket:', error);
+    throw error;
+  }
+}
+
+async function generateMotivationalImages() {
   const replicate = new Replicate({
     auth: process.env.REPLICATE_API_TOKEN,
   });
 
   try {
-    const output = await replicate.run(
+    const unfitOutput = await replicate.run(
       "stability-ai/stable-diffusion:db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf",
       {
         input: {
-          prompt: prompt,
-          num_outputs: 2,
+          prompt: "A realistic photo of an overweight man relaxing on a beach chair, wearing swim trunks, photorealistic style",
+          num_outputs: 1,
           guidance_scale: 7.5,
-          num_inference_steps: 50
-        },
-        wait: {
-          type: "block",  // Hold connection opens until complete
-          timeout: 300    // Wait up to 5 minutes
+          num_inference_steps: 50,
+          negative_prompt: "muscular, fit, athletic, ripped"
         }
-      },
-      (prediction) => {
-        console.log(`Generation status: ${prediction.status}, logs: ${prediction.logs}`);
       }
     );
 
-    // Replicate returns an array of image URLs directly
-    return output;
+    const fitOutput = await replicate.run(
+      "stability-ai/stable-diffusion:db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf",
+      {
+        input: {
+          prompt: "A realistic photo of a muscular athletic man with six-pack abs standing confidently on a beach, wearing swim trunks, photorealistic style",
+          num_outputs: 1,
+          guidance_scale: 7.5,
+          num_inference_steps: 50,
+          negative_prompt: "overweight, fat, unfit"
+        }
+      }
+    );
+
+    const outputs = [...unfitOutput, ...fitOutput];
+    const publicUrls = await Promise.all(
+      outputs.map((output, index) => 
+        saveImageToBucket(output, `motivation-${Date.now()}-${index}.png`)
+      )
+    );
+
+    return publicUrls;
   } catch (error) {
     console.error("Error generating images:", error);
     throw error;
   }
 }
 
-// Function to send images via SMS
 async function sendImagesToUser(phoneNumber, images) {
   try {
-    for (const imageUrl of images) {
-      await twilioClient.messages.create({
-        body: "Here's your daily motivation! 💪",
-        mediaUrl: [imageUrl],
-        to: phoneNumber,
-        from: process.env.TWILIO_PHONE_NUMBER,
-      });
-      // Add a small delay between messages to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+    await twilioClient.messages.create({
+      body: "You can be the wolf or you can wolf down nachos! Whichever wolf you feed wins! 💪",
+      mediaUrl: images,
+      to: phoneNumber,
+      from: process.env.TWILIO_PHONE_NUMBER,
+    });
   } catch (error) {
     console.error(`Error sending SMS to ${phoneNumber}:`, error);
     throw error;
@@ -69,11 +113,10 @@ async function sendImagesToUser(phoneNumber, images) {
 
 exports.sendMotivationalImages = async (event, context) => {
   try {
-    // 1. Get all users from the database
     const { data: users, error } = await supabaseClient
       .from("user_profiles")
       .select("phone_number, full_name")
-      .eq("active", true);  // Only select active users
+      .eq("active", true);
       console.log(`Got users`);
     if (error) {
       throw new Error(`Error fetching users: ${error.message}`);
@@ -86,7 +129,6 @@ exports.sendMotivationalImages = async (event, context) => {
       };
     }
 
-    // 2. Generate motivational images
     const images = await generateMotivationalImages();
     
     if (!images || images.length === 0) {
@@ -94,7 +136,7 @@ exports.sendMotivationalImages = async (event, context) => {
     }
 
     console.log(`constructing promises`);
-    // 3. Send images to each user
+    
     const sendPromises = users.map((user) =>
       sendImagesToUser(user.phone_number, images)
   );
