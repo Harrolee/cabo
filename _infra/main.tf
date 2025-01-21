@@ -61,13 +61,14 @@ resource "google_cloudfunctions2_function" "motivation_function" {
     available_memory   = "256M"
     timeout_seconds    = 300
     environment_variables = {
-      TWILIO_ACCOUNT_SID        = var.twilio_account_sid
-      TWILIO_AUTH_TOKEN         = var.twilio_auth_token
-      TWILIO_PHONE_NUMBER       = var.twilio_phone_number
-      SUPABASE_URL             = var.supabase_url
+      PROJECT_ID              = var.project_id
+      TWILIO_ACCOUNT_SID     = var.twilio_account_sid
+      TWILIO_AUTH_TOKEN      = var.twilio_auth_token
+      TWILIO_PHONE_NUMBER    = var.twilio_phone_number
+      SUPABASE_URL           = var.supabase_url
       SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
-      REPLICATE_API_TOKEN       = var.replicate_api_key
-      ALLOWED_ORIGINS          = var.allowed_origins
+      REPLICATE_API_TOKEN    = var.replicate_api_key
+      ALLOWED_ORIGINS        = var.allowed_origins
     }
     ingress_settings = "ALLOW_ALL"
     all_traffic_on_latest_revision = true

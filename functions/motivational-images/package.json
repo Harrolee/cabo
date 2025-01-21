@@ -6,7 +6,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.47.0",
     "twilio": "^5.4.0",
-    "replicate": "latest"
+    "replicate": "latest",
+    "@google-cloud/storage": "^7.0.0"
   },
   "engines": {
     "node": "18"
