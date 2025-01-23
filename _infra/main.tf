@@ -80,7 +80,7 @@ resource "google_cloud_scheduler_job" "daily_motivation" {
   name        = "trigger-daily-motivation"
   description = "Triggers the motivation function daily"
   schedule    = "0 9 * * *"  # Runs at 9 AM every day
-  time_zone   = "UTC"
+  time_zone   = "America/New_York"
 
   http_target {
     http_method = "POST"
