@@ -81,4 +81,19 @@ variable "openai_api_key" {
   description = "API key for OpenAI"
   type        = string
   sensitive   = true
+}
+
+variable "stripe_secret_key" {
+  description = "Stripe Secret Key"
+  type        = string
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe Webhook Secret"
+  type        = string
+}
+
+variable "stripe_price_id" {
+  description = "Stripe Price ID for the monthly subscription"
+  type        = string
 } 
