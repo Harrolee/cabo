@@ -75,4 +75,10 @@ variable "allowed_origins" {
   description = "Comma-separated list of allowed origins for CORS"
   type        = string
   default     = "http://localhost:5173,https://workout-motivation-webapp-206335683265.us-central1.run.app"
+}
+
+variable "openai_api_key" {
+  description = "API key for OpenAI"
+  type        = string
+  sensitive   = true
 } 

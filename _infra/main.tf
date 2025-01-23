@@ -69,6 +69,7 @@ resource "google_cloudfunctions2_function" "motivation_function" {
       SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
       REPLICATE_API_TOKEN    = var.replicate_api_key
       ALLOWED_ORIGINS        = var.allowed_origins
+      OPENAI_API_KEY         = var.openai_api_key
     }
     ingress_settings = "ALLOW_ALL"
     all_traffic_on_latest_revision = true
