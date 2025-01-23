@@ -1,13 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
 import { SignUpForm } from './components/SignUpForm';
 import { MoreInfoSection } from './components/MoreInfoSection';
 import { TermsOfService } from './components/TermsOfService';
 import { DataHandling } from './components/DataHandling';
 import { Modal } from './components/Modal';
 import { MessageFlowInfo } from './components/MessageFlowInfo';
+import { PaymentForm } from './components/PaymentForm';
 
 const SIGNUP_FUNCTION_URL = import.meta.env.VITE_SIGNUP_FUNCTION_URL;
+const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+
+const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
 
 const WORKOUT_VIDEOS = [
   {
@@ -46,6 +52,8 @@ export function App() {
   const [showInfo, setShowInfo] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [clientSecret, setClientSecret] = useState('');
   const currentVideoRef = useRef(null);
   const nextVideoRef = useRef(null);
 
@@ -81,6 +89,24 @@ export function App() {
     setShowInfo(false);
     setShowTerms(false);
     setShowPrivacy(false);
+  };
+
+  const handleSubscribe = async (email) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+      
+      const data = await response.json();
+      setClientSecret(data.clientSecret);
+      setShowPayment(true);
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+    }
   };
 
   return (
@@ -122,13 +148,19 @@ export function App() {
             Daily Workout Motivation
           </h2>
           <p className="mt-2 text-center text-sm text-gray-200">
-            Sign up to receive daily motivation texts and progress pics
+            Get daily motivation texts and progress pics for just $2/month
           </p>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white bg-opacity-90 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <SignUpForm signupUrl={SIGNUP_FUNCTION_URL} />
+            {!showPayment ? (
+              <SignUpForm onSubscribe={handleSubscribe} />
+            ) : (
+              <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <PaymentForm />
+              </Elements>
+            )}
           </div>
         </div>
 

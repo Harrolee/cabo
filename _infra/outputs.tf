@@ -54,4 +54,14 @@ output "video_urls" {
 output "call_to_action_image_url" {
   description = "Public URL of the call-to-action image"
   value       = "https://storage.googleapis.com/${google_storage_bucket.image_bucket.name}/${google_storage_bucket_object.call_to_action_image.name}"
+}
+
+output "create_subscription_url" {
+  description = "URL of the create-subscription function"
+  value       = google_cloudfunctions2_function.create_subscription.url
+}
+
+output "stripe_webhook_url" {
+  description = "URL of the stripe-webhook function"
+  value       = google_cloudfunctions2_function.stripe_webhook.url
 } 
