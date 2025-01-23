@@ -2,6 +2,7 @@ const { Twilio } = require("twilio");
 const { createClient } = require("@supabase/supabase-js");
 const Replicate = require("replicate");
 const { Storage } = require('@google-cloud/storage');
+const OpenAI = require('openai');
 
 const twilioClient = new Twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -16,6 +17,10 @@ const supabaseClient = createClient(
 const storage = new Storage();
 const projectId = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 const bucketName = `${projectId}-image-bucket`;
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 async function saveImageToBucket(imageUrl, filename) {
   try {
@@ -106,10 +111,41 @@ async function generateMotivationalImages() {
   }
 }
 
+async function generateMotivationalMessage() {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: "You are a motivational fitness coach. Generate a short, engaging message (max 160 characters) to accompany before/after fitness transformation images. The message should be encouraging, slightly humorous, and mention both the 'before' and 'after' states. Don't use offensive language or body-shaming. Use emojis."
+        },
+        {
+          role: "user",
+          content: "Generate a motivational message for fitness transformation images."
+        },
+        {
+          role: "assistant",
+          content: "Examples of good messages:\n- You can be the wolf or you can wolf down nachos! Whichever wolf you feed wins! 💪\n- Left guy's ready for a nap. Right guy? Ready to crush it. You're somewhere in between — but guess what? You're moving in the right direction. Let's go!\n- The guy on the left started just like you. The guy on the right? Same path, same dedication — but the journey isn't a race, it's about YOU getting stronger, every day."
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 100,
+    });
+
+    return completion.choices[0].message.content;
+  } catch (error) {
+    console.error("Error generating message:", error);
+    // Fallback message in case of API error
+    return "Every step forward is progress. Keep pushing! 💪";
+  }
+}
+
 async function sendImagesToUser(phoneNumber, images) {
   try {
+    const message = await generateMotivationalMessage();
     await twilioClient.messages.create({
-      body: "You can be the wolf or you can wolf down nachos! Whichever wolf you feed wins! 💪",
+      body: message,
       mediaUrl: images,
       to: phoneNumber,
       from: process.env.TWILIO_PHONE_NUMBER,
