@@ -10,7 +10,6 @@ import { Modal } from './components/Modal';
 import { MessageFlowInfo } from './components/MessageFlowInfo';
 import { PaymentForm } from './components/PaymentForm';
 
-const SIGNUP_FUNCTION_URL = import.meta.env.VITE_SIGNUP_FUNCTION_URL;
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 
 const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
@@ -91,21 +90,27 @@ export function App() {
     setShowPrivacy(false);
   };
 
-  const handleSubscribe = async (email) => {
+  const handleSubscribe = async (userData) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
+      // First create the subscription with Stripe
+      const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(userData),
       });
       
-      const data = await response.json();
+      const data = await subscriptionResponse.json();
       setClientSecret(data.clientSecret);
       setShowPayment(true);
+
+      // Note: The handle-user-signup will be called after successful payment
+      // in the PaymentForm component
     } catch (error) {
-      console.error('Error creating subscription:', error);
+      console.error('Error in subscription process:', error);
+      throw error;
     }
   };
 
@@ -148,7 +153,10 @@ export function App() {
             Daily Workout Motivation
           </h2>
           <p className="mt-2 text-center text-sm text-gray-200">
-            Get daily motivation texts and progress pics for just $2/month
+            Get daily motivation texts and progress pics
+          </p>
+          <p className="mt-1 text-center text-lg font-semibold text-white">
+            Just $2/month
           </p>
         </div>
 

@@ -31,14 +31,14 @@ exports.handleSignup = (req, res) => {
     }
 
     try {
-      const { phone, name } = req.body;
-      console.log('Processing signup request for:', { name, phone: phone?.slice(-4) }); // Log last 4 digits only for privacy
+      const { phone, name, email } = req.body;
+      console.log('Processing signup request for:', { name, phone: phone?.slice(-4), email }); 
       
-      if (!phone || !name) {
-        console.log('Validation failed: missing phone or name');
+      if (!phone || !name || !email) {
+        console.log('Validation failed: missing required fields');
         return res.status(400).json({
           success: false,
-          message: 'Phone and name are required'
+          message: 'Phone, name, and email are required'
         });
       }
 
@@ -49,7 +49,8 @@ exports.handleSignup = (req, res) => {
         .from('user_profiles')
         .insert([{ 
           phone_number: phone,
-          full_name: name
+          full_name: name,
+          email: email
         }]);
 
       if (error) {
@@ -80,34 +81,3 @@ exports.handleSignup = (req, res) => {
     }
   });
 };
-
-// exports.sendMotivationalImages = async (req, res) => {
-//   if (handleCors(req, res)) return;
-
-//   return cors(req, res, async () => {
-//     try {
-//       const supabase = getSupabase();
-      
-//       // Get all users
-//       const { data: users, error: usersError } = await supabase
-//         .from('user_profiles')
-//         .select('*');
-
-//       if (usersError) throw usersError;
-
-//       // Process each user (existing motivation logic)
-//       // ...
-
-//       res.status(200).json({ 
-//         success: true, 
-//         message: 'Motivational messages sent successfully' 
-//       });
-//     } catch (error) {
-//       console.error('Motivation sending error:', error);
-//       res.status(500).json({ 
-//         success: false, 
-//         message: 'Failed to send motivational messages' 
-//       });
-//     }
-//   });
-// }; 

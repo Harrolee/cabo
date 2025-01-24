@@ -205,7 +205,16 @@ resource "google_cloudfunctions2_function" "create_subscription" {
     }
     ingress_settings = "ALLOW_ALL"
     all_traffic_on_latest_revision = true
+    service_account_email = google_service_account.function_invoker.email
   }
+}
+
+# Make sure we have IAM policy to allow unauthenticated invocations
+resource "google_cloud_run_service_iam_member" "create_subscription_invoker" {
+  location = google_cloudfunctions2_function.create_subscription.location
+  service  = google_cloudfunctions2_function.create_subscription.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 resource "google_cloudfunctions2_function" "stripe_webhook" {
