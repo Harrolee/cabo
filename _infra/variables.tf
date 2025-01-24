@@ -74,7 +74,7 @@ variable "motivation_function_url" {
 variable "allowed_origins" {
   description = "Comma-separated list of allowed origins for CORS"
   type        = string
-  default     = "http://localhost:5173,https://workout-motivation-webapp-206335683265.us-central1.run.app"
+  default     = "http://localhost:5173"
 }
 
 variable "openai_api_key" {
@@ -86,6 +86,7 @@ variable "openai_api_key" {
 variable "stripe_secret_key" {
   description = "Stripe Secret Key"
   type        = string
+  sensitive   = true
 }
 
 variable "stripe_webhook_secret" {
@@ -94,6 +95,6 @@ variable "stripe_webhook_secret" {
 }
 
 variable "stripe_price_id" {
-  description = "Stripe Price ID for the monthly subscription"
+  description = "Stripe Price ID for the subscription"
   type        = string
 } 

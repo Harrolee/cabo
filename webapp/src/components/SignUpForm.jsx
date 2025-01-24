@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 
 export function SignUpForm({ onSubscribe }) {
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
 
@@ -16,25 +17,18 @@ export function SignUpForm({ onSubscribe }) {
     setIsLoading(true);
 
     try {
-      // First create the subscription
-      await onSubscribe(email);
-      
-      // Then proceed with the signup
-      const response = await fetch(signupUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, phone }),
+      await onSubscribe({
+        name,
+        email,
+        phone
       });
-
-      if (!response.ok) {
-        throw new Error('Signup failed');
-      }
-
-      toast.success('Successfully signed up!');
+      toast.success('Successfully signed up for daily motivation!');
+      setName('');
+      setPhone('');
+      setEmail('');
     } catch (error) {
-      toast.error('Failed to sign up. Please try again.');
+      console.error('Signup error:', error);
+      toast.error(error.message || 'Failed to sign up. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -42,6 +36,23 @@ export function SignUpForm({ onSubscribe }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+          Name
+        </label>
+        <div className="mt-1">
+          <input
+            id="name"
+            name="name"
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+        </div>
+      </div>
+
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700">
           Email
@@ -55,6 +66,7 @@ export function SignUpForm({ onSubscribe }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            placeholder="you@example.com"
           />
         </div>
       </div>
