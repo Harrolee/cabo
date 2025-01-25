@@ -3,12 +3,11 @@ import { Toaster } from 'react-hot-toast';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { SignUpForm } from './components/SignUpForm';
-import { MoreInfoSection } from './components/MoreInfoSection';
 import { TermsOfService } from './components/TermsOfService';
-import { DataHandling } from './components/DataHandling';
 import { Modal } from './components/Modal';
 import { MessageFlowInfo } from './components/MessageFlowInfo';
 import { PaymentForm } from './components/PaymentForm';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 
@@ -150,10 +149,10 @@ export function App() {
       <div className="relative z-10 min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-black bg-opacity-50">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            CaboFit
+            Daily Workout Motivation
           </h2>
           <p className="mt-2 text-center text-sm text-gray-200">
-            Get beach-ready with daily motivation texts and progress pics
+            Get fit for Cabo with daily motivation texts and progress pics
           </p>
           <p className="mt-1 text-center text-lg font-semibold text-white">
             Just $2/month
@@ -222,7 +221,7 @@ export function App() {
         onClose={handleModalClose}
         title="Privacy Policy"
       >
-        <DataHandling />
+        <PrivacyPolicy />
       </Modal>
     </div>
   );
