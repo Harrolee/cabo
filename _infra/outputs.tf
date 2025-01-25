@@ -1,11 +1,26 @@
-output "function_url" {
-  description = "The URL of the deployed Cloud Function"
-  value       = google_cloudfunctions2_function.motivation_function.url
+output "motivation_function_url" {
+  description = "The URL of the motivation Cloud Function"
+  value       = module.motivation_function.url
 }
 
-output "function_status" {
-  description = "The deployment status of the Cloud Function"
-  value       = google_cloudfunctions2_function.motivation_function.state
+output "motivation_function_status" {
+  description = "The deployment status of the motivation Cloud Function"
+  value       = module.motivation_function.function.state
+}
+
+output "signup_function_url" {
+  description = "The URL of the signup Cloud Function"
+  value       = module.signup_function.url
+}
+
+output "create_subscription_url" {
+  description = "URL of the create-subscription function"
+  value       = module.create_subscription_function.url
+}
+
+output "stripe_webhook_url" {
+  description = "URL of the stripe-webhook function"
+  value       = module.stripe_webhook_function.url
 }
 
 output "scheduler_job_name" {
@@ -54,14 +69,4 @@ output "video_urls" {
 output "call_to_action_image_url" {
   description = "Public URL of the call-to-action image"
   value       = "https://storage.googleapis.com/${google_storage_bucket.image_bucket.name}/${google_storage_bucket_object.call_to_action_image.name}"
-}
-
-output "create_subscription_url" {
-  description = "URL of the create-subscription function"
-  value       = google_cloudfunctions2_function.create_subscription.url
-}
-
-output "stripe_webhook_url" {
-  description = "URL of the stripe-webhook function"
-  value       = google_cloudfunctions2_function.stripe_webhook.url
 } 

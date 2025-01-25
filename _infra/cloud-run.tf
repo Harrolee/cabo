@@ -16,36 +16,6 @@ resource "google_cloud_run_service" "webapp" {
           }
         }
 
-        # Environment variables if needed
-        env {
-          name  = "VITE_SUPABASE_URL"
-          value = var.supabase_url
-        }
-        env {
-          name  = "VITE_SUPABASE_PUBLIC_KEY"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.supabase_key.secret_id
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name  = "REPLICATE_API_TOKEN"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.replicate_key.secret_id
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name  = "VITE_STRIPE_PUBLIC_KEY"
-          value = var.stripe_public_key
-        }
-
         ports {
           container_port = 80
         }

@@ -61,15 +61,12 @@ variable "supabase_public_key" {
 }
 
 variable "replicate_api_key" {
-  description = "API key for Replicate AI"
+  description = "API key for Replicate AI service"
   type        = string
   sensitive   = true
 }
 
-variable "motivation_function_url" {
-  description = "URL of the Motivation Cloud Function"
-  type        = string
-}
+
 
 variable "allowed_origins" {
   description = "Comma-separated list of allowed origins for CORS"
@@ -92,10 +89,11 @@ variable "stripe_secret_key" {
 variable "stripe_webhook_secret" {
   description = "Stripe Webhook Secret"
   type        = string
+  sensitive   = true
 }
 
 variable "stripe_price_id" {
-  description = "Stripe Price ID for the subscription"
+  description = "Stripe Price ID for subscription"
   type        = string
 }
 

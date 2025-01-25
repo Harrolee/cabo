@@ -4,17 +4,19 @@ FROM node:18-alpine as build
 # Set working directory
 WORKDIR /app
 
+# Define build arguments
+ARG VITE_STRIPE_PUBLIC_KEY
+ARG VITE_API_URL
+
+# Set environment variables
+ENV VITE_STRIPE_PUBLIC_KEY=$VITE_STRIPE_PUBLIC_KEY
+ENV VITE_API_URL=$VITE_API_URL
+
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
-
-# Add build arguments
-ARG VITE_SIGNUP_FUNCTION_URL
-
-# Set environment variables for the build
-ENV VITE_SIGNUP_FUNCTION_URL=$VITE_SIGNUP_FUNCTION_URL
 
 # Copy all source files
 COPY . .

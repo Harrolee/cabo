@@ -41,7 +41,8 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg VITE_SIGNUP_FUNCTION_URL=${{ secrets.SIGNUP_FUNCTION_URL }} \
+            --build-arg VITE_STRIPE_PUBLIC_KEY=${{ secrets.VITE_STRIPE_PUBLIC_KEY }} \
+            --build-arg VITE_API_URL=${{ secrets.VITE_API_URL }} \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }} webapp/
           docker tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }} \
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest
