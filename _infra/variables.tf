@@ -97,4 +97,10 @@ variable "stripe_webhook_secret" {
 variable "stripe_price_id" {
   description = "Stripe Price ID for the subscription"
   type        = string
+}
+
+variable "stripe_public_key" {
+  description = "Stripe Public Key"
+  type        = string
+  sensitive   = true
 } 

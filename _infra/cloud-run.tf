@@ -41,6 +41,11 @@ resource "google_cloud_run_service" "webapp" {
           }
         }
 
+        env {
+          name  = "VITE_STRIPE_PUBLIC_KEY"
+          value = var.stripe_public_key
+        }
+
         ports {
           container_port = 80
         }
