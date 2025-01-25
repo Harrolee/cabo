@@ -150,10 +150,10 @@ export function App() {
       <div className="relative z-10 min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-black bg-opacity-50">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            Daily Workout Motivation
+            CaboFit
           </h2>
           <p className="mt-2 text-center text-sm text-gray-200">
-            Get daily motivation texts and progress pics
+            Get beach-ready with daily motivation texts and progress pics
           </p>
           <p className="mt-1 text-center text-lg font-semibold text-white">
             Just $2/month

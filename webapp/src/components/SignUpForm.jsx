@@ -99,7 +99,7 @@ export function SignUpForm({ onSubscribe }) {
           className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
         />
         <label htmlFor="marketing-consent" className="ml-2 block text-sm text-gray-900">
-          I agree to receive daily workout motivation texts from Daily Workout Motivation at the phone number provided. I have read and agree to the Terms of Service, Privacy Policy, and Message Flow Information. I understand I will receive one message and two motivational images per day. Reply STOP to opt-out, HELP for help. Standard messaging rates may apply.
+          I agree to receive daily beach fitness motivation texts from CaboFit at the phone number provided. I have read and agree to the Terms of Service, Privacy Policy, and Message Flow Information. I understand I will receive one message and two motivational images per day. Reply STOP to opt-out, HELP for help. Standard messaging rates may apply.
         </label>
       </div>
 

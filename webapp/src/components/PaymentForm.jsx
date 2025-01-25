@@ -57,10 +57,10 @@ export function PaymentForm({ userData }) {
     <form onSubmit={handleSubmit}>
       <div className="mb-4">
         <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Subscribe for $2/month
+          Join CaboFit for $2/month
         </h3>
         <p className="text-sm text-gray-600 mb-4">
-          You'll be charged $2 monthly for daily workout motivation texts and progress pics.
+          Get daily beach fitness motivation texts and progress pics to help you get Cabo-ready.
         </p>
       </div>
       <PaymentElement />
