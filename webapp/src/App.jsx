@@ -152,13 +152,12 @@ export function App() {
         throw new Error(errorData.message || 'Failed to create user profile');
       }
 
-      // Only show success message after both payment and signup are complete
-      toast.success('Welcome to CaboFit! We\'ll send a confirmation text.');
-      
-      // Optionally, you might want to reset the form state here
-      setShowPayment(false);
-      setShowInitialScreen(true);
-      setUserData(null);
+      // Reset form state after a delay to allow success message to be seen
+      setTimeout(() => {
+        setShowPayment(false);
+        setShowInitialScreen(true);
+        setUserData(null);
+      }, 5000);
       
     } catch (error) {
       console.error('Error creating user profile:', error);
@@ -184,7 +183,7 @@ export function App() {
         />
       </video>
 
-      {/* Preloaded Next Video (hidden initially) */}
+      {/* Preloaded Next Video */}
       <video
         ref={nextVideoRef}
         key={`next-${nextVideoIndex}`}
@@ -260,8 +259,6 @@ export function App() {
             </div>
           </>
         )}
-
-        <Toaster position="top-center" />
       </div>
 
       {/* Modals */}
@@ -288,6 +285,8 @@ export function App() {
       >
         <DataPolicy />
       </Modal>
+
+      <Toaster position="top-center" />
     </div>
   );
 }
