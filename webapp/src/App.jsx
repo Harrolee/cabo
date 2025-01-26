@@ -8,6 +8,7 @@ import { Modal } from './components/Modal';
 import { MessageFlowInfo } from './components/MessageFlowInfo';
 import { PaymentForm } from './components/PaymentForm';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { toast } from 'react-hot-toast';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 
@@ -52,6 +53,7 @@ export function App() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [clientSecret, setClientSecret] = useState('');
+  const [userData, setUserData] = useState(null);
   const currentVideoRef = useRef(null);
   const nextVideoRef = useRef(null);
 
@@ -91,7 +93,10 @@ export function App() {
 
   const handleSubscribe = async (userData) => {
     try {
-      // First create the subscription with Stripe
+      // Store in both state and localStorage
+      setUserData(userData);
+      localStorage.setItem('cabofit_signup_data', JSON.stringify(userData));
+      
       const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
         method: 'POST',
         headers: {
@@ -104,12 +109,44 @@ export function App() {
       const data = await subscriptionResponse.json();
       setClientSecret(data.clientSecret);
       setShowPayment(true);
-
-      // Note: The handle-user-signup will be called after successful payment
-      // in the PaymentForm component
     } catch (error) {
       console.error('Error in subscription process:', error);
       throw error;
+    }
+  };
+
+  const handlePaymentSuccess = async () => {
+    try {
+      // Try to get userData from state or localStorage
+      const userDataToUse = userData || JSON.parse(localStorage.getItem('cabofit_signup_data'));
+      
+      if (!userDataToUse) {
+        toast.error('Session expired. Please sign up again.');
+        setShowPayment(false);
+        return;
+      }
+
+      const signupResponse = await fetch(`${import.meta.env.VITE_API_URL}/handle-user-signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(userDataToUse),
+      });
+
+      if (!signupResponse.ok) {
+        const errorData = await signupResponse.json();
+        throw new Error(errorData.message || 'Failed to create user profile');
+      }
+
+      toast.success('Welcome to CaboFit! You will start receiving messages soon.');
+
+      // Clear the stored data after successful signup
+      localStorage.removeItem('cabofit_signup_data');
+    } catch (error) {
+      console.error('Error creating user profile:', error);
+      toast.error('Something went wrong. Please try again.');
     }
   };
 
@@ -165,7 +202,10 @@ export function App() {
               <SignUpForm onSubscribe={handleSubscribe} />
             ) : (
               <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <PaymentForm />
+                <PaymentForm 
+                  userData={userData} 
+                  onPaymentSuccess={handlePaymentSuccess}
+                />
               </Elements>
             )}
           </div>
