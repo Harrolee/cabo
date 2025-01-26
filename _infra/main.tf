@@ -40,6 +40,13 @@ data "archive_file" "stripe_webhook_zip" {
   excludes    = ["node_modules"]
 }
 
+data "archive_file" "process_sms_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/process-sms"
+  output_path = "${path.root}/tmp/process-sms.zip"
+  excludes    = ["node_modules"]
+}
+
 # Upload the function sources to Cloud Storage
 resource "google_storage_bucket_object" "motivational_images_source" {
   name   = "motivational-images-${data.archive_file.motivational_images_zip.output_md5}.zip"
@@ -63,6 +70,12 @@ resource "google_storage_bucket_object" "stripe_webhook_source" {
   name   = "stripe-webhook-${data.archive_file.stripe_webhook_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.stripe_webhook_zip.output_path
+}
+
+resource "google_storage_bucket_object" "process_sms_source" {
+  name   = "process-sms-${data.archive_file.process_sms_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.process_sms_zip.output_path
 }
 
 # Deploy Cloud Functions using the module
@@ -106,6 +119,9 @@ module "signup_function" {
     SUPABASE_URL             = var.supabase_url
     SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
     ALLOWED_ORIGINS          = var.allowed_origins
+    TWILIO_ACCOUNT_SID       = var.twilio_account_sid
+    TWILIO_AUTH_TOKEN        = var.twilio_auth_token
+    TWILIO_PHONE_NUMBER      = var.twilio_phone_number
   }
   depends_on = [google_storage_bucket_object.signup_source]
 }
@@ -125,6 +141,8 @@ module "create_subscription_function" {
     STRIPE_SECRET_KEY = var.stripe_secret_key
     STRIPE_PRICE_ID   = var.stripe_price_id
     ALLOWED_ORIGINS   = var.allowed_origins
+    SUPABASE_URL            = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
   }
   depends_on = [google_storage_bucket_object.create_subscription_source]
 }
@@ -146,6 +164,27 @@ module "stripe_webhook_function" {
     SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
   }
   depends_on = [google_storage_bucket_object.stripe_webhook_source]
+}
+
+module "process_sms_function" {
+  source = "./modules/cloud_function"
+  
+  name        = "process-sms"
+  description = "Function to process incoming SMS messages and set user spice levels"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.process_sms_source.name
+  entry_point = "processSms"
+  
+  environment_variables = {
+    OPENAI_API_KEY         = var.openai_api_key
+    TWILIO_ACCOUNT_SID     = var.twilio_account_sid
+    TWILIO_AUTH_TOKEN      = var.twilio_auth_token
+    TWILIO_PHONE_NUMBER    = var.twilio_phone_number
+    SUPABASE_URL          = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+  }
+  depends_on = [google_storage_bucket_object.process_sms_source]
 }
 
 # Cloud Scheduler configuration
@@ -184,6 +223,13 @@ resource "google_cloudfunctions2_function_iam_member" "invoker" {
 resource "google_cloud_run_service_iam_member" "create_subscription_invoker" {
   location = module.create_subscription_function.function.location
   service  = module.create_subscription_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
+  location = module.process_sms_function.function.location
+  service  = module.process_sms_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 } 
