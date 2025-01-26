@@ -4,9 +4,8 @@ import {
   useStripe,
   useElements
 } from '@stripe/react-stripe-js';
-import toast from 'react-hot-toast';
 
-export function PaymentForm({ userData }) {
+export function PaymentForm({ userData, onPaymentSuccess }) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -15,6 +14,12 @@ export function PaymentForm({ userData }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsProcessing(true);
+
+    if (!userData) {
+      setMessage('Missing user data. Please try again.');
+      setIsProcessing(false);
+      return;
+    }
 
     try {
       const { error: stripeError } = await stripe.confirmPayment({
@@ -30,22 +35,8 @@ export function PaymentForm({ userData }) {
         return;
       }
 
-      // Payment successful, now create the user profile
-      const signupResponse = await fetch(`${import.meta.env.VITE_API_URL}/handle-user-signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-
-      if (!signupResponse.ok) {
-        const errorData = await signupResponse.json();
-        throw new Error(errorData.message || 'Failed to create user profile');
-      }
-
       setMessage('Payment successful! Your subscription is now active.');
+      await onPaymentSuccess();
     } catch (error) {
       setMessage(error.message || 'An unexpected error occurred');
     } finally {
