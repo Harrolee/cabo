@@ -1,17 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
-import { SignUpForm } from './components/SignUpForm';
-import { TermsOfService } from './components/TermsOfService';
-import { Modal } from './components/Modal';
-import { MessageFlowInfo } from './components/MessageFlowInfo';
-import { PaymentForm } from './components/PaymentForm';
-import { DataPolicy } from './components/DataPolicy';
 import { toast } from 'react-hot-toast';
+import { VideoBackground } from './components/VideoBackground';
+import { MainContent } from './components/MainContent';
+import { PolicyModals } from './components/PolicyModals';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
-
 const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
 
 const WORKOUT_VIDEOS = [
@@ -58,9 +53,7 @@ export function App() {
   const currentVideoRef = useRef(null);
   const nextVideoRef = useRef(null);
 
-  // Handle video ended event to swap videos
   const handleVideoEnded = () => {
-    // Show the preloaded video
     if (nextVideoRef.current) {
       nextVideoRef.current.style.opacity = 1;
       nextVideoRef.current.play();
@@ -69,23 +62,16 @@ export function App() {
       currentVideoRef.current.style.opacity = 0;
     }
 
-    // Update indices
     setCurrentVideoIndex(nextVideoIndex);
     setNextVideoIndex((nextVideoIndex + 1) % WORKOUT_VIDEOS.length);
   };
 
-  // Preload the next video when indices change
   useEffect(() => {
     if (nextVideoRef.current) {
       nextVideoRef.current.load();
     }
   }, [nextVideoIndex]);
 
-  const toggleInfoVisibility = () => {
-    setShowInfo(!showInfo);
-  };
-
-  // Close modals when clicking outside
   const handleModalClose = () => {
     setShowInfo(false);
     setShowTerms(false);
@@ -167,124 +153,35 @@ export function App() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Current Video */}
-      <video
-        ref={currentVideoRef}
-        key={`current-${currentVideoIndex}`}
-        autoPlay
-        muted
-        preload="auto"
-        onEnded={handleVideoEnded}
-        className="absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-1000"
-      >
-        <source
-          src={WORKOUT_VIDEOS[currentVideoIndex].url}
-          type={WORKOUT_VIDEOS[currentVideoIndex].type}
-        />
-      </video>
+      <VideoBackground
+        currentVideoRef={currentVideoRef}
+        nextVideoRef={nextVideoRef}
+        currentVideoIndex={currentVideoIndex}
+        nextVideoIndex={nextVideoIndex}
+        handleVideoEnded={handleVideoEnded}
+        WORKOUT_VIDEOS={WORKOUT_VIDEOS}
+      />
 
-      {/* Preloaded Next Video */}
-      <video
-        ref={nextVideoRef}
-        key={`next-${nextVideoIndex}`}
-        muted
-        preload="auto"
-        className="absolute top-0 left-0 w-full h-full object-cover opacity-0 transition-opacity duration-1000"
-      >
-        <source
-          src={WORKOUT_VIDEOS[nextVideoIndex].url}
-          type={WORKOUT_VIDEOS[nextVideoIndex].type}
-        />
-      </video>
+      <MainContent
+        showInitialScreen={showInitialScreen}
+        handleInitialSubscribe={handleInitialSubscribe}
+        showPayment={showPayment}
+        handleSubscribe={handleSubscribe}
+        userData={userData}
+        handlePaymentSuccess={handlePaymentSuccess}
+        stripePromise={stripePromise}
+        clientSecret={clientSecret}
+        setShowInfo={setShowInfo}
+        setShowTerms={setShowTerms}
+        setShowPrivacy={setShowPrivacy}
+      />
 
-      {/* Content Overlay */}
-      <div className="relative z-10 min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-black bg-opacity-50">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            {showInitialScreen ? 'CaboFit' : 'Sign Up'}
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-200">
-            Get fit for Cabo with daily motivation texts and progress pics
-          </p>
-        </div>
-
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white bg-opacity-90 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            {showInitialScreen ? (
-              <button
-                onClick={handleInitialSubscribe}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Let's Go!
-              </button>
-            ) : !showPayment ? (
-              <SignUpForm onSubscribe={handleSubscribe} />
-            ) : (
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <PaymentForm 
-                  userData={userData} 
-                  onPaymentSuccess={handlePaymentSuccess}
-                />
-              </Elements>
-            )}
-          </div>
-        </div>
-
-        {/* Show links only after initial screen */}
-        {!showInitialScreen && (
-          <>
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setShowInfo(true)}
-                className="text-sm text-blue-500 hover:underline"
-              >
-                Message Flow Information
-              </button>
-            </div>
-
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setShowTerms(true)}
-                className="text-sm text-blue-500 hover:underline"
-              >
-                Terms of Service
-              </button>
-              {' | '}
-              <button
-                onClick={() => setShowPrivacy(true)}
-                className="text-sm text-blue-500 hover:underline"
-              >
-                Privacy Policy
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Modals */}
-      <Modal
-        isOpen={showInfo}
-        onClose={handleModalClose}
-        title="Message Flow Information"
-      >
-        <MessageFlowInfo />
-      </Modal>
-
-      <Modal
-        isOpen={showTerms}
-        onClose={handleModalClose}
-        title="Terms of Service"
-      >
-        <TermsOfService />
-      </Modal>
-
-      <Modal
-        isOpen={showPrivacy}
-        onClose={handleModalClose}
-        title="Privacy Policy"
-      >
-        <DataPolicy />
-      </Modal>
+      <PolicyModals
+        showInfo={showInfo}
+        showTerms={showTerms}
+        showPrivacy={showPrivacy}
+        handleModalClose={handleModalClose}
+      />
 
       <Toaster position="top-center" />
     </div>
