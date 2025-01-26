@@ -7,7 +7,7 @@ import { TermsOfService } from './components/TermsOfService';
 import { Modal } from './components/Modal';
 import { MessageFlowInfo } from './components/MessageFlowInfo';
 import { PaymentForm } from './components/PaymentForm';
-import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { DataPolicy } from './components/DataPolicy';
 import { toast } from 'react-hot-toast';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
@@ -51,6 +51,7 @@ export function App() {
   const [showInfo, setShowInfo] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showInitialScreen, setShowInitialScreen] = useState(true);
   const [showPayment, setShowPayment] = useState(false);
   const [clientSecret, setClientSecret] = useState('');
   const [userData, setUserData] = useState(null);
@@ -91,12 +92,15 @@ export function App() {
     setShowPrivacy(false);
   };
 
+  const handleInitialSubscribe = () => {
+    setShowInitialScreen(false);
+  };
+
   const handleSubscribe = async (userData) => {
     try {
-      // Store in both state and localStorage
       setUserData(userData);
-      localStorage.setItem('cabofit_signup_data', JSON.stringify(userData));
       
+      // Create subscription and get client secret from backend
       const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
         method: 'POST',
         headers: {
@@ -106,21 +110,29 @@ export function App() {
         body: JSON.stringify(userData),
       });
       
+      if (subscriptionResponse.status === 409) {
+        throw new Error('This phone number is already registered with CaboFit');
+      }
+      
       const data = await subscriptionResponse.json();
+      
+      if (!data.clientSecret) {
+        throw new Error('No client secret received from server');
+      }
+      
+      // Set client secret and show payment form immediately
       setClientSecret(data.clientSecret);
       setShowPayment(true);
     } catch (error) {
       console.error('Error in subscription process:', error);
+      toast.error(error.message || 'Something went wrong. Please try again.');
       throw error;
     }
   };
 
   const handlePaymentSuccess = async () => {
     try {
-      // Try to get userData from state or localStorage
-      const userDataToUse = userData || JSON.parse(localStorage.getItem('cabofit_signup_data'));
-      
-      if (!userDataToUse) {
+      if (!userData) {
         toast.error('Session expired. Please sign up again.');
         setShowPayment(false);
         return;
@@ -132,7 +144,7 @@ export function App() {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify(userDataToUse),
+        body: JSON.stringify(userData),
       });
 
       if (!signupResponse.ok) {
@@ -140,10 +152,14 @@ export function App() {
         throw new Error(errorData.message || 'Failed to create user profile');
       }
 
-      toast.success('Welcome to CaboFit! You will start receiving messages soon.');
-
-      // Clear the stored data after successful signup
-      localStorage.removeItem('cabofit_signup_data');
+      // Only show success message after both payment and signup are complete
+      toast.success('Welcome to CaboFit! We\'ll send a confirmation text.');
+      
+      // Optionally, you might want to reset the form state here
+      setShowPayment(false);
+      setShowInitialScreen(true);
+      setUserData(null);
+      
     } catch (error) {
       console.error('Error creating user profile:', error);
       toast.error('Something went wrong. Please try again.');
@@ -186,19 +202,23 @@ export function App() {
       <div className="relative z-10 min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-black bg-opacity-50">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            Daily Workout Motivation
+            {showInitialScreen ? 'CaboFit' : 'Sign Up'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-200">
             Get fit for Cabo with daily motivation texts and progress pics
-          </p>
-          <p className="mt-1 text-center text-lg font-semibold text-white">
-            Just $2/month
           </p>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white bg-opacity-90 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            {!showPayment ? (
+            {showInitialScreen ? (
+              <button
+                onClick={handleInitialSubscribe}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Let's Go!
+              </button>
+            ) : !showPayment ? (
               <SignUpForm onSubscribe={handleSubscribe} />
             ) : (
               <Elements stripe={stripePromise} options={{ clientSecret }}>
@@ -211,30 +231,35 @@ export function App() {
           </div>
         </div>
 
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => setShowInfo(true)}
-            className="text-sm text-blue-500 hover:underline"
-          >
-            Message Flow Information
-          </button>
-        </div>
+        {/* Show links only after initial screen */}
+        {!showInitialScreen && (
+          <>
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setShowInfo(true)}
+                className="text-sm text-blue-500 hover:underline"
+              >
+                Message Flow Information
+              </button>
+            </div>
 
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => setShowTerms(true)}
-            className="text-sm text-blue-500 hover:underline"
-          >
-            Terms of Service
-          </button>
-          {' | '}
-          <button
-            onClick={() => setShowPrivacy(true)}
-            className="text-sm text-blue-500 hover:underline"
-          >
-            Privacy Policy
-          </button>
-        </div>
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setShowTerms(true)}
+                className="text-sm text-blue-500 hover:underline"
+              >
+                Terms of Service
+              </button>
+              {' | '}
+              <button
+                onClick={() => setShowPrivacy(true)}
+                className="text-sm text-blue-500 hover:underline"
+              >
+                Privacy Policy
+              </button>
+            </div>
+          </>
+        )}
 
         <Toaster position="top-center" />
       </div>
@@ -261,7 +286,7 @@ export function App() {
         onClose={handleModalClose}
         title="Privacy Policy"
       >
-        <PrivacyPolicy />
+        <DataPolicy />
       </Modal>
     </div>
   );

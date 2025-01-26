@@ -51,7 +51,7 @@ export function PaymentForm({ userData, onPaymentSuccess }) {
           Join CaboFit for $2/month
         </h3>
         <p className="text-sm text-gray-600 mb-4">
-          Get daily beach fitness motivation texts and progress pics to help you get Cabo-ready.
+          Get daily beach fitness motivation texts and progress pics to get you Cabo-ready
         </p>
       </div>
       <PaymentElement />

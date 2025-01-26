@@ -22,7 +22,6 @@ export function SignUpForm({ onSubscribe }) {
         email,
         phone
       });
-      toast.success('Successfully signed up for daily motivation!');
       setName('');
       setPhone('');
       setEmail('');
