@@ -10,6 +10,7 @@ export function PaymentForm({ userData, onPaymentSuccess }) {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -35,14 +36,30 @@ export function PaymentForm({ userData, onPaymentSuccess }) {
         return;
       }
 
-      setMessage('Payment successful! Your subscription is now active.');
       await onPaymentSuccess();
+      setIsSuccess(true);
     } catch (error) {
       setMessage(error.message || 'An unexpected error occurred');
     } finally {
       setIsProcessing(false);
     }
   };
+
+  if (isSuccess) {
+    return (
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          Welcome to CaboFit! 🎉
+        </h2>
+        <p className="text-gray-600 mb-4">
+          Your subscription is now active. You'll receive a confirmation text message shortly.
+        </p>
+        <p className="text-gray-600">
+          Get ready for daily motivation to help you reach your fitness goals!
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit}>
