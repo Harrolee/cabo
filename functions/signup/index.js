@@ -5,11 +5,18 @@ const cors = require('cors')({
   maxAge: 3600
 });
 const { createClient } = require('@supabase/supabase-js');
+const twilio = require('twilio');
 
 // Initialize Supabase client
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// Initialize Twilio client
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
 );
 
 exports.handleSignup = (req, res) => {
@@ -65,6 +72,19 @@ exports.handleSignup = (req, res) => {
         }
         
         throw error;
+      }
+
+      // Send welcome SMS
+      try {
+        await twilioClient.messages.create({
+          body: `Welcome to Workout Motivation, ${name}! 💪 How SPICY do you like your workout motivation messages? 🌶️\n🌶️🌶️🌶️< 1 - 5 >, < PT Clinic - Psycho Frat Bro >?🌶️🌶️🌶️`,
+          to: phone,
+          from: process.env.TWILIO_PHONE_NUMBER,
+        });
+        console.log('Welcome SMS sent successfully');
+      } catch (smsError) {
+        console.error('Error sending welcome SMS:', smsError);
+        // Don't fail the signup if SMS fails
       }
 
       console.log('Signup successful');

@@ -1,0 +1,13 @@
+{
+  "name": "process-sms",
+  "version": "1.0.0",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "openai": "^4.80.0",
+    "twilio": "^5.4.0",
+    "zod": "^3.24.1"
+  },
+  "engines": {
+    "node": "22"
+  }
+} 

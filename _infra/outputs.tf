@@ -69,4 +69,9 @@ output "video_urls" {
 output "call_to_action_image_url" {
   description = "Public URL of the call-to-action image"
   value       = "https://storage.googleapis.com/${google_storage_bucket.image_bucket.name}/${google_storage_bucket_object.call_to_action_image.name}"
+}
+
+output "process_sms_url" {
+  description = "URL of the process-sms function"
+  value       = module.process_sms_function.url
 } 

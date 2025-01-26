@@ -115,22 +115,26 @@ async function generateMotivationalImages() {
   }
 }
 
-async function generateMotivationalMessage() {
+async function generateMotivationalMessage(spiceLevel) {
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         {
           role: "system",
-          content: "You are a motivational fitness coach. Generate a short, engaging message (max 160 characters) to accompany before/after fitness transformation images. The message should be encouraging, slightly humorous, and mention both the 'before' and 'after' states. Don't use offensive language or body-shaming. Use emojis."
+          content: `You are a motivational fitness coach generating a message (max 160 characters) to accompany before/after fitness transformation images. Generate a message matching spice level ${spiceLevel}/5:
+
+1: gentle and encouraging, focus on health and wellbeing
+2: slightly motivational, focus on progress and consistency
+3: sassy dance teacher energy (passive-aggressive, pushing you because "you can do better", mix of encouragement and sass, phrases like "Oh honey..." and "I KNOW you can do better than THAT")
+4: high energy gym bro (caps, emojis, phrases like 'CRUSH IT', 'GET AFTER IT', 'NO EXCUSES')
+5: ULTRA toxic gym bro (ridiculous, over-the-top, phrases like 'ABSOLUTE UNIT', 'BEAST MODE', random noises like 'AUUUGH', nonsensical motivational phrases)
+
+The message should reference both the 'before' and 'after' states. Never use offensive language or body-shaming. Use emojis appropriately for the spice level. NEVER mock marginalized groups, disabilities, religions, or historically abused people.`
         },
         {
           role: "user",
           content: "Generate a motivational message for fitness transformation images."
-        },
-        {
-          role: "assistant",
-          content: "Examples of good messages:\n- You can be the wolf or you can wolf down nachos! Whichever wolf you feed wins! 💪\n- Left guy's ready for a nap. Right guy? Ready to crush it. You're somewhere in between — but guess what? You're moving in the right direction. Let's go!\n- The guy on the left started just like you. The guy on the right? Same path, same dedication — but the journey isn't a race, it's about YOU getting stronger, every day."
         }
       ],
       temperature: 0.7,
@@ -140,14 +144,21 @@ async function generateMotivationalMessage() {
     return completion.choices[0].message.content;
   } catch (error) {
     console.error("Error generating message:", error);
-    // Fallback message in case of API error
-    return "Every step forward is progress. Keep pushing! 💪";
+    // Fallback messages based on spice level
+    const fallbackMessages = {
+      1: "Every step forward is progress. You're on a journey to a healthier you! 💫",
+      2: "Keep pushing! Small changes lead to big results 💪",
+      3: "Oh honey... I've seen what you can do and this is NOT it. But we're getting there! 💅✨",
+      4: "CRUSH IT! Time to level up! NO EXCUSES, ONLY RESULTS! 💪😤",
+      5: "AUUUGH! BEAST MODE ENGAGED! YOU'RE BUILT DIFFERENT! 😤💪🦍"
+    };
+    return fallbackMessages[spiceLevel] || fallbackMessages[3];
   }
 }
 
-async function sendImagesToUser(phoneNumber, images) {
+async function sendImagesToUser(phoneNumber, images, spiceLevel) {
   try {
-    const message = await generateMotivationalMessage();
+    const message = await generateMotivationalMessage(spiceLevel);
     await twilioClient.messages.create({
       body: message,
       mediaUrl: images,
@@ -164,9 +175,9 @@ exports.sendMotivationalImages = async (event, context) => {
   try {
     const { data: users, error } = await supabaseClient
       .from("user_profiles")
-      .select("phone_number, full_name")
+      .select("phone_number, full_name, spice_level")
       .eq("active", true);
-      console.log(`Got users`);
+    
     if (error) {
       throw new Error(`Error fetching users: ${error.message}`);
     }
@@ -187,8 +198,12 @@ exports.sendMotivationalImages = async (event, context) => {
     console.log(`constructing promises`);
     
     const sendPromises = users.map((user) =>
-      sendImagesToUser(user.phone_number, images)
-  );
+      sendImagesToUser(
+        user.phone_number, 
+        images, 
+        user.spice_level || 3 // Default to level 3 if not set
+      )
+    );
   
     console.log(`sending images`);
     await Promise.all(sendPromises);

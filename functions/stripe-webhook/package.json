@@ -2,7 +2,7 @@
   "name": "stripe-webhook",
   "version": "1.0.0",
   "dependencies": {
-    "stripe": "^12.0.0",
-    "@supabase/supabase-js": "^2.21.0"
+    "stripe": "^17.5.0",
+    "@supabase/supabase-js": "^2.48.1"
   }
 } 
