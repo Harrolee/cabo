@@ -76,21 +76,41 @@ exports.processSms = async (req, res) => {
       from: process.env.TWILIO_PHONE_NUMBER,
     });
 
-    // Store the spice level in Supabase
+    // Format phone number by removing '+1' country code
+    const formattedPhone = userPhone.replace('+1', '');
+
+    // Check if the user exists
+    const { data: existingUser, error: fetchError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('phone_number', formattedPhone)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching user:', fetchError);
+      throw fetchError;
+    }
+
+    if (!existingUser) {
+      console.log(`No profile found for phone number: ${formattedPhone}. Skipping update.`);
+      return res.status(200).send('OK');
+    }
+
+    console.log('Existing user found, updating spice level');
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({ 
         spice_level: parsedResponse.spiceLevel,
         updated_at: new Date().toISOString()
       })
-      .eq('phone_number', userPhone);
+      .eq('phone_number', formattedPhone);
 
     if (updateError) {
       console.error('Error updating spice level:', updateError);
       throw updateError;
     }
 
-    console.log(`Updated spice level to ${parsedResponse.spiceLevel} for user ${userPhone}`);
+    console.log(`Successfully updated profile for ${formattedPhone} with spice level ${parsedResponse.spiceLevel}`);
 
     res.status(200).send('OK');
   } catch (error) {
