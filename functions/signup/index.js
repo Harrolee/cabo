@@ -77,7 +77,7 @@ exports.handleSignup = (req, res) => {
       // Send welcome SMS
       try {
         await twilioClient.messages.create({
-          body: `Welcome to Workout Motivation, ${name}! 💪 How SPICY do you like your workout motivation messages? 🌶️\n🌶️🌶️🌶️< 1 - 5 >, < PT Clinic - Psycho Frat Bro >?🌶️🌶️🌶️`,
+          body: `Welcome to Workout Motivation, ${name}!💪\n\nHow SPICY do you like your workout motivation messages?\n\n🌶️< 1 - 5 >, < PT Clinic - Psycho Frat Bro >?🌶️`,
           to: phone,
           from: process.env.TWILIO_PHONE_NUMBER,
         });
