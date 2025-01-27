@@ -183,6 +183,7 @@ module "process_sms_function" {
     TWILIO_PHONE_NUMBER    = var.twilio_phone_number
     SUPABASE_URL          = var.supabase_url
     SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    FUNCTION_URL          = "https://${var.region}-${var.project_id}.cloudfunctions.net/process-sms"
   }
   depends_on = [google_storage_bucket_object.process_sms_source]
 }

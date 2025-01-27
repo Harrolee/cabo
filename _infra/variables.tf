@@ -66,8 +66,6 @@ variable "replicate_api_key" {
   sensitive   = true
 }
 
-
-
 variable "allowed_origins" {
   description = "Comma-separated list of allowed origins for CORS"
   type        = string
@@ -101,4 +99,10 @@ variable "stripe_public_key" {
   description = "Stripe Public Key"
   type        = string
   sensitive   = true
+}
+
+variable "process_sms_url" {
+  description = "URL for the process-sms function"
+  type        = string
+  default     = null # Will be set by the function URL output
 } 
