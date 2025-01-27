@@ -56,20 +56,60 @@ async function saveImageToBucket(imageUrl, filename) {
   }
 }
 
+async function generateActionModifier() {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: "Generate a short, specific beach activity description (2-4 words) that would work well in both these contexts:\n1. 'A realistic photo of an overweight man wearing swim trunks, [activity]'\n2. 'A realistic photo of a muscular athletic man wearing swim trunks, [activity]'\nThe activity should be something active and photographable, like 'playing volleyball' or 'running along shoreline'. Feel free to get creative and over the top here."
+        },
+        {
+          role: "user",
+          content: "Generate a beach activity."
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 50,
+    });
+
+    return completion.choices[0].message.content;
+  } catch (error) {
+    console.error("Error generating action modifier:", error);
+    const fallbackActions = [
+      "playing beach volleyball",
+      "running along shoreline",
+      "throwing a frisbee",
+      "doing beach yoga",
+      "surfing on waves",
+      "playing in the waves",
+      "building sandcastles",
+      "jogging on sand",
+      "swimming in ocean",
+      "playing beach soccer"
+    ];
+    return fallbackActions[Math.floor(Math.random() * fallbackActions.length)];
+  }
+}
+
 async function generateMotivationalImages() {
   const replicate = new Replicate({
     auth: process.env.REPLICATE_API_TOKEN,
   });
 
   try {
+    const actionModifier = await generateActionModifier();
+    const randomSeed = Math.floor(Math.random() * 1000000000); // 1111316861 was the original seed. Keep it in case the random seeds suck
+
     const unfitOutput = await replicate.run(
       "lucataco/realvisxl-v2.0:7d6a2f9c4754477b12c14ed2a58f89bb85128edcdd581d24ce58b6926029de08",
       {
         input: {
-          seed: 1111316861,
+          seed: randomSeed,
           width: 1024,
           height: 1024,
-          prompt: "A realistic photo of an overweight man relaxing on a beach chair, wearing swim trunks, photorealistic style",
+          prompt: `A realistic photo of an overweight man wearing swim trunks, photorealistic style, ${actionModifier}`,
           scheduler: "DPMSolverMultistep",
           lora_scale: 0.6,
           num_outputs: 1,
@@ -78,17 +118,17 @@ async function generateMotivationalImages() {
           negative_prompt: "(worst quality, low quality, illustration, 3d, 2d, painting, cartoons, sketch), open mouth, muscular, fit, athletic, ripped",
           prompt_strength: 0.8,
           num_inference_steps: 40
+        }
       }
-    }
     );
     const fitOutput = await replicate.run(
       "lucataco/realvisxl-v2.0:7d6a2f9c4754477b12c14ed2a58f89bb85128edcdd581d24ce58b6926029de08",
       {
         input: {
-          seed: 1111316861,
+          seed: randomSeed,
           width: 1024,
           height: 1024,
-          prompt: "A realistic photo of a muscular athletic man with six-pack abs standing confidently on a beach, wearing swim trunks, photorealistic style",
+          prompt: `A realistic photo of a muscular athletic man with six-pack abs wearing swim trunks, photorealistic style, ${actionModifier}`,
           scheduler: "DPMSolverMultistep",
           lora_scale: 0.6,
           num_outputs: 1,
@@ -97,8 +137,8 @@ async function generateMotivationalImages() {
           negative_prompt: "(worst quality, low quality, illustration, 3d, 2d, painting, cartoons, sketch), open mouth, overweight, fat, unfit",
           prompt_strength: 0.8,
           num_inference_steps: 40
+        }
       }
-    }
     );
 
     const outputs = [...unfitOutput, ...fitOutput];

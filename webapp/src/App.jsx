@@ -143,7 +143,7 @@ export function App() {
         setShowPayment(false);
         setShowInitialScreen(true);
         setUserData(null);
-      }, 5000);
+      }, 20000);
       
     } catch (error) {
       console.error('Error creating user profile:', error);
