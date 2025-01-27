@@ -18,32 +18,22 @@ const responseSchema = z.object({
   customerResponse: z.string()
 });
 
-// Verify the request is coming from Twilio
-const validateTwilioRequest = (req) => {
-  const twilioSignature = req.headers['x-twilio-signature'];
-  const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-  const params = req.body;
-
-  return twilio.validateRequest(
-    process.env.TWILIO_AUTH_TOKEN,
-    twilioSignature,
-    url,
-    params
-  );
-};
-
 exports.processSms = async (req, res) => {
-  // Validate the request is from Twilio
-  if (!validateTwilioRequest(req)) {
-    console.error('Invalid Twilio signature');
-    return res.status(401).send('Invalid signature');
-  }
-
   try {
+    const twilioSignature = req.headers['x-twilio-signature'];
+    const url = process.env.FUNCTION_URL;
+    
+    const isValid = twilio.validateRequest(
+      process.env.TWILIO_AUTH_TOKEN,
+      twilioSignature,
+      url,
+      req.body
+    );
+    
+    console.log('Request validation result:', isValid);
+
     const userMessage = req.body.Body;
     const userPhone = req.body.From;
-
-    console.log(`Received message from ${userPhone}: ${userMessage}`);
 
     // Send message to OpenAI with specific prompt
     const completion = await openai.chat.completions.create({
