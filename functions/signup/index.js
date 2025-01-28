@@ -77,7 +77,21 @@ exports.handleSignup = (req, res) => {
       // Send welcome SMS
       try {
         await twilioClient.messages.create({
-          body: `Welcome to Workout Motivation, ${name}!💪\n\nHow SPICY do you like your workout motivation messages?\n\n🌶️< 1 - 5 >, < PT Clinic - Psycho Frat Bro >?🌶️`,
+          body: `Ready for Cabo, ${name}? 💪
+
+First, tell us: How 🌶️SPICY🌶️ do you like your workout motivation messages?
+< 1 - 5 >
+1️⃣: gentle & encouraging 🧘‍♀️
+2️⃣: high energy gym bro 🏋️‍♂️
+3️⃣: sassy dance teacher 💃
+4️⃣: drill sergeant 🫡
+5️⃣: toxic frat bro 😤
+
+Then, tell us what kind of people you'd like to see in your motivation images! 📸
+Examples: "female athletes" 🏃‍♀️, "older adults" 👴👵, "not white males" ❌👨‍🦰, etc.
+
+Reply with your spice level and image preference!
+(You can change these at any time by texting this number) 📱`,
           to: phone,
           from: process.env.TWILIO_PHONE_NUMBER,
         });
