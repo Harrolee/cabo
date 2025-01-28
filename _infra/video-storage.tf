@@ -25,15 +25,15 @@ resource "google_storage_bucket_iam_member" "public_read" {
   member = "allUsers"
 }
 
-# Dynamically create storage objects for all MP4 files in assets directory
+# Dynamically create storage objects for all MP4 files in static_assets directory
 locals {
-  video_files = fileset("${path.root}/../assets", "*.mp4")
+  video_files = fileset("${path.root}/../static_assets", "*.mp4")
 }
 
 resource "google_storage_bucket_object" "workout_videos" {
   for_each = local.video_files
   
   name   = "videos/${each.value}"
-  source = "${path.root}/../assets/${each.value}"
+  source = "${path.root}/../static_assets/${each.value}"
   bucket = google_storage_bucket.workout_videos.name
 } 
