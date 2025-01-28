@@ -12,9 +12,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Zod schema for validating OpenAI response
+// Update the Zod schema for validating OpenAI response
 const responseSchema = z.object({
+  shouldUpdateSpice: z.boolean(),
   spiceLevel: z.number().min(1).max(5).int(),
+  shouldUpdateImagePreference: z.boolean(),
+  imagePreference: z.string(),
   customerResponse: z.string()
 });
 
@@ -41,11 +44,35 @@ exports.processSms = async (req, res) => {
       messages: [
         {
           role: "system",
-          content: "You are an AI that analyzes user responses to the question 'How 🌶️SPICY🌶️ do you like your workout motivation messages?\n< 1 - 5 >, < PT Clinic - Psycho Frat Bro >?' You must respond with JSON in the format {\"spiceLevel\": X, \"customerResponse\": \"message\"} where X is a number from 1-5. The customerResponse should be a short, fun confirmation matching their preferred spice level:\n\n1: gentle and encouraging, focus on health and wellbeing\n2: slightly motivational, focus on progress and consistency\n3: sassy dance teacher energy (passive-aggressive, pushing you because \"you can do better\", mix of encouragement and sass, phrases like \"Oh honey...\" and \"I KNOW you can do better than THAT\")\n4: high energy gym bro (caps, emojis, phrases like 'CRUSH IT', 'GET AFTER IT', 'NO EXCUSES')\n5 (ultra spicy): ULTRA toxic gym bro (ridiculous, over-the-top, phrases like 'ABSOLUTE UNIT', 'BEAST MODE ENGAGED', 'YOU'RE BUILT DIFFERENT', random noises like 'AUUUGH', nonsensical motivational phrases)\n\nOnly give level 5 if they explicitly request level 5 or ultra/extreme/insane spice. Base the spiceLevel on the user's message sentiment and content. Respond ONLY with the JSON."
+          content: `You are an AI that processes two types of user requests:
+
+1. Spice level preferences for workout messages (responding to "How 🌶️SPICY🌶️ do you like your workout motivation messages?")
+Spice levels:
+1: gentle & encouraging 🧘‍♀️
+2: high energy gym bro 🏋️‍♂️
+3: sassy dance teacher 💃
+4: drill sergeant 🫡
+5: toxic frat bro 😤
+
+2. Image preferences for workout motivation pictures (users can describe what kind of people they want to see)
+
+Respond with JSON in this format:
+{
+  "shouldUpdateSpice": boolean,
+  "spiceLevel": number (1-5),
+  "shouldUpdateImagePreference": boolean,
+  "imagePreference": string,
+  "customerResponse": string
+}
+
+If the user is setting their spice level, set shouldUpdateSpice to true and include an appropriate confirmation message.
+If the user is describing their image preferences, set shouldUpdateImagePreference to true and include a confirmation message.
+If the user is doing both, set both to true and confirm both changes.
+For any other messages, set both to false and provide an appropriate customerResponse.`
         },
         {
           role: "user",
-          content: `Question: How 🌶️SPICY🌶️ do you like your workout motivation messages?\n< 1 - 5 >, < PT Clinic - Psycho Frat Bro >?\nUser's response: ${userMessage}`
+          content: `User's message: ${userMessage}`
         }
       ],
       temperature: 0.7,
@@ -96,21 +123,36 @@ exports.processSms = async (req, res) => {
       return res.status(200).send('OK');
     }
 
-    console.log('Existing user found, updating spice level');
-    const { error: updateError } = await supabase
-      .from('user_profiles')
-      .update({ 
-        spice_level: parsedResponse.spiceLevel,
-        updated_at: new Date().toISOString()
-      })
-      .eq('phone_number', formattedPhone);
+    console.log('Existing user found, updating profile');
 
-    if (updateError) {
-      console.error('Error updating spice level:', updateError);
-      throw updateError;
+    // Update the database based on the parsed response
+    if (existingUser) {
+      const updates = {};
+      
+      if (parsedResponse.shouldUpdateSpice) {
+        updates.spice_level = parsedResponse.spiceLevel;
+      }
+      
+      if (parsedResponse.shouldUpdateImagePreference) {
+        updates.image_preference = parsedResponse.imagePreference;
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        updates.updated_at = new Date().toISOString();
+        
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update(updates)
+          .eq('phone_number', formattedPhone);
+
+        if (updateError) {
+          console.error('Error updating user profile:', updateError);
+          throw updateError;
+        }
+
+        console.log(`Successfully updated profile for ${formattedPhone}`, updates);
+      }
     }
-
-    console.log(`Successfully updated profile for ${formattedPhone} with spice level ${parsedResponse.spiceLevel}`);
 
     res.status(200).send('OK');
   } catch (error) {

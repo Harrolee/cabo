@@ -63,7 +63,7 @@ async function generateActionModifier() {
       messages: [
         {
           role: "system",
-          content: "Generate a short, specific beach activity description (2-4 words) that would work well in both these contexts:\n1. 'A realistic photo of an overweight man wearing swim trunks, [activity]'\n2. 'A realistic photo of a muscular athletic man wearing swim trunks, [activity]'\nThe activity should be something active and photographable, like 'playing volleyball' or 'running along shoreline'. Feel free to get creative and over the top here."
+          content: "Generate a short, specific beach activity description (2-4 words) that would work well in both these contexts:\n1. 'A realistic photo of an overweight [preference] wearing beach clothes, [activity]'\n2. 'A realistic photo of a fit and athletic [preference] wearing beach clothes, [activity]'\nThe activity should be something active and photographable, like 'playing volleyball' or 'running along shoreline'."
         },
         {
           role: "user",
@@ -87,21 +87,26 @@ async function generateActionModifier() {
       "building sandcastles",
       "jogging on sand",
       "swimming in ocean",
-      "playing beach soccer"
+      "playing beach soccer",
+      "doing beach pushups",
+      "playing beach tennis"
     ];
     return fallbackActions[Math.floor(Math.random() * fallbackActions.length)];
   }
 }
 
-async function generateMotivationalImages() {
+async function generateMotivationalImages(imagePreference) {
   const replicate = new Replicate({
     auth: process.env.REPLICATE_API_TOKEN,
   });
 
   try {
     const actionModifier = await generateActionModifier();
-    const randomSeed = Math.floor(Math.random() * 1000000000); // 1111316861 was the original seed. Keep it in case the random seeds suck
+    const randomSeed = Math.floor(Math.random() * 1000000000); // 1111316861 was the original seed
 
+    // Default to diverse representation if no preference specified
+    const preference = imagePreference || "ambiguously non-white male";
+    
     const unfitOutput = await replicate.run(
       "lucataco/realvisxl-v2.0:7d6a2f9c4754477b12c14ed2a58f89bb85128edcdd581d24ce58b6926029de08",
       {
@@ -109,7 +114,7 @@ async function generateMotivationalImages() {
           seed: randomSeed,
           width: 1024,
           height: 1024,
-          prompt: `A realistic photo of an overweight man wearing swim trunks, photorealistic style, ${actionModifier}`,
+          prompt: `A realistic photo of an overweight ${preference}, on the beach, wearing swim trunks and beach attire, photorealistic style, ${actionModifier}`,
           scheduler: "DPMSolverMultistep",
           lora_scale: 0.6,
           num_outputs: 1,
@@ -121,6 +126,7 @@ async function generateMotivationalImages() {
         }
       }
     );
+
     const fitOutput = await replicate.run(
       "lucataco/realvisxl-v2.0:7d6a2f9c4754477b12c14ed2a58f89bb85128edcdd581d24ce58b6926029de08",
       {
@@ -128,7 +134,7 @@ async function generateMotivationalImages() {
           seed: randomSeed,
           width: 1024,
           height: 1024,
-          prompt: `A realistic photo of a muscular athletic man with six-pack abs wearing swim trunks, photorealistic style, ${actionModifier}`,
+          prompt: `A realistic photo of a fit and athletic ${preference}, on the beach, wearing swim trunks and beach attire, photorealistic style, ${actionModifier}`,
           scheduler: "DPMSolverMultistep",
           lora_scale: 0.6,
           num_outputs: 1,
@@ -162,15 +168,44 @@ async function generateMotivationalMessage(spiceLevel) {
       messages: [
         {
           role: "system",
-          content: `You are a motivational fitness coach generating a message (max 160 characters) to accompany before/after fitness transformation images. Generate a message matching spice level ${spiceLevel}/5:
+          content: `You are a motivational fitness coach generating a message (max 160 characters) to accompany before/after fitness transformation images. Match this spice level ${spiceLevel}/5:
 
-1: gentle and encouraging, focus on health and wellbeing
-2: slightly motivational, focus on progress and consistency
-3: sassy dance teacher energy (passive-aggressive, pushing you because "you can do better", mix of encouragement and sass, phrases like "Oh honey..." and "I KNOW you can do better than THAT")
-4: high energy gym bro (caps, emojis, phrases like 'CRUSH IT', 'GET AFTER IT', 'NO EXCUSES')
-5: ULTRA toxic gym bro (ridiculous, over-the-top, phrases like 'ABSOLUTE UNIT', 'BEAST MODE', random noises like 'AUUUGH', nonsensical motivational phrases)
+1️⃣ Gentle & Encouraging 🧘‍♀️
+- Radiates peaceful zen energy
+- Uses phrases like "Listen to your body" and "Every step counts"
+- Probably doing yoga right now
+- Might suggest a green smoothie
+- Always ends with "Namaste" or "You're doing amazing sweetie"
 
-The message should reference both the 'before' and 'after' states. Never use offensive language or body-shaming. Use emojis appropriately for the spice level. NEVER mock marginalized groups, disabilities, religions, or historically abused people.`
+2️⃣ High Energy Gym Bro 🏋️‍♂️
+- Enthusiastic but not overwhelming
+- Loves saying "Let's get this bread!" unironically
+- Calls everyone "fam" or "bro"
+- Excessive use of the 💪 emoji
+- Always talking about "gains"
+
+3️⃣ Sassy Dance Teacher 💃
+- Full of sass and attitude
+- "Oh honey..." is their favorite phrase
+- Everything is "giving" something
+- Snaps fingers for emphasis
+- Might make you do jazz hands
+
+4️⃣ Drill Sergeant 🫡
+- TYPES IN ALL CAPS
+- Everything is a "MISSION" or "OBJECTIVE"
+- Calls workouts "TRAINING OPERATIONS"
+- Zero tolerance for excuses
+- Probably doing pushups while typing
+
+5️⃣ Toxic Frat Bro 😤
+- ABSOLUTELY UNHINGED ENERGY
+- Random keyboard smashing ("ASDKJHASD")
+- Excessive emojis
+- Makes up words like "SWOLEPOCALYPSE"
+- Everything is "BUILT DIFFERENT"
+
+The message should reference both the 'before' and 'after' states. Never use offensive language or body-shaming. Use emojis appropriately for the spice level. You can mock yourself and you can mock the user if you think it's appropriate, but NEVER mock marginalized groups, disabilities, religions, or historically abused people.`
         },
         {
           role: "user",
@@ -186,11 +221,11 @@ The message should reference both the 'before' and 'after' states. Never use off
     console.error("Error generating message:", error);
     // Fallback messages based on spice level
     const fallbackMessages = {
-      1: "Every step forward is progress. You're on a journey to a healthier you! 💫",
-      2: "Keep pushing! Small changes lead to big results 💪",
-      3: "Oh honey... I've seen what you can do and this is NOT it. But we're getting there! 💅✨",
-      4: "CRUSH IT! Time to level up! NO EXCUSES, ONLY RESULTS! 💪😤",
-      5: "AUUUGH! BEAST MODE ENGAGED! YOU'RE BUILT DIFFERENT! 😤💪🦍"
+      1: "Every step of your journey matters. Listen to your body and celebrate your progress! 🧘‍♀️✨",
+      2: "LETS GET THESE GAINS FAM! You're crushing it! 💪",
+      3: "Oh honey... look at you werking it! That's giving transformation energy! 💃✨",
+      4: "MISSION STATUS: TRANSFORMATION IN PROGRESS! KEEP PUSHING, SOLDIER! 🫡",
+      5: "ABSOLUTE UNIT ALERT!!! BUILT: DIFFERENT 😤 MISSION: ACCOMPLISHED 💪 SWOLEPOCALYPSE: INITIATED"
     };
     return fallbackMessages[spiceLevel] || fallbackMessages[3];
   }
@@ -215,7 +250,7 @@ exports.sendMotivationalImages = async (event, context) => {
   try {
     const { data: users, error } = await supabaseClient
       .from("user_profiles")
-      .select("phone_number, full_name, spice_level")
+      .select("phone_number, full_name, spice_level, image_preference")
       .eq("active", true);
     
     if (error) {
@@ -229,28 +264,35 @@ exports.sendMotivationalImages = async (event, context) => {
       };
     }
 
-    const images = await generateMotivationalImages();
+    console.log(`Generating personalized images for ${users.length} users`);
     
-    if (!images || images.length === 0) {
-      throw new Error("No images were generated");
-    }
+    // Generate and send images for each user individually
+    const sendPromises = users.map(async (user) => {
+      try {
+        const images = await generateMotivationalImages(user.image_preference);
+        
+        if (!images || images.length === 0) {
+          throw new Error(`No images were generated for user ${user.phone_number}`);
+        }
 
-    console.log(`constructing promises`);
-    
-    const sendPromises = users.map((user) =>
-      sendImagesToUser(
-        user.phone_number, 
-        images, 
-        user.spice_level || 3 // Default to level 3 if not set
-      )
-    );
+        await sendImagesToUser(
+          user.phone_number, 
+          images, 
+          user.spice_level || 2
+        );
+
+        console.log(`Successfully sent images to ${user.phone_number}`);
+      } catch (error) {
+        console.error(`Error processing user ${user.phone_number}:`, error);
+        // Continue with other users even if one fails
+      }
+    });
   
-    console.log(`sending images`);
     await Promise.all(sendPromises);
 
     return {
       statusCode: 200,
-      body: `Successfully sent images to ${users.length} users`,
+      body: `Completed image generation and sending process for ${users.length} users`,
     };
   } catch (error) {
     console.error("Error in sendMotivationalImages:", error);
