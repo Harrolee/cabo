@@ -5,9 +5,15 @@ import { toast } from 'react-hot-toast';
 import { VideoBackground } from './components/VideoBackground';
 import { MainContent } from './components/MainContent';
 import { PolicyModals } from './components/PolicyModals';
+import UAParser from 'my-ua-parser';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
+
+// Initialize UA Parser
+const parser = new UAParser();
+const device = parser.getDevice();
+const isMobile = device.type === 'mobile' || device.type === 'tablet';
 
 const WORKOUT_VIDEOS = [
   {
@@ -154,14 +160,26 @@ export function App() {
 
   return (
     <div className="relative min-h-screen">
-      <VideoBackground
-        currentVideoRef={currentVideoRef}
-        nextVideoRef={nextVideoRef}
-        currentVideoIndex={currentVideoIndex}
-        nextVideoIndex={nextVideoIndex}
-        handleVideoEnded={handleVideoEnded}
-        WORKOUT_VIDEOS={WORKOUT_VIDEOS}
-      />
+      {!isMobile ? (
+        <VideoBackground
+          currentVideoRef={currentVideoRef}
+          nextVideoRef={nextVideoRef}
+          currentVideoIndex={currentVideoIndex}
+          nextVideoIndex={nextVideoIndex}
+          handleVideoEnded={handleVideoEnded}
+          WORKOUT_VIDEOS={WORKOUT_VIDEOS}
+        />
+      ) : (
+        <div 
+          className="fixed inset-0 bg-gradient-to-b from-sky-400 to-blue-500"
+          style={{
+            backgroundImage: `
+              radial-gradient(circle at 80% 50%, rgba(255,255,255,0.12) 0%, transparent 60%),
+              radial-gradient(circle at 20% 30%, rgba(255,255,255,0.15) 0%, transparent 50%)
+            `
+          }}
+        />
+      )}
 
       <MainContent
         showInitialScreen={showInitialScreen}
@@ -177,16 +195,19 @@ export function App() {
         setShowPrivacy={setShowPrivacy}
         showPreview={showPreview}
         setShowPreview={setShowPreview}
+        className={`${isMobile ? 'px-4 py-6' : 'px-8 py-12'}`}
       />
 
       {showPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-4">
+          <div className={`bg-white rounded-lg w-full ${isMobile ? 'max-w-[95%] p-3' : 'max-w-2xl p-4'}`}>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Preview Your Daily Motivation</h2>
+              <h2 className={`font-bold ${isMobile ? 'text-lg' : 'text-xl'}`}>
+                Preview Your Daily Motivation
+              </h2>
               <button
                 onClick={() => setShowPreview(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 p-2"
               >
                 ✕
               </button>
@@ -196,7 +217,7 @@ export function App() {
               alt="Preview of daily motivational content"
               className="w-full rounded-lg shadow-lg"
             />
-            <p className="mt-4 text-gray-600">
+            <p className={`mt-4 text-gray-600 ${isMobile ? 'text-sm' : ''}`}>
               Get daily workout motivation and fitness tips delivered right to your phone!
             </p>
           </div>
@@ -210,7 +231,13 @@ export function App() {
         handleModalClose={handleModalClose}
       />
 
-      <Toaster position="top-center" />
+      <Toaster 
+        position={isMobile ? "bottom-center" : "top-center"} 
+        toastOptions={{
+          className: isMobile ? 'text-sm' : '',
+          duration: isMobile ? 4000 : 3000,
+        }}
+      />
     </div>
   );
 }

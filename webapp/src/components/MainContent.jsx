@@ -71,54 +71,55 @@ export function MainContent({
         <div className="bg-white bg-opacity-90 py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {showInitialScreen ? (
             <>
-              <div className="relative" {...handlers}>
-                {previewImages.length > 0 && (
-                  <div className="overflow-hidden">
+              {previewImages.length > 0 && (
+                /* iPhone Message Container */
+                <div className="bg-gray-100 rounded-2xl p-4 mx-2 mb-6 relative" {...handlers}>
+                  <div className="aspect-[2/3] relative">
                     <img
                       src={previewImages[currentImageIndex].src}
                       alt={previewImages[currentImageIndex].alt}
-                      className="w-full rounded-lg shadow-lg mb-6 transition-transform duration-300"
+                      className="absolute inset-0 w-full h-full object-contain rounded-lg shadow-lg"
                     />
                   </div>
-                )}
-                
-                {/* Carousel Navigation Dots */}
-                {previewImages.length > 1 && (
-                  <div className="flex justify-center gap-2 mt-2 mb-4">
-                    {previewImages.map((_, index) => (
-                      <button
-                        key={index}
-                        className={`h-2 w-2 rounded-full ${
-                          currentImageIndex === index ? 'bg-indigo-600' : 'bg-gray-300'
-                        }`}
-                        onClick={() => setCurrentImageIndex(index)}
-                      />
-                    ))}
-                  </div>
-                )}
 
-                {/* Arrow Navigation */}
-                {previewImages.length > 1 && (
-                  <>
-                    <button
-                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-2 hover:bg-opacity-75"
-                      onClick={prevImage}
-                    >
-                      <svg className="h-6 w-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <button
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-2 hover:bg-opacity-75"
-                      onClick={nextImage}
-                    >
-                      <svg className="h-6 w-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </>
-                )}
-              </div>
+                  {/* Carousel Navigation Dots */}
+                  {previewImages.length > 1 && (
+                    <div className="flex justify-center gap-2 mt-4">
+                      {previewImages.map((_, index) => (
+                        <button
+                          key={index}
+                          className={`h-2 w-2 rounded-full ${
+                            currentImageIndex === index ? 'bg-indigo-600' : 'bg-gray-300'
+                          }`}
+                          onClick={() => setCurrentImageIndex(index)}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Arrow Navigation */}
+                  {previewImages.length > 1 && (
+                    <>
+                      <button
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-2 hover:bg-opacity-75"
+                        onClick={prevImage}
+                      >
+                        <svg className="h-6 w-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-2 hover:bg-opacity-75"
+                        onClick={nextImage}
+                      >
+                        <svg className="h-6 w-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
               <button
                 onClick={handleInitialSubscribe}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
