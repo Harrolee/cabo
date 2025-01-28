@@ -50,6 +50,7 @@ export function App() {
   const [showPayment, setShowPayment] = useState(false);
   const [clientSecret, setClientSecret] = useState('');
   const [userData, setUserData] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
   const currentVideoRef = useRef(null);
   const nextVideoRef = useRef(null);
 
@@ -174,7 +175,33 @@ export function App() {
         setShowInfo={setShowInfo}
         setShowTerms={setShowTerms}
         setShowPrivacy={setShowPrivacy}
+        showPreview={showPreview}
+        setShowPreview={setShowPreview}
       />
+
+      {showPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Preview Your Daily Motivation</h2>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <img
+              src="/path/to/your/preview-image.jpg"
+              alt="Preview of daily motivational content"
+              className="w-full rounded-lg shadow-lg"
+            />
+            <p className="mt-4 text-gray-600">
+              Get daily workout motivation and fitness tips delivered right to your phone!
+            </p>
+          </div>
+        </div>
+      )}
 
       <PolicyModals
         showInfo={showInfo}

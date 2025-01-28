@@ -25,7 +25,7 @@ resource "google_storage_bucket" "image_bucket" {
 
 resource "google_storage_bucket_object" "call_to_action_image" {
   name   = "call-to-action.jpg"
-  source = "${path.root}/../assets/call-to-action.jpg"
+  source = "${path.root}/../static_assets/call-to-action.jpg"
   bucket = google_storage_bucket.image_bucket.name
 }
 
@@ -37,7 +37,7 @@ resource "google_storage_bucket_iam_member" "public_read_image" {
 
 resource "google_storage_bucket_object" "expanded_call_to_action_image" {
   name   = "expanded-call-to-action.jpg"
-  source = "${path.root}/../assets/expanded-call-to-action.jpg"
+  source = "${path.root}/../static_assets/expanded-call-to-action.jpg"
   bucket = google_storage_bucket.image_bucket.name
 }
 
