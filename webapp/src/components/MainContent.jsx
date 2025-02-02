@@ -4,6 +4,7 @@ import { useSwipeable } from 'react-swipeable';
 import { SignUpForm } from './SignUpForm';
 import { PaymentForm } from './PaymentForm';
 import { FooterLinks } from './FooterLinks';
+import { StatusMessage } from './StatusMessage';
 
 export function MainContent({ 
   showInitialScreen, 
@@ -20,6 +21,7 @@ export function MainContent({
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [previewImages, setPreviewImages] = useState([]);
+  const [paymentStatus, setPaymentStatus] = useState(null); // 'success' | 'error' | null
   
   useEffect(() => {
     // Dynamically import all images from the preview-images directory
@@ -55,6 +57,15 @@ export function MainContent({
     preventDefaultTouchmoveEvent: true,
     trackMouse: true
   });
+
+  const handlePaymentSuccessWrapper = async () => {
+    await handlePaymentSuccess();
+    setPaymentStatus('success');
+  };
+
+  const handlePaymentError = () => {
+    setPaymentStatus('error');
+  };
 
   return (
     <div className="relative z-10 min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-black bg-opacity-50">
@@ -129,11 +140,14 @@ export function MainContent({
             </>
           ) : !showPayment ? (
             <SignUpForm onSubscribe={handleSubscribe} />
+          ) : paymentStatus ? (
+            <StatusMessage isSuccess={paymentStatus === 'success'} />
           ) : (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <PaymentForm 
                 userData={userData} 
-                onPaymentSuccess={handlePaymentSuccess}
+                onPaymentSuccess={handlePaymentSuccessWrapper}
+                onPaymentError={handlePaymentError}
               />
             </Elements>
           )}
