@@ -3,7 +3,6 @@ const cors = require('cors')({
   origin: process.env.ALLOWED_ORIGINS.split(','),
   methods: ['POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
-  credentials: true,
   maxAge: 3600
 });
 

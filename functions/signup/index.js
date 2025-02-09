@@ -29,8 +29,6 @@ exports.handleSignup = (req, res) => {
   });
 
   return cors(req, res, async () => {
-    // Log that we passed CORS middleware
-    console.log('Passed CORS middleware');
 
     if (req.method === 'OPTIONS') {
       console.log('Handling OPTIONS request');
