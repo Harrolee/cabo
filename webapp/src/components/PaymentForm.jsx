@@ -139,7 +139,7 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
           Get daily beach fitness motivation texts and progress pics to get you Cabo-ready
         </p>
       </div>
-      <PaymentElement options={{ layout: 'tabs' }} clientSecret={clientSecret} />
+      <PaymentElement options={{ layout: 'tabs' }} appearance={{ theme: 'stripe' }} />
       <button
         type="submit"
         disabled={isProcessing || !stripe || !elements}
