@@ -13,9 +13,9 @@ output "signup_function_url" {
   value       = module.signup_function.url
 }
 
-output "create_subscription_url" {
-  description = "URL of the create-subscription function"
-  value       = module.create_stripe_setup_function.url
+output "setup_stripe_subscription_url" {
+  description = "URL of the setup-stripe-subscription function"
+  value       = module.setup_stripe_subscription_function.url
 }
 
 output "stripe_webhook_url" {

@@ -1,0 +1,9 @@
+{
+  "name": "setup-stripe-subscription",
+  "version": "1.0.0",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.1",
+    "cors": "^2.8.5",
+    "stripe": "^17.6.0"
+  }
+}

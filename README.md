@@ -12,7 +12,7 @@ ci/cd will build a new container, push it to GAR, and then deploy it to Cloud Ru
 sequenceDiagram
     participant User
     participant Webapp
-    participant create_subscription
+    participant setup_stripe_subscription
     participant signup
     participant process_sms
     participant motivational_images
@@ -20,10 +20,10 @@ sequenceDiagram
     participant Twilio
 
     User->>Webapp: Enters contact info
-    Webapp->>create_subscription: POST /create-subscription
-    create_subscription->>Stripe: Create subscription
-    Stripe-->>create_subscription: Return clientSecret
-    create_subscription-->>Webapp: Return clientSecret
+    Webapp->>setup_stripe_subscription: POST /setup-stripe-subscription
+    setup_stripe_subscription->>Stripe: Create subscription
+    Stripe-->>setup_stripe_subscription: Return clientSecret
+    setup_stripe_subscription-->>Webapp: Return clientSecret
 
     User->>Webapp: Completes payment
     Webapp->>signup: POST /handle-user-signup

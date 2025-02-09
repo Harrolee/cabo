@@ -105,7 +105,7 @@ export function App() {
           const userData = await response.json();
           
           // Create subscription and get client secret
-          const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/create-stripe-setup`, {
+          const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/setup-stripe-subscription`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -150,7 +150,7 @@ export function App() {
       setUserData(userData);
       
       // Create subscription and get client secret from backend
-      const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/create-stripe-setup`, {
+      const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/setup-stripe-subscription`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
