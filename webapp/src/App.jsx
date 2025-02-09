@@ -122,7 +122,7 @@ export function App() {
 
   useEffect(() => {
     // Dynamically import all images from the preview-images directory
-    const images = import.meta.glob('/src/assets/preview-images/*.{png,jpg,jpeg,gif}', {
+    const images = import.meta.glob('/src/assets/mobile-intro/*.{png,jpg,jpeg,gif}', {
       eager: true,
       import: 'default'
     });
