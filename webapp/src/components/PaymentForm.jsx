@@ -43,15 +43,23 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
         return;
       }
 
-      // Create subscription with the setup payment method
-      const response = await stripe.subscriptions.create({
-        customer: userData.customerId,
-        items: [{ price: process.env.STRIPE_PRICE_ID }],
-        default_payment_method: setupIntent.payment_method,
+      // Create subscription through backend endpoint
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userData.email,
+          customerId: userData.customerId,
+          paymentMethodId: setupIntent.payment_method,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create subscription');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create subscription');
       }
 
       await onPaymentSuccess();
@@ -67,7 +75,7 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
     <form onSubmit={handleSubmit}>
       <div className="mb-4">
         <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Join CaboFit for $2/month
+          Join CaboFit for $6/month
         </h3>
         <p className="text-sm text-gray-600 mb-4">
           Get daily beach fitness motivation texts and progress pics to get you Cabo-ready
@@ -81,7 +89,7 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
           isProcessing ? 'opacity-50 cursor-not-allowed' : ''
         }`}
       >
-        {isProcessing ? 'Processing...' : 'Subscribe Now - $2/month'}
+        {isProcessing ? 'Processing...' : 'Subscribe Now - $6/month'}
       </button>
       {message && (
         <div className="mt-4 text-sm text-center text-gray-700">

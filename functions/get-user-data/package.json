@@ -4,9 +4,7 @@
   "description": "Cloud Function to get user data for payment form",
   "main": "index.js",
   "dependencies": {
-    "@supabase/supabase-js": "^2.48.1"
-  },
-  "engines": {
-    "node": "22"
+    "@supabase/supabase-js": "^2.48.1",
+    "cors": "^2.8.5"
   }
 } 

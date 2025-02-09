@@ -1,80 +1,91 @@
+const cors = require('cors')({
+  origin: process.env.ALLOWED_ORIGINS.split(','),
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 3600
+});
 const { createClient } = require('@supabase/supabase-js');
 
+// Initialize Supabase client with service role key to bypass RLS
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
 );
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGINS,
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Max-Age': '3600'
-};
-
-exports.getUserData = async (req, res) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, corsHeaders).end();
-    return;
-  }
-
-  // Set CORS headers for the main request
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    res.set(key, value);
+exports.getUserData = (req, res) => {
+  // Log incoming request details
+  console.log('Incoming request:', {
+    method: req.method,
+    headers: req.headers,
+    origin: req.headers.origin,
+    allowedOrigins: process.env.ALLOWED_ORIGINS.split(',')
   });
 
-  try {
-    const { email } = req.body;
+  return cors(req, res, async () => {
+    // Log that we passed CORS middleware
+    console.log('Passed CORS middleware');
 
-    if (!email) {
-      res.status(400).json({ error: 'Email is required' });
-      return;
+    if (req.method === 'OPTIONS') {
+      console.log('Handling OPTIONS request');
+      return res.status(204).send();
     }
 
-    // Get user profile and subscription status
-    const { data: userData, error: userError } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('email', email)
-      .single();
+    try {
+      const { email } = req.body;
 
-    if (userError || !userData) {
-      res.status(404).json({ error: 'User not found' });
-      return;
+      if (!email) {
+        res.status(400).json({ error: 'Email is required' });
+        return;
+      }
+
+      // Get user profile with service role (bypassing RLS)
+      const { data: userData, error: userError } = await supabase
+        .from('user_profiles')
+        .select('email, full_name, phone_number')
+        .eq('email', email)
+        .single();
+
+      if (userError || !userData) {
+        console.error('User lookup error:', userError);
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+
+      // Get subscription data with service role (bypassing RLS)
+      const { data: subscriptionData, error: subscriptionError } = await supabase
+        .from('subscriptions')
+        .select('trial_start_timestamp, status')
+        .eq('user_email', email)
+        .single();
+
+      if (subscriptionError || !subscriptionData) {
+        console.error('Subscription lookup error:', subscriptionError);
+        res.status(404).json({ error: 'Subscription not found' });
+        return;
+      }
+
+      // Calculate trial end date
+      const trialEndDate = new Date(subscriptionData.trial_start_timestamp);
+      trialEndDate.setDate(trialEndDate.getDate() + 3);
+
+      // Return user data needed for payment form
+      res.status(200).json({
+        email: userData.email,
+        full_name: userData.full_name,
+        phone_number: userData.phone_number,
+        trial_end: trialEndDate.toISOString(),
+        subscription_status: subscriptionData.status
+      });
+
+    } catch (error) {
+      console.error('Error getting user data:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
-
-    const { data: subscriptionData, error: subscriptionError } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_email', email)
-      .single();
-
-    if (subscriptionError || !subscriptionData) {
-      res.status(404).json({ error: 'Subscription not found' });
-      return;
-    }
-
-    // Check if user is in trial period (within 3 days of trial start)
-    const trialEndDate = new Date(subscriptionData.trial_start_timestamp);
-    trialEndDate.setDate(trialEndDate.getDate() + 3);
-    const now = new Date();
-
-    if (subscriptionData.status !== 'trial' || now > trialEndDate) {
-      res.status(403).json({ error: 'Trial period has expired' });
-      return;
-    }
-
-    // Return user data needed for payment form
-    res.status(200).json({
-      email: userData.email,
-      full_name: userData.full_name,
-      phone_number: userData.phone_number,
-      trial_end: trialEndDate.toISOString()
-    });
-
-  } catch (error) {
-    console.error('Error getting user data:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  });
 }; 

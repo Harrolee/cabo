@@ -9,8 +9,5 @@
     "openai": "^4.80.0",
     "replicate": "latest",
     "twilio": "^5.4.0"
-  },
-  "engines": {
-    "node": "22"
   }
 }
