@@ -23,7 +23,8 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
     }
 
     try {
-      const { error: stripeError } = await stripe.confirmPayment({
+      // Confirm the SetupIntent
+      const { error: setupError, setupIntent } = await stripe.confirmSetup({
         elements,
         confirmParams: {
           return_url: window.location.origin,
@@ -36,10 +37,21 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
         redirect: 'if_required',
       });
 
-      if (stripeError) {
-        setMessage(stripeError.message);
+      if (setupError) {
+        setMessage(setupError.message);
         onPaymentError();
         return;
+      }
+
+      // Create subscription with the setup payment method
+      const response = await stripe.subscriptions.create({
+        customer: userData.customerId,
+        items: [{ price: process.env.STRIPE_PRICE_ID }],
+        default_payment_method: setupIntent.payment_method,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create subscription');
       }
 
       await onPaymentSuccess();
