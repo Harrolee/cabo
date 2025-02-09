@@ -44,7 +44,7 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
       }
 
       // Create subscription through backend endpoint
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/create-stripe-subscription`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
