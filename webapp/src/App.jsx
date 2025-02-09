@@ -6,6 +6,7 @@ import { VideoBackground } from './components/VideoBackground';
 import { MainContent } from './components/MainContent';
 import { PolicyModals } from './components/PolicyModals';
 import UAParser from 'my-ua-parser';
+import backgroundImage from '/src/assets/background-image/beach-palm-tree.jpg'
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
@@ -233,12 +234,9 @@ export function App() {
         />
       ) : (
         <div 
-          className="fixed inset-0 bg-gradient-to-b from-sky-400 to-blue-500"
+          className="fixed inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: `
-              radial-gradient(circle at 80% 50%, rgba(255,255,255,0.12) 0%, transparent 60%),
-              radial-gradient(circle at 20% 30%, rgba(255,255,255,0.15) 0%, transparent 50%)
-            `
+            backgroundImage: `url(${backgroundImage})`
           }}
         />
       )}
