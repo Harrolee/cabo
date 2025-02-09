@@ -14,6 +14,14 @@ export function SignUpForm({ onSubscribe }) {
       alert('You must agree to receive motivational messages.');
       return;
     }
+
+    // Validate North American phone number
+    const phoneRegex = /^\+1[2-9]\d{9}$/;
+    if (!phoneRegex.test(phone)) {
+      toast.error('Please enter a valid North American phone number (+1 followed by a 10-digit number)');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -83,9 +91,12 @@ export function SignUpForm({ onSubscribe }) {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            placeholder="+1234567890"
+            placeholder="+1 followed by your 10-digit number"
           />
         </div>
+        <p className="mt-1 text-sm text-gray-500">
+          Currently only available for North American phone numbers
+        </p>
       </div>
 
       <div className="mt-4 flex items-center">
