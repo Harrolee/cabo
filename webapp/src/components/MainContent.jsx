@@ -57,9 +57,7 @@ export function MainContent({
       setPreviewImages(sortedMobileImages);
     } else {
       // For desktop, maintain existing behavior
-      const imagePath = '/src/assets/preview-images/*.{png,jpg,jpeg,gif}';
-
-      const images = import.meta.glob(imagePath, {
+      const images = import.meta.glob('/src/assets/preview-images/*.{png,jpg,jpeg,gif}', {
         eager: true,
         import: 'default'
       });
