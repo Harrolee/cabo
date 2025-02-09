@@ -79,6 +79,62 @@ export function App() {
     }
   }, [nextVideoIndex]);
 
+  useEffect(() => {
+    // Check for email parameter in URL when app loads
+    const urlParams = new URLSearchParams(window.location.search);
+    const emailParam = urlParams.get('email');
+    
+    if (emailParam) {
+      // Fetch user data and setup payment
+      const setupExistingUser = async () => {
+        try {
+          // Fetch user data from backend
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/get-user-data`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ email: emailParam }),
+          });
+          
+          if (!response.ok) {
+            throw new Error('User not found');
+          }
+          
+          const userData = await response.json();
+          
+          // Create subscription and get client secret
+          const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(userData),
+          });
+          
+          const data = await subscriptionResponse.json();
+          
+          if (!data.clientSecret) {
+            throw new Error('No client secret received from server');
+          }
+          
+          // Set up payment form
+          setUserData(userData);
+          setClientSecret(data.clientSecret);
+          setShowInitialScreen(false);
+          setShowPayment(true);
+        } catch (error) {
+          console.error('Error setting up payment:', error);
+          toast.error('Unable to load your payment information. Please try signing up again.');
+        }
+      };
+
+      setupExistingUser();
+    }
+  }, []); // Run once when component mounts
+
   const handleModalClose = () => {
     setShowInfo(false);
     setShowTerms(false);
@@ -113,9 +169,12 @@ export function App() {
         throw new Error('No client secret received from server');
       }
       
-      // Set client secret and show payment form immediately
+      // Store client secret for later use when user clicks payment link
       setClientSecret(data.clientSecret);
-      setShowPayment(true);
+      
+      // Instead of showing payment form, proceed to signup completion
+      await handlePaymentSuccess();
+      
     } catch (error) {
       console.error('Error in subscription process:', error);
       toast.error(error.message || 'Something went wrong. Please try again.');

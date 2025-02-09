@@ -47,6 +47,13 @@ data "archive_file" "process_sms_zip" {
   excludes    = ["node_modules"]
 }
 
+data "archive_file" "get_user_data_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/get-user-data"
+  output_path = "${path.root}/tmp/get-user-data.zip"
+  excludes    = ["node_modules"]
+}
+
 # Upload the function sources to Cloud Storage
 resource "google_storage_bucket_object" "motivational_images_source" {
   name   = "motivational-images-${data.archive_file.motivational_images_zip.output_md5}.zip"
@@ -76,6 +83,12 @@ resource "google_storage_bucket_object" "process_sms_source" {
   name   = "process-sms-${data.archive_file.process_sms_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.process_sms_zip.output_path
+}
+
+resource "google_storage_bucket_object" "get_user_data_source" {
+  name   = "get-user-data-${data.archive_file.get_user_data_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.get_user_data_zip.output_path
 }
 
 # Deploy Cloud Functions using the module
@@ -188,6 +201,24 @@ module "process_sms_function" {
   depends_on = [google_storage_bucket_object.process_sms_source]
 }
 
+module "get_user_data_function" {
+  source = "./modules/cloud_function"
+  
+  name        = "get-user-data"
+  description = "Function to get user data for payment form"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.get_user_data_source.name
+  entry_point = "getUserData"
+  
+  environment_variables = {
+    SUPABASE_URL             = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    ALLOWED_ORIGINS          = var.allowed_origins
+  }
+  depends_on = [google_storage_bucket_object.get_user_data_source]
+}
+
 # Cloud Scheduler configuration
 resource "google_cloud_scheduler_job" "daily_motivation" {
   name        = "trigger-daily-motivation"
@@ -239,6 +270,14 @@ resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
 resource "google_cloud_run_service_iam_member" "stripe_webhook_invoker" {
   location = module.stripe_webhook_function.function.location
   service  = module.stripe_webhook_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Add IAM policy for unauthenticated access
+resource "google_cloud_run_service_iam_member" "get_user_data_invoker" {
+  location = module.get_user_data_function.function.location
+  service  = module.get_user_data_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 } 

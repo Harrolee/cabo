@@ -38,6 +38,10 @@ sequenceDiagram
     motivational_images->>Twilio: Send daily motivation<br/>and fitness images
 ```
 
+## supabase sync
+
+check bitwarden
+
 ## To Do
 
 - Users can unsubscribe by texting one of the A2P opt-out keywords. We need to add a webhook and a cloud function to update supabase to handle this.
