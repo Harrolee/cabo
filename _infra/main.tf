@@ -139,15 +139,15 @@ module "signup_function" {
   depends_on = [google_storage_bucket_object.signup_source]
 }
 
-module "create_subscription_function" {
+module "create_stripe_setup_function" {
   source = "./modules/cloud_function"
   
-  name        = "create-subscription"
+  name        = "create-stripe-setup"
   description = "Function to create Stripe subscriptions"
   region      = var.region
   bucket_name = google_storage_bucket.function_bucket.name
   source_object = google_storage_bucket_object.create_subscription_source.name
-  entry_point = "createSubscription"
+  entry_point = "setupStripeSubscription"
   service_account_email = google_service_account.function_invoker.email
   
   environment_variables = {
@@ -253,8 +253,8 @@ resource "google_cloudfunctions2_function_iam_member" "invoker" {
 
 # Make sure we have IAM policy to allow unauthenticated invocations
 resource "google_cloud_run_service_iam_member" "create_subscription_invoker" {
-  location = module.create_subscription_function.function.location
-  service  = module.create_subscription_function.function.name
+  location = module.create_stripe_setup_function.function.location
+  service  = module.create_stripe_setup_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
