@@ -34,16 +34,6 @@ export function MainContent({
   });
 
   useEffect(() => {
-    // Load different image sets based on device type
-    const imagePath = isMobile 
-      ? '/src/assets/mobile-intro/*.{png,jpg,jpeg,gif}'
-      : '/src/assets/preview-images/*.{png,jpg,jpeg,gif}';
-
-    const images = import.meta.glob('/src/assets/preview-images/*.{png,jpg,jpeg,gif}', {
-      eager: true,
-      import: 'default'
-    });
-
     if (isMobile) {
       // For mobile, load and sort numbered images
       const mobileImages = import.meta.glob('/src/assets/mobile-intro/*.{png,jpg,jpeg,gif}', {
@@ -53,8 +43,9 @@ export function MainContent({
 
       const sortedMobileImages = Object.entries(mobileImages)
         .sort(([pathA], [pathB]) => {
-          const numA = parseInt(pathA.match(/(\d+)/)[0]);
-          const numB = parseInt(pathB.match(/(\d+)/)[0]);
+          // Extract numbers from filenames, default to 0 if no match
+          const numA = parseInt(pathA.match(/(\d+)/)?.[0] || '0');
+          const numB = parseInt(pathB.match(/(\d+)/)?.[0] || '0');
           return numA - numB;
         })
         .map(([path, src]) => ({
@@ -62,9 +53,17 @@ export function MainContent({
           alt: `Preview ${path.split('/').pop().split('.')[0]}`
         }));
 
+      console.log('Loaded mobile images:', sortedMobileImages); // Debug log
       setPreviewImages(sortedMobileImages);
     } else {
       // For desktop, maintain existing behavior
+      const imagePath = '/src/assets/preview-images/*.{png,jpg,jpeg,gif}';
+
+      const images = import.meta.glob(imagePath, {
+        eager: true,
+        import: 'default'
+      });
+
       const imageArray = Object.entries(images).map(([path, src]) => ({
         src,
         alt: `Preview ${path.split('/').pop().split('.')[0]}`
@@ -76,7 +75,7 @@ export function MainContent({
 
   useEffect(() => {
     if (showSwipeHint) {
-      const timer = setTimeout(() => setShowSwipeHint(false), 2000);
+      const timer = setTimeout(() => setShowSwipeHint(false), 3000);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -191,46 +190,47 @@ export function MainContent({
                     {...handlers}
                   >
                     {/* Product Demo Slides */}
-                    {currentImageIndex === previewImages.length - 1 ? (
-                      // Last slide - Call to action
-                      <div className="h-full w-full flex flex-col items-center justify-center p-6 text-white">
-                        <h2 className="text-3xl font-bold mb-4 text-center">
-                          Ready to transform your fitness journey?
-                        </h2>
-                        <p className="text-lg mb-8 text-center">
-                          Get started with your free trial today
-                        </p>
-                        <button
-                          onClick={handleInitialSubscribe}
-                          className="w-64 py-3 px-6 bg-indigo-600 rounded-full text-lg font-semibold shadow-lg"
-                        >
-                          I'm in!
-                        </button>
-                      </div>
-                    ) : (
-                      // Demo GIF slides
-                      <img
-                        src={previewImages[currentImageIndex].src}
-                        alt={previewImages[currentImageIndex].alt}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
+                    <img
+                      src={previewImages[currentImageIndex].src}
+                      alt={previewImages[currentImageIndex].alt}
+                      className="h-full w-full object-cover"
+                    />
 
-                    {/* Swipe Hint Animation */}
+                    {/* Enhanced Swipe Hint Animation */}
                     {showSwipeHint && currentImageIndex === 0 && (
                       <motion.div
                         initial={{ opacity: 0 }}
-                        animate={{ opacity: [0, 1, 0] }}
-                        transition={{ duration: 2, repeat: 1 }}
-                        className="absolute inset-0 pointer-events-none"
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center pointer-events-none"
                       >
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                        <div className="flex items-center space-x-4">
                           <motion.div
-                            animate={{ x: [0, 50, 0] }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                            className="text-white text-6xl opacity-50"
+                            animate={{ 
+                              x: [-20, 20, -20],
+                              opacity: [0.8, 1, 0.8]
+                            }}
+                            transition={{ 
+                              duration: 1.5, 
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                            className="flex items-center"
                           >
-                            →
+                            <span className="text-white text-xl">Swipe</span>
+                            <svg 
+                              className="w-8 h-8 text-white ml-2" 
+                              fill="none" 
+                              viewBox="0 0 24 24" 
+                              stroke="currentColor"
+                            >
+                              <path 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round" 
+                                strokeWidth={2} 
+                                d="M14 5l7 7m0 0l-7 7m7-7H3" 
+                              />
+                            </svg>
                           </motion.div>
                         </div>
                       </motion.div>
