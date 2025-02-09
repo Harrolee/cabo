@@ -25,6 +25,7 @@ export function MainContent({
   const [paymentStatus, setPaymentStatus] = useState(null); // 'success' | 'error' | null
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const [clientSecret, setClientSecret] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Add this to check for email parameter
   const [hasEmailParam] = useState(() => {
@@ -89,6 +90,16 @@ export function MainContent({
     }
   }, [showPayment, userData?.email, hasEmailParam]);
 
+  // Add this useEffect to handle initial loading
+  useEffect(() => {
+    // Give enough time for resources to load
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const nextImage = () => {
     setCurrentImageIndex((prev) => 
       prev === previewImages.length - 1 ? 0 : prev + 1
@@ -116,6 +127,17 @@ export function MainContent({
   const handlePaymentError = () => {
     setPaymentStatus('error');
   };
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+          <p className="mt-4 text-white text-lg">Loading CaboFit...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative z-10 min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-black bg-opacity-50">
