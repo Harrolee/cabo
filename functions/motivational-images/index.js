@@ -63,14 +63,14 @@ async function generateActionModifier() {
       messages: [
         {
           role: "system",
-          content: "Generate a short, specific beach activity description (2-4 words) that would work well in both these contexts:\n1. 'A realistic photo of an overweight [preference] wearing beach clothes, [activity]'\n2. 'A realistic photo of a fit and athletic [preference] wearing beach clothes, [activity]'\nThe activity should be something active and photographable, like 'playing volleyball' or 'running along shoreline'."
+          content: "Generate a short, specific beach activity description (2-4 words) that would work well in both these contexts:\n1. 'A realistic photo of an overweight [preference] wearing beach clothes, [activity]'\n2. 'A realistic photo of a fit and athletic [preference] wearing beach clothes, [activity]'\nThe activity should be something active and photographable. Focus on activities like 'playing volleyball', 'running along shoreline', 'swimming in waves', 'doing beach yoga', etc."
         },
         {
           role: "user",
           content: "Generate a beach activity."
         }
       ],
-      temperature: 0.7,
+      temperature: 1.0,
       max_tokens: 50,
     });
 
@@ -89,7 +89,10 @@ async function generateActionModifier() {
       "swimming in ocean",
       "playing beach soccer",
       "doing beach pushups",
-      "playing beach tennis"
+      "playing beach tennis",
+      "tossing football",
+      "stretching on beach",
+      "doing beach sprints"
     ];
     return fallbackActions[Math.floor(Math.random() * fallbackActions.length)];
   }

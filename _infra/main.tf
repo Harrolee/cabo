@@ -233,4 +233,12 @@ resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
   service  = module.process_sms_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+# Add IAM policy for stripe webhook unauthenticated access
+resource "google_cloud_run_service_iam_member" "stripe_webhook_invoker" {
+  location = module.stripe_webhook_function.function.location
+  service  = module.stripe_webhook_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 } 

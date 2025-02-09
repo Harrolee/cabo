@@ -1,3 +1,5 @@
+local-dev
+
 static_assets/
 scripts/
 tmp/

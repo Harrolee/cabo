@@ -50,20 +50,19 @@ exports.handleSignup = (req, res) => {
       }
 
       const supabase = getSupabase();
-      console.log('Attempting Supabase insert');
+      console.log('Starting Supabase transaction');
 
-      const { error } = await supabase
-        .from('user_profiles')
-        .insert([{ 
-          phone_number: phone,
-          full_name: name,
-          email: email
-        }]);
+      // Create user profile and trial subscription
+      const { data, error } = await supabase.rpc('create_user_with_trial', {
+        p_phone: phone,
+        p_name: name,
+        p_email: email,
+        p_image_preference: "ambiguously non-white 30something"
+      });
 
       if (error) {
         console.error('Supabase error:', error);
         
-        // Check for duplicate phone number error
         if (error.code === '23505' && error.message.includes('phone_number')) {
           return res.status(409).json({
             success: false,

@@ -71,7 +71,7 @@ export function MainContent({
     <div className="relative z-10 min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-black bg-opacity-50">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-          {showInitialScreen ? 'CaboFit' : 'Sign Up'}
+          {showInitialScreen ? 'CaboFit' : 'Start Your Free Trial'}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-200">
           Get fit for Cabo with daily motivation texts and progress pics
