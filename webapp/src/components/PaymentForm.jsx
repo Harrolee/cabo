@@ -32,7 +32,10 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
           handleError(data, 'Setup intent creation error');
           return;
         }
-
+        console.log("client secret")
+        console.log(data.clientSecret)
+        console.log("data:")
+        console.log(data)
         setClientSecret(data.clientSecret);
       } catch (error) {
         handleError(error, 'Setup intent creation error');
