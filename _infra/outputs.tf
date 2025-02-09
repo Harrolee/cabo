@@ -13,11 +13,6 @@ output "signup_function_url" {
   value       = module.signup_function.url
 }
 
-output "setup_stripe_subscription_url" {
-  description = "URL of the setup-stripe-subscription function"
-  value       = module.setup_stripe_subscription_function.url
-}
-
 output "stripe_webhook_url" {
   description = "URL of the stripe-webhook function"
   value       = module.stripe_webhook_function.url

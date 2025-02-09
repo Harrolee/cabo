@@ -11,14 +11,32 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState(null);
 
+  const handleError = (error, context) => {
+    console.error(`${context}:`, error);
+    let userMessage = 'An unexpected error occurred. Please try again.';
+
+    if (error.code === 'MISSING_FIELDS') {
+      userMessage = 'Please ensure all required fields are filled out.';
+    } else if (error.code === 'PAYMENT_METHOD_ERROR') {
+      userMessage = 'There was an issue with your payment method. Please try again with a different card.';
+    } else if (error.code === 'INVALID_STATUS') {
+      userMessage = 'Your subscription status is invalid. Please contact support.';
+    } else if (error.code === 'STRIPE_ERROR') {
+      userMessage = error.message || 'Payment processing failed. Please try again.';
+    }
+
+    setMessage(userMessage);
+    onPaymentError();
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsProcessing(true);
+    setMessage(null);
 
     if (!userData?.email) {
-      setMessage('Missing user email. Please try again.');
+      handleError({ code: 'MISSING_FIELDS' }, 'Missing email');
       setIsProcessing(false);
-      onPaymentError();
       return;
     }
 
@@ -38,12 +56,12 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
       });
 
       if (setupError) {
-        setMessage(setupError.message);
-        onPaymentError();
+        handleError(setupError, 'Setup confirmation error');
+        setIsProcessing(false);
         return;
       }
 
-      // Create subscription through backend endpoint
+      // Create subscription
       const response = await fetch(`${import.meta.env.VITE_API_URL}/create-stripe-subscription`, {
         method: 'POST',
         headers: {
@@ -52,20 +70,20 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
         },
         body: JSON.stringify({
           email: userData.email,
-          customerId: userData.customerId,
           paymentMethodId: setupIntent.payment_method,
         }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create subscription');
+        handleError(data, 'Subscription creation error');
+        return;
       }
 
       await onPaymentSuccess();
     } catch (error) {
-      setMessage(error.message || 'An unexpected error occurred');
-      onPaymentError();
+      handleError(error, 'Unexpected error');
     } finally {
       setIsProcessing(false);
     }

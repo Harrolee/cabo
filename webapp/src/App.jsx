@@ -104,30 +104,13 @@ export function App() {
           
           const userData = await response.json();
           
-          // Create subscription and get client secret
-          const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/setup-stripe-subscription`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: JSON.stringify(userData),
-          });
-          
-          const data = await subscriptionResponse.json();
-          
-          if (!data.clientSecret) {
-            throw new Error('No client secret received from server');
-          }
-          
-          // Set up payment form
+          // Set up payment form without creating Stripe customer
           setUserData(userData);
-          setClientSecret(data.clientSecret);
           setShowInitialScreen(false);
           setShowPayment(true);
         } catch (error) {
-          console.error('Error setting up payment:', error);
-          toast.error('Unable to load your payment information. Please try signing up again.');
+          console.error('Error loading user data:', error);
+          toast.error('Unable to load your information. Please try signing up again.');
         }
       };
 
@@ -148,33 +131,7 @@ export function App() {
   const handleSubscribe = async (userData) => {
     try {
       setUserData(userData);
-      
-      // Create subscription and get client secret from backend
-      const subscriptionResponse = await fetch(`${import.meta.env.VITE_API_URL}/setup-stripe-subscription`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-      
-      if (subscriptionResponse.status === 409) {
-        throw new Error('This phone number is already registered with CaboFit');
-      }
-      
-      const data = await subscriptionResponse.json();
-      
-      if (!data.clientSecret) {
-        throw new Error('No client secret received from server');
-      }
-      
-      // Store client secret for later use when user clicks payment link
-      setClientSecret(data.clientSecret);
-      
-      // Instead of showing payment form, proceed to signup completion
       await handlePaymentSuccess();
-      
     } catch (error) {
       console.error('Error in subscription process:', error);
       toast.error(error.message || 'Something went wrong. Please try again.');
@@ -273,7 +230,7 @@ export function App() {
               </button>
             </div>
             <img
-              src="/path/to/your/preview-image.jpg"
+              src="src/assets/preview-images/cabo-dummy-gif.gif"
               alt="Preview of daily motivational content"
               className="w-full rounded-lg shadow-lg"
             />

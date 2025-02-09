@@ -8,13 +8,14 @@ Three days pass, filled with workout pics and inspiration. Then, like a friendly
 
 Behind the scenes, it's like a well-choreographed gym routine:
 1. The app recognizes them (thanks to their email in the URL - clever!)
-2. Stripe gets ready to collect payment (like a spotter getting ready to help with a heavy lift)
-3. The payment form appears (smooth, like a perfect protein shake)
+2. Shows them the payment form (smooth, like a perfect protein shake)
+3. When they enter their card details, Stripe Elements handles the secure collection
 
-When Gym Warrior enters their card details, it's showtime! The app:
+When Gym Warrior submits their payment, it's showtime! The app:
 1. First makes sure the card is legit (no one likes a bounced payment, right?)
-2. Sets up their subscription (like signing up for a premium gym membership)
-3. Starts sending them even spicier workout motivation! 🌶️
+2. Creates their Stripe customer profile (if they're new to Stripe)
+3. Sets up their subscription (like signing up for a premium gym membership)
+4. Starts sending them even spicier workout motivation! 🌶️
 
 Meanwhile, Stripe's webhook is like that diligent gym manager who keeps all the paperwork in order, making sure our database knows exactly what's going on with the subscription.
 
@@ -24,9 +25,8 @@ Meanwhile, Stripe's webhook is like that diligent gym manager who keeps all the 
 sequenceDiagram
     participant User as Gym Warrior
     participant App as CaboFit App
-    participant Setup as setup-stripe-subscription
     participant Stripe
-    participant Sub as setup-stripe-subscription
+    participant Sub as create-stripe-subscription
     participant Webhook as stripe-webhook
     participant DB as Supabase
 
@@ -36,15 +36,15 @@ sequenceDiagram
     
     Note over User,DB: Payment Flow
     User->>App: Clicks payment link in SMS
-    App->>Setup: Request setup (with email)
-    Setup->>Stripe: Create Customer & SetupIntent
-    Stripe-->>App: Returns clientSecret
+    App->>Stripe: Create SetupIntent
+    Stripe-->>App: Returns SetupIntent
     
     Note over User,DB: Payment Collection
     User->>App: Enters card details
     App->>Stripe: Confirm SetupIntent
     Stripe-->>App: Setup confirmed
     App->>Sub: Create subscription
+    Sub->>DB: Get/Create Stripe customer
     Sub->>Stripe: Create subscription
     
     Note over User,DB: Webhook Magic
