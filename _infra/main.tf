@@ -26,10 +26,10 @@ data "archive_file" "signup_zip" {
   excludes    = ["node_modules"]
 }
 
-data "archive_file" "create_subscription_zip" {
+data "archive_file" "setup_stripe_subscription_zip" {
   type        = "zip"
-  source_dir  = "${path.root}/../functions/create-subscription"
-  output_path = "${path.root}/tmp/create-subscription.zip"
+  source_dir  = "${path.root}/../functions/setup-stripe-subscription"
+  output_path = "${path.root}/tmp/setup-stripe-subscription.zip"
   excludes    = ["node_modules"]
 }
 
@@ -67,10 +67,10 @@ resource "google_storage_bucket_object" "signup_source" {
   source = data.archive_file.signup_zip.output_path
 }
 
-resource "google_storage_bucket_object" "create_subscription_source" {
-  name   = "create-subscription-${data.archive_file.create_subscription_zip.output_md5}.zip"
+resource "google_storage_bucket_object" "setup_stripe_subscription_source" {
+  name   = "setup-stripe-subscription-${data.archive_file.setup_stripe_subscription_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
-  source = data.archive_file.create_subscription_zip.output_path
+  source = data.archive_file.setup_stripe_subscription_zip.output_path
 }
 
 resource "google_storage_bucket_object" "stripe_webhook_source" {
@@ -139,14 +139,14 @@ module "signup_function" {
   depends_on = [google_storage_bucket_object.signup_source]
 }
 
-module "create_stripe_setup_function" {
+module "setup_stripe_subscription_function" {
   source = "./modules/cloud_function"
   
-  name        = "create-stripe-setup"
+  name        = "setup-stripe-subscription"
   description = "Function to create Stripe subscriptions"
   region      = var.region
   bucket_name = google_storage_bucket.function_bucket.name
-  source_object = google_storage_bucket_object.create_subscription_source.name
+  source_object = google_storage_bucket_object.setup_stripe_subscription_source.name
   entry_point = "setupStripeSubscription"
   service_account_email = google_service_account.function_invoker.email
   
@@ -157,7 +157,7 @@ module "create_stripe_setup_function" {
     SUPABASE_URL            = var.supabase_url
     SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
   }
-  depends_on = [google_storage_bucket_object.create_subscription_source]
+  depends_on = [google_storage_bucket_object.setup_stripe_subscription_source]
 }
 
 module "stripe_webhook_function" {
@@ -252,9 +252,9 @@ resource "google_cloudfunctions2_function_iam_member" "invoker" {
 }
 
 # Make sure we have IAM policy to allow unauthenticated invocations
-resource "google_cloud_run_service_iam_member" "create_subscription_invoker" {
-  location = module.create_stripe_setup_function.function.location
-  service  = module.create_stripe_setup_function.function.name
+resource "google_cloud_run_service_iam_member" "setup_stripe_subscription_invoker" {
+  location = module.setup_stripe_subscription_function.function.location
+  service  = module.setup_stripe_subscription_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }

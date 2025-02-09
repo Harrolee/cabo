@@ -24,9 +24,9 @@ Meanwhile, Stripe's webhook is like that diligent gym manager who keeps all the 
 sequenceDiagram
     participant User as Gym Warrior
     participant App as CaboFit App
-    participant Setup as create-stripe-setup
+    participant Setup as setup-stripe-subscription
     participant Stripe
-    participant Sub as create-subscription
+    participant Sub as setup-stripe-subscription
     participant Webhook as stripe-webhook
     participant DB as Supabase
 
