@@ -61,6 +61,7 @@ export function App() {
   const [showPreview, setShowPreview] = useState(false);
   const currentVideoRef = useRef(null);
   const nextVideoRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const handleVideoEnded = () => {
     if (nextVideoRef.current) {
@@ -82,15 +83,14 @@ export function App() {
   }, [nextVideoIndex]);
 
   useEffect(() => {
-    // Check for email parameter in URL when app loads
-    const urlParams = new URLSearchParams(window.location.search);
-    const emailParam = urlParams.get('email');
-    
-    if (emailParam) {
-      // Fetch user data and setup payment
-      const setupExistingUser = async () => {
-        try {
-          // Fetch user data from backend
+    const initializeApp = async () => {
+      try {
+        // Check for email parameter in URL when app loads
+        const urlParams = new URLSearchParams(window.location.search);
+        const emailParam = urlParams.get('email');
+        
+        if (emailParam) {
+          // Fetch user data and setup payment
           const response = await fetch(`${import.meta.env.VITE_API_URL}/get-user-data`, {
             method: 'POST',
             headers: {
@@ -105,19 +105,20 @@ export function App() {
           }
           
           const userData = await response.json();
-          
-          // Set up payment form without creating Stripe customer
           setUserData(userData);
           setShowInitialScreen(false);
           setShowPayment(true);
-        } catch (error) {
-          console.error('Error loading user data:', error);
-          toast.error('Unable to load your information. Please try signing up again.');
         }
-      };
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        toast.error('Unable to load your information. Please try signing up again.');
+      } finally {
+        // Ensure loading state is removed even if there's an error
+        setIsLoading(false);
+      }
+    };
 
-      setupExistingUser();
-    }
+    initializeApp();
   }, []); // Run once when component mounts
 
   useEffect(() => {
@@ -184,6 +185,17 @@ export function App() {
       toast.error('Something went wrong. Please try again.');
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+          <p className="mt-4 text-white text-lg">Loading CaboFit...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PaymentElement,
   useStripe,
@@ -10,6 +10,17 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState(null);
+  const [isElementsLoading, setIsElementsLoading] = useState(true);
+
+  useEffect(() => {
+    // Add listener for when Stripe Elements is ready
+    const checkElements = async () => {
+      if (elements) {
+        setIsElementsLoading(false);
+      }
+    };
+    checkElements();
+  }, [elements]);
 
   const handleError = (error, context) => {
     console.error(`${context}:`, error);
@@ -89,6 +100,17 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
     }
   };
 
+  if (isElementsLoading) {
+    return (
+      <div className="min-h-[300px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+          <p className="mt-4 text-gray-600 text-sm">Loading payment form...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="mb-4">
@@ -112,6 +134,14 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
       {message && (
         <div className="mt-4 text-sm text-center text-gray-700">
           {message}
+        </div>
+      )}
+      {isProcessing && (
+        <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+            <p className="mt-4 text-gray-600 text-sm">Processing payment...</p>
+          </div>
         </div>
       )}
     </form>
