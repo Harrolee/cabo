@@ -99,75 +99,77 @@ export function MainContent({
           {showInitialScreen && isMobile ? (
             <div className="fixed inset-0 bg-black">
               <AnimatePresence initial={false}>
-                <motion.div
-                  key={currentImageIndex}
-                  initial={{ opacity: 0, x: 300 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -300 }}
-                  transition={{ duration: 0.3 }}
-                  className="h-full w-full relative"
-                  {...handlers}
-                >
-                  {/* Product Demo Slides */}
-                  {currentImageIndex === previewImages.length - 1 ? (
-                    // Last slide - Call to action
-                    <div className="h-full w-full flex flex-col items-center justify-center p-6 text-white">
-                      <h2 className="text-3xl font-bold mb-4 text-center">
-                        Ready to transform your fitness journey?
-                      </h2>
-                      <p className="text-lg mb-8 text-center">
-                        Get started with your free trial today
-                      </p>
-                      <button
-                        onClick={handleInitialSubscribe}
-                        className="w-64 py-3 px-6 bg-indigo-600 rounded-full text-lg font-semibold shadow-lg"
-                      >
-                        I'm in!
-                      </button>
-                    </div>
-                  ) : (
-                    // Demo GIF slides
-                    <img
-                      src={previewImages[currentImageIndex].src}
-                      alt={previewImages[currentImageIndex].alt}
-                      className="h-full w-full object-cover"
-                    />
-                  )}
-
-                  {/* Swipe Hint Animation */}
-                  {showSwipeHint && currentImageIndex === 0 && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: [0, 1, 0] }}
-                      transition={{ duration: 2, repeat: 1 }}
-                      className="absolute inset-0 pointer-events-none"
-                    >
-                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        <motion.div
-                          animate={{ x: [0, 50, 0] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                          className="text-white text-6xl opacity-50"
+                {previewImages.length > 0 && (
+                  <motion.div
+                    key={currentImageIndex}
+                    initial={{ opacity: 0, x: 300 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -300 }}
+                    transition={{ duration: 0.3 }}
+                    className="h-full w-full relative"
+                    {...handlers}
+                  >
+                    {/* Product Demo Slides */}
+                    {currentImageIndex === previewImages.length - 1 ? (
+                      // Last slide - Call to action
+                      <div className="h-full w-full flex flex-col items-center justify-center p-6 text-white">
+                        <h2 className="text-3xl font-bold mb-4 text-center">
+                          Ready to transform your fitness journey?
+                        </h2>
+                        <p className="text-lg mb-8 text-center">
+                          Get started with your free trial today
+                        </p>
+                        <button
+                          onClick={handleInitialSubscribe}
+                          className="w-64 py-3 px-6 bg-indigo-600 rounded-full text-lg font-semibold shadow-lg"
                         >
-                          →
-                        </motion.div>
+                          I'm in!
+                        </button>
                       </div>
-                    </motion.div>
-                  )}
+                    ) : (
+                      // Demo GIF slides
+                      <img
+                        src={previewImages[currentImageIndex].src}
+                        alt={previewImages[currentImageIndex].alt}
+                        className="h-full w-full object-cover"
+                      />
+                    )}
 
-                  {/* Progress Indicator */}
-                  <div className="absolute bottom-8 left-0 right-0">
-                    <div className="flex justify-center gap-2">
-                      {[...Array(previewImages.length)].map((_, index) => (
-                        <div
-                          key={index}
-                          className={`h-2 w-2 rounded-full ${
-                            currentImageIndex === index ? 'bg-white' : 'bg-white/40'
-                          }`}
-                        />
-                      ))}
+                    {/* Swipe Hint Animation */}
+                    {showSwipeHint && currentImageIndex === 0 && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: [0, 1, 0] }}
+                        transition={{ duration: 2, repeat: 1 }}
+                        className="absolute inset-0 pointer-events-none"
+                      >
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                          <motion.div
+                            animate={{ x: [0, 50, 0] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="text-white text-6xl opacity-50"
+                          >
+                            →
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Progress Indicator */}
+                    <div className="absolute bottom-8 left-0 right-0">
+                      <div className="flex justify-center gap-2">
+                        {[...Array(previewImages.length)].map((_, index) => (
+                          <div
+                            key={index}
+                            className={`h-2 w-2 rounded-full ${
+                              currentImageIndex === index ? 'bg-white' : 'bg-white/40'
+                            }`}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                )}
               </AnimatePresence>
             </div>
           ) : showInitialScreen ? (

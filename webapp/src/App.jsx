@@ -47,6 +47,8 @@ const WORKOUT_VIDEOS = [
 ];
 
 export function App() {
+  const [previewImages, setPreviewImages] = useState({});
+
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [nextVideoIndex, setNextVideoIndex] = useState(1);
   const [showInfo, setShowInfo] = useState(false);
@@ -117,6 +119,15 @@ export function App() {
       setupExistingUser();
     }
   }, []); // Run once when component mounts
+
+  useEffect(() => {
+    // Dynamically import all images from the preview-images directory
+    const images = import.meta.glob('/src/assets/preview-images/*.{png,jpg,jpeg,gif}', {
+      eager: true,
+      import: 'default'
+    });
+    setPreviewImages(images);
+  }, []);
 
   const handleModalClose = () => {
     setShowInfo(false);
@@ -230,7 +241,7 @@ export function App() {
               </button>
             </div>
             <img
-              src="src/assets/preview-images/cabo-dummy-gif.gif"
+              src={previewImages['/src/assets/preview-images/cabo-dummy-gif.gif'] || ''}
               alt="Preview of daily motivational content"
               className="w-full rounded-lg shadow-lg"
             />
