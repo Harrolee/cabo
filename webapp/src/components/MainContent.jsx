@@ -34,20 +34,45 @@ export function MainContent({
   });
 
   useEffect(() => {
-    // Dynamically import all images from the preview-images directory
+    // Load different image sets based on device type
+    const imagePath = isMobile 
+      ? '/src/assets/mobile-intro/*.{png,jpg,jpeg,gif}'
+      : '/src/assets/preview-images/*.{png,jpg,jpeg,gif}';
+
     const images = import.meta.glob('/src/assets/preview-images/*.{png,jpg,jpeg,gif}', {
       eager: true,
       import: 'default'
     });
 
-    // Convert the images object to an array of image objects
-    const imageArray = Object.entries(images).map(([path, src]) => ({
-      src,
-      alt: `Preview ${path.split('/').pop().split('.')[0]}`
-    }));
+    if (isMobile) {
+      // For mobile, load and sort numbered images
+      const mobileImages = import.meta.glob('/src/assets/mobile-intro/*.{png,jpg,jpeg,gif}', {
+        eager: true,
+        import: 'default'
+      });
 
-    setPreviewImages(imageArray);
-  }, []);
+      const sortedMobileImages = Object.entries(mobileImages)
+        .sort(([pathA], [pathB]) => {
+          const numA = parseInt(pathA.match(/(\d+)/)[0]);
+          const numB = parseInt(pathB.match(/(\d+)/)[0]);
+          return numA - numB;
+        })
+        .map(([path, src]) => ({
+          src,
+          alt: `Preview ${path.split('/').pop().split('.')[0]}`
+        }));
+
+      setPreviewImages(sortedMobileImages);
+    } else {
+      // For desktop, maintain existing behavior
+      const imageArray = Object.entries(images).map(([path, src]) => ({
+        src,
+        alt: `Preview ${path.split('/').pop().split('.')[0]}`
+      }));
+
+      setPreviewImages(imageArray);
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     if (showSwipeHint) {
