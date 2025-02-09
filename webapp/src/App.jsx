@@ -47,7 +47,8 @@ const WORKOUT_VIDEOS = [
 ];
 
 export function App() {
-  const [previewImages, setPreviewImages] = useState({});
+  const [previewImages, setPreviewImages] = useState([]);
+  const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
 
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [nextVideoIndex, setNextVideoIndex] = useState(1);
@@ -122,12 +123,23 @@ export function App() {
   }, []); // Run once when component mounts
 
   useEffect(() => {
-    // Dynamically import all images from the preview-images directory
+    // Modified image import to store them in array order
     const images = import.meta.glob('/src/assets/mobile-intro/*.{png,jpg,jpeg,gif}', {
       eager: true,
       import: 'default'
     });
-    setPreviewImages(images);
+    
+    // Convert to sorted array of image paths
+    const sortedImages = Object.entries(images)
+      .sort(([pathA], [pathB]) => {
+        // Extract numbers from filenames for sorting
+        const numA = parseInt(pathA.match(/(\d+)/)[0]);
+        const numB = parseInt(pathB.match(/(\d+)/)[0]);
+        return numA - numB;
+      })
+      .map(([_, value]) => value);
+
+    setPreviewImages(sortedImages);
   }, []);
 
   const handleModalClose = () => {
@@ -183,6 +195,17 @@ export function App() {
     } catch (error) {
       console.error('Error creating user profile:', error);
       toast.error('Something went wrong. Please try again.');
+    }
+  };
+
+  // Add function to handle navigation
+  const handlePreviewNavigation = (direction) => {
+    if (direction === 'next') {
+      setCurrentPreviewIndex((prev) => (prev + 1) % previewImages.length);
+    } else {
+      setCurrentPreviewIndex((prev) => 
+        prev === 0 ? previewImages.length - 1 : prev - 1
+      );
     }
   };
 
@@ -252,11 +275,34 @@ export function App() {
                 ✕
               </button>
             </div>
-            <img
-              src={previewImages['/src/assets/preview-images/cabo-dummy-gif.gif'] || ''}
-              alt="Preview of daily motivational content"
-              className="w-full rounded-lg shadow-lg"
-            />
+            <div className="relative">
+              <img
+                src={previewImages[currentPreviewIndex]}
+                alt={`Preview ${currentPreviewIndex + 1} of ${previewImages.length}`}
+                className="w-full rounded-lg shadow-lg"
+              />
+              {isMobile && (
+                <>
+                  <button
+                    onClick={() => handlePreviewNavigation('prev')}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-2 shadow-lg"
+                    aria-label="Previous image"
+                  >
+                    ←
+                  </button>
+                  <button
+                    onClick={() => handlePreviewNavigation('next')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-2 shadow-lg"
+                    aria-label="Next image"
+                  >
+                    →
+                  </button>
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 px-3 py-1 rounded-full">
+                    {currentPreviewIndex + 1} / {previewImages.length}
+                  </div>
+                </>
+              )}
+            </div>
             <p className={`mt-4 text-gray-600 ${isMobile ? 'text-sm' : ''}`}>
               Get daily workout motivation and fitness tips delivered right to your phone!
             </p>
