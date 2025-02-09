@@ -13,13 +13,6 @@ data "archive_file" "signup_zip" {
   excludes    = ["node_modules"]
 }
 
-data "archive_file" "setup_stripe_subscription_zip" {
-  type        = "zip"
-  source_dir  = "${path.root}/../functions/setup-stripe-subscription"
-  output_path = "${path.root}/tmp/setup-stripe-subscription.zip"
-  excludes    = ["node_modules"]
-}
-
 data "archive_file" "stripe_webhook_zip" {
   type        = "zip"
   source_dir  = "${path.root}/../functions/stripe-webhook"
@@ -59,12 +52,6 @@ resource "google_storage_bucket_object" "signup_source" {
   name   = "signup-${data.archive_file.signup_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.signup_zip.output_path
-}
-
-resource "google_storage_bucket_object" "setup_stripe_subscription_source" {
-  name   = "setup-stripe-subscription-${data.archive_file.setup_stripe_subscription_zip.output_md5}.zip"
-  bucket = google_storage_bucket.function_bucket.name
-  source = data.archive_file.setup_stripe_subscription_zip.output_path
 }
 
 resource "google_storage_bucket_object" "stripe_webhook_source" {
@@ -137,27 +124,6 @@ module "signup_function" {
     TWILIO_PHONE_NUMBER      = var.twilio_phone_number
   }
   depends_on = [google_storage_bucket_object.signup_source]
-}
-
-module "setup_stripe_subscription_function" {
-  source = "./modules/cloud_function"
-  
-  name        = "setup-stripe-subscription"
-  description = "Function to create Stripe subscriptions"
-  region      = var.region
-  bucket_name = google_storage_bucket.function_bucket.name
-  source_object = google_storage_bucket_object.setup_stripe_subscription_source.name
-  entry_point = "setupStripeSubscription"
-  service_account_email = google_service_account.function_invoker.email
-  
-  environment_variables = {
-    STRIPE_SECRET_KEY = var.stripe_secret_key
-    STRIPE_PRICE_ID   = var.stripe_price_id
-    ALLOWED_ORIGINS   = var.allowed_origins
-    SUPABASE_URL            = var.supabase_url
-    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
-  }
-  depends_on = [google_storage_bucket_object.setup_stripe_subscription_source]
 }
 
 module "stripe_webhook_function" {
@@ -235,14 +201,6 @@ module "create_stripe_subscription_function" {
     ALLOWED_ORIGINS   = var.allowed_origins
   }
   depends_on = [google_storage_bucket_object.create_stripe_subscription_source]
-}
-
-# IAM policies for functions
-resource "google_cloud_run_service_iam_member" "setup_stripe_subscription_invoker" {
-  location = module.setup_stripe_subscription_function.function.location
-  service  = module.setup_stripe_subscription_function.function.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
 }
 
 resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
