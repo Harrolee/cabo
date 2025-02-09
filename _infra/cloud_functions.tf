@@ -209,9 +209,11 @@ module "create_stripe_subscription_function" {
   entry_point = "createStripeSubscription"
   
   environment_variables = {
-    STRIPE_SECRET_KEY = var.stripe_secret_key
-    STRIPE_PRICE_ID   = var.stripe_price_id
-    ALLOWED_ORIGINS   = var.allowed_origins
+    STRIPE_SECRET_KEY        = var.stripe_secret_key
+    STRIPE_PRICE_ID          = var.stripe_price_id
+    ALLOWED_ORIGINS         = var.allowed_origins
+    SUPABASE_URL           = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
   }
   depends_on = [google_storage_bucket_object.create_stripe_subscription_source]
 }
