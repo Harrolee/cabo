@@ -15,7 +15,6 @@ export function MainContent({
   userData,
   handlePaymentSuccess,
   stripePromise,
-  clientSecret,
   setShowInfo,
   setShowTerms,
   setShowPrivacy,
@@ -25,6 +24,7 @@ export function MainContent({
   const [previewImages, setPreviewImages] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState(null); // 'success' | 'error' | null
   const [showSwipeHint, setShowSwipeHint] = useState(true);
+  const [clientSecret, setClientSecret] = useState(null);
   
   // Add this to check for email parameter
   const [hasEmailParam] = useState(() => {
@@ -54,6 +54,40 @@ export function MainContent({
       return () => clearTimeout(timer);
     }
   }, []);
+
+  useEffect(() => {
+    const createSetupIntent = async () => {
+      if (!userData?.email) return;
+      
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/create-setup-intent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            email: userData.email,
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          console.error('Setup intent creation error:', data);
+          return;
+        }
+
+        setClientSecret(data.clientSecret);
+      } catch (error) {
+        console.error('Setup intent creation error:', error);
+      }
+    };
+
+    if (showPayment && hasEmailParam) {
+      createSetupIntent();
+    }
+  }, [showPayment, userData?.email, hasEmailParam]);
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => 
@@ -232,7 +266,7 @@ export function MainContent({
             </>
           ) : !showPayment ? (
             <SignUpForm onSubscribe={handleSubscribe} />
-          ) : hasEmailParam ? ( // Only show payment form if we have email param
+          ) : hasEmailParam && clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <PaymentForm 
                 userData={userData} 
