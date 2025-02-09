@@ -15,8 +15,8 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
     event.preventDefault();
     setIsProcessing(true);
 
-    if (!userData) {
-      setMessage('Missing user data. Please try again.');
+    if (!userData?.email) {
+      setMessage('Missing user email. Please try again.');
       setIsProcessing(false);
       onPaymentError();
       return;
@@ -27,6 +27,11 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
         elements,
         confirmParams: {
           return_url: window.location.origin,
+          payment_method_data: {
+            metadata: {
+              email: userData.email
+            }
+          }
         },
         redirect: 'if_required',
       });

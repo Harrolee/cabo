@@ -23,6 +23,12 @@ export function MainContent({
   const [previewImages, setPreviewImages] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState(null); // 'success' | 'error' | null
   
+  // Add this to check for email parameter
+  const [hasEmailParam] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return !!urlParams.get('email');
+  });
+
   useEffect(() => {
     // Dynamically import all images from the preview-images directory
     const images = import.meta.glob('/src/assets/preview-images/*.{png,jpg,jpeg,gif}', {
@@ -140,9 +146,7 @@ export function MainContent({
             </>
           ) : !showPayment ? (
             <SignUpForm onSubscribe={handleSubscribe} />
-          ) : paymentStatus ? (
-            <StatusMessage isSuccess={paymentStatus === 'success'} />
-          ) : (
+          ) : hasEmailParam ? ( // Only show payment form if we have email param
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <PaymentForm 
                 userData={userData} 
@@ -150,6 +154,8 @@ export function MainContent({
                 onPaymentError={handlePaymentError}
               />
             </Elements>
+          ) : (
+            <StatusMessage isSuccess={true} /> // Show success message for new signups
           )}
         </div>
       </div>
