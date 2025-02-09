@@ -212,8 +212,11 @@ export function App() {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
-        <div className="text-center">
+      <div className="fixed inset-0 bg-cover bg-center flex items-center justify-center"
+           style={{
+             backgroundImage: `url(${backgroundImage})`
+           }}>
+        <div className="text-center bg-black/50 p-6 rounded-lg backdrop-blur-sm">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
           <p className="mt-4 text-white text-lg">Loading CaboFit...</p>
         </div>
