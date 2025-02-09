@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PaymentElement,
   useStripe,
@@ -10,6 +10,39 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState(null);
+  const [clientSecret, setClientSecret] = useState(null);
+
+  useEffect(() => {
+    const createSetupIntent = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/create-setup-intent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            email: userData.email,
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          handleError(data, 'Setup intent creation error');
+          return;
+        }
+
+        setClientSecret(data.clientSecret);
+      } catch (error) {
+        handleError(error, 'Setup intent creation error');
+      }
+    };
+
+    if (userData?.email) {
+      createSetupIntent();
+    }
+  }, [userData?.email]);
 
   const handleError = (error, context) => {
     console.error(`${context}:`, error);
@@ -89,6 +122,10 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
     }
   };
 
+  if (!clientSecret) {
+    return <div>Loading payment form...</div>;
+  }
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="mb-4">
@@ -99,7 +136,7 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
           Get daily beach fitness motivation texts and progress pics to get you Cabo-ready
         </p>
       </div>
-      <PaymentElement />
+      <PaymentElement options={{ clientSecret }} />
       <button
         type="submit"
         disabled={isProcessing || !stripe || !elements}

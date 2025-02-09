@@ -1,0 +1,11 @@
+{
+  "name": "create-setup-intent",
+  "description": "Cloud Function to create Stripe setup intents",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "stripe": "^17.6.0",
+    "@supabase/supabase-js": "^2.48.1"
+  }
+} 

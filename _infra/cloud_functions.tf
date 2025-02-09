@@ -41,6 +41,13 @@ data "archive_file" "create_stripe_subscription_zip" {
   excludes    = ["node_modules"]
 }
 
+data "archive_file" "create_setup_intent_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/create-setup-intent"
+  output_path = "${path.root}/tmp/create-setup-intent.zip"
+  excludes    = ["node_modules"]
+}
+
 # Upload the function sources to Cloud Storage
 resource "google_storage_bucket_object" "motivational_images_source" {
   name   = "motivational-images-${data.archive_file.motivational_images_zip.output_md5}.zip"
@@ -76,6 +83,12 @@ resource "google_storage_bucket_object" "create_stripe_subscription_source" {
   name   = "create-stripe-subscription-${data.archive_file.create_stripe_subscription_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.create_stripe_subscription_zip.output_path
+}
+
+resource "google_storage_bucket_object" "create_setup_intent_source" {
+  name   = "create-setup-intent-${data.archive_file.create_setup_intent_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.create_setup_intent_zip.output_path
 }
 
 # Deploy Cloud Functions using the module
@@ -203,6 +216,25 @@ module "create_stripe_subscription_function" {
   depends_on = [google_storage_bucket_object.create_stripe_subscription_source]
 }
 
+module "create_setup_intent_function" {
+  source = "./modules/cloud_function"
+  
+  name        = "create-setup-intent"
+  description = "Function to create Stripe setup intents"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.create_setup_intent_source.name
+  entry_point = "createSetupIntent"
+  
+  environment_variables = {
+    STRIPE_SECRET_KEY        = var.stripe_secret_key
+    ALLOWED_ORIGINS         = var.allowed_origins
+    SUPABASE_URL           = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+  }
+  depends_on = [google_storage_bucket_object.create_setup_intent_source]
+}
+
 resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
   location = module.process_sms_function.function.location
   service  = module.process_sms_function.function.name
@@ -227,6 +259,13 @@ resource "google_cloud_run_service_iam_member" "get_user_data_invoker" {
 resource "google_cloud_run_service_iam_member" "create_stripe_subscription_invoker" {
   location = module.create_stripe_subscription_function.function.location
   service  = module.create_stripe_subscription_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "create_setup_intent_invoker" {
+  location = module.create_setup_intent_function.function.location
+  service  = module.create_setup_intent_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 } 
