@@ -27,7 +27,7 @@ CREATE TABLE public.user_profiles (
     timezone text DEFAULT 'UTC',
     spice_level integer DEFAULT 3 NOT NULL,
     image_preference text NOT NULL DEFAULT 'diverse group of people',
-    CONSTRAINT phone_number_format CHECK (phone_number ~ '^\+[1-9]\d{1,14}$'),
+    CONSTRAINT phone_number_format CHECK (phone_number ~ '^\+1[2-9]\d{9}$'),
     CONSTRAINT check_spice_level CHECK (spice_level >= 1 AND spice_level <= 5),
     UNIQUE(email),
     UNIQUE(phone_number)
