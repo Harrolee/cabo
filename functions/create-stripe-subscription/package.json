@@ -1,0 +1,8 @@
+{
+  "name": "create-stripe-subscription",
+  "version": "1.0.0",
+  "dependencies": {
+    "stripe": "^17.6.0",
+    "cors": "^2.8.5"
+  }
+} 

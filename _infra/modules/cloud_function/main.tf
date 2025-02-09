@@ -58,7 +58,7 @@ resource "google_cloudfunctions2_function" "function" {
   description = var.description
 
   build_config {
-    runtime     = "nodejs18"
+    runtime     = "nodejs22"
     entry_point = var.entry_point
     source {
       storage_source {

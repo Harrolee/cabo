@@ -22,6 +22,125 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Constants
+const TRIAL_DURATION_DAYS = 3;
+const DEFAULT_SPICE_LEVEL = 2;
+const MESSAGES = {
+  PAYMENT_LINK: '🏖️ Love your daily beach motivation? Keep the gains coming! Click here to continue your CaboFit journey: {paymentLink}',
+};
+
+/**
+ * @typedef {Object} UserSubscription
+ * @property {string} status - The subscription status ('trial' or 'active')
+ * @property {string} trial_start_timestamp - ISO timestamp when trial started
+ */
+
+/**
+ * @typedef {Object} UserProfile
+ * @property {string} phone_number - User's phone number
+ * @property {string} email - User's email
+ * @property {string} full_name - User's full name
+ * @property {number} spice_level - Message spice level (1-5)
+ * @property {string} image_preference - User's image preference
+ * @property {UserSubscription[]} subscriptions - User's subscription data
+ */
+
+/**
+ * Calculates the number of days since trial start
+ * @param {string} trialStartTimestamp - ISO timestamp of trial start
+ * @returns {number} Number of days since trial started
+ */
+function getDaysSinceTrialStart(trialStartTimestamp) {
+  const trialStart = new Date(trialStartTimestamp);
+  return Math.floor((new Date() - trialStart) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Sends a payment link message to the user
+ * @param {string} phoneNumber - User's phone number
+ * @param {string} email - User's email
+ * @returns {Promise<void>}
+ */
+async function sendPaymentLinkMessage(phoneNumber, email) {
+  const paymentLink = `https://cabo.fit?email=${encodeURIComponent(email)}`;
+  await twilioClient.messages.create({
+    body: MESSAGES.PAYMENT_LINK.replace('{paymentLink}', paymentLink),
+    to: phoneNumber,
+    from: process.env.TWILIO_PHONE_NUMBER,
+  });
+  console.log(`Sent payment link to ${phoneNumber}`);
+}
+
+/**
+ * Determines user's subscription status and required action
+ * @param {UserProfile} user - User profile data
+ * @returns {{ shouldSendImages: boolean, shouldSendPaymentLink: boolean }}
+ */
+function getUserStatus(user) {
+  const subscription = user.subscriptions?.[0];
+  if (!subscription) {
+    console.log(`No subscription found for user ${user.phone_number}`);
+    return { shouldSendImages: false, shouldSendPaymentLink: false };
+  }
+
+  const daysSinceTrialStart = getDaysSinceTrialStart(subscription.trial_start_timestamp);
+
+  // Payment link day (day 4)
+  if (subscription.status === 'trial' && daysSinceTrialStart === TRIAL_DURATION_DAYS) {
+    return { shouldSendImages: false, shouldSendPaymentLink: true };
+  }
+
+  // Expired trial
+  if (subscription.status === 'trial' && daysSinceTrialStart > TRIAL_DURATION_DAYS) {
+    console.log(`Skipping user ${user.phone_number} - trial expired`);
+    return { shouldSendImages: false, shouldSendPaymentLink: false };
+  }
+
+  // Active subscription or within trial period
+  const isActive = subscription.status === 'active';
+  const isInTrial = subscription.status === 'trial' && daysSinceTrialStart <= TRIAL_DURATION_DAYS;
+  
+  return { 
+    shouldSendImages: isActive || isInTrial, 
+    shouldSendPaymentLink: false 
+  };
+}
+
+/**
+ * Processes a single user - generates and sends appropriate content
+ * @param {UserProfile} user - User profile data
+ * @returns {Promise<void>}
+ */
+async function processUser(user) {
+  try {
+    const { shouldSendImages, shouldSendPaymentLink } = getUserStatus(user);
+
+    if (shouldSendPaymentLink) {
+      await sendPaymentLinkMessage(user.phone_number, user.email);
+      return;
+    }
+
+    if (shouldSendImages) {
+      const images = await generateMotivationalImages(user.image_preference);
+      
+      if (!images || images.length === 0) {
+        throw new Error(`No images were generated for user ${user.phone_number}`);
+      }
+
+      await sendImagesToUser(
+        user.phone_number, 
+        images, 
+        user.spice_level || DEFAULT_SPICE_LEVEL
+      );
+
+      console.log(`Successfully sent images to ${user.phone_number}`);
+    }
+  } catch (error) {
+    console.error(`Error processing user ${user.phone_number}:`, error);
+    // Continue with other users even if one fails
+  }
+}
+
 async function saveImageToBucket(imageUrl, filename) {
   try {
     const bucket = storage.bucket(bucketName);
@@ -251,9 +370,20 @@ async function sendImagesToUser(phoneNumber, images, spiceLevel) {
 
 exports.sendMotivationalImages = async (event, context) => {
   try {
+    // Get all active users and their subscription status
     const { data: users, error } = await supabaseClient
       .from("user_profiles")
-      .select("phone_number, full_name, spice_level, image_preference")
+      .select(`
+        phone_number, 
+        full_name, 
+        spice_level, 
+        image_preference,
+        email,
+        subscriptions (
+          status,
+          trial_start_timestamp
+        )
+      `)
       .eq("active", true);
     
     if (error) {
@@ -267,31 +397,10 @@ exports.sendMotivationalImages = async (event, context) => {
       };
     }
 
-    console.log(`Generating personalized images for ${users.length} users`);
+    console.log(`Processing ${users.length} active users`);
     
-    // Generate and send images for each user individually
-    const sendPromises = users.map(async (user) => {
-      try {
-        const images = await generateMotivationalImages(user.image_preference);
-        
-        if (!images || images.length === 0) {
-          throw new Error(`No images were generated for user ${user.phone_number}`);
-        }
-
-        await sendImagesToUser(
-          user.phone_number, 
-          images, 
-          user.spice_level || 2
-        );
-
-        console.log(`Successfully sent images to ${user.phone_number}`);
-      } catch (error) {
-        console.error(`Error processing user ${user.phone_number}:`, error);
-        // Continue with other users even if one fails
-      }
-    });
-  
-    await Promise.all(sendPromises);
+    // Process each user individually
+    await Promise.all(users.map(processUser));
 
     return {
       statusCode: 200,
