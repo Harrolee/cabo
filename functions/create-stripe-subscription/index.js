@@ -29,11 +29,12 @@ exports.createStripeSubscription = (req, res) => {
       }
 
       // First check if we already have a customer
-      const { data: subscription, error: dbReadError } = await supabase
+      const { data: subscriptions, error: dbReadError } = await supabase
         .from('subscriptions')
         .select('stripe_customer_id, status')
         .eq('user_email', email)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       if (dbReadError) {
         console.error('Database read error:', dbReadError);
@@ -42,6 +43,15 @@ exports.createStripeSubscription = (req, res) => {
           code: 'DATABASE_ERROR'
         });
       }
+
+      if (!subscriptions || subscriptions.length === 0) {
+        return res.status(404).json({
+          error: 'No subscription found',
+          code: 'NOT_FOUND'
+        });
+      }
+
+      const subscription = subscriptions[0];
 
       // Verify subscription status
       if (subscription.status !== 'trial') {

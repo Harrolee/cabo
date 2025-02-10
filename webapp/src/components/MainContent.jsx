@@ -5,6 +5,7 @@ import { SignUpForm } from './SignUpForm';
 import { PaymentForm } from './PaymentForm';
 import { FooterLinks } from './FooterLinks';
 import { StatusMessage } from './StatusMessage';
+import { PaymentSuccess } from './PaymentSuccess';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 
@@ -160,8 +161,7 @@ export function MainContent({
     trackMouse: true
   });
 
-  const handlePaymentSuccessWrapper = async () => {
-    await handlePaymentSuccess();
+  const handlePaymentSuccess = () => {
     setPaymentStatus('success');
   };
 
@@ -289,13 +289,15 @@ export function MainContent({
                 )}
               </AnimatePresence>
             </div>
+          ) : paymentStatus === 'success' ? (
+            <PaymentSuccess />
           ) : showSignupForm ? (
             <SignUpForm onSubscribe={handleSubscribe} />
           ) : clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <PaymentForm 
                 userData={userData} 
-                onPaymentSuccess={handlePaymentSuccessWrapper}
+                onPaymentSuccess={handlePaymentSuccess}
                 onPaymentError={handlePaymentError}
               />
             </Elements>
