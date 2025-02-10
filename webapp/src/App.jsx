@@ -134,11 +134,13 @@ export function App() {
   };
 
   const handleInitialSubscribe = () => {
+    console.log('handleInitialSubscribe called in App');
     setShowInitialScreen(false);
   };
 
   const handleFreeTrialSignup = async (userData) => {
     try {
+      setShowSignupForm(true);
       setUserData(userData);
       const signupResponse = await fetch(`${import.meta.env.VITE_API_URL}/handle-user-signup`, {
         method: 'POST',
@@ -154,10 +156,8 @@ export function App() {
         throw new Error(errorData.message || 'Failed to create user profile');
       }
 
-      setShowSignupForm(false);
-      
       setTimeout(() => {
-        setShowSignupForm(true);
+        setShowSignupForm(false);
         setShowInitialScreen(true);
         setUserData(null);
       }, 20000);
