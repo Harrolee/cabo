@@ -7,6 +7,7 @@ export function OnboardingFlow({ handleInitialSubscribe, onSubscribe, isMobile }
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [previewImages, setPreviewImages] = useState([]);
   const [showSwipeHint, setShowSwipeHint] = useState(true);
+  const [showSignupForm, setShowSignupForm] = useState(false);
 
   useEffect(() => {
     if (isMobile) {
@@ -71,9 +72,13 @@ export function OnboardingFlow({ handleInitialSubscribe, onSubscribe, isMobile }
   });
 
   if (!isMobile) {
+    if (showSignupForm) {
+      return <SignUpForm onSubscribe={onSubscribe} />;
+    }
+
     return (
       <div className="flex flex-col items-center">
-        <div className="mb-8 w-full max-w-2xl">
+        <div className="w-full max-w-2xl">
           <div className="relative rounded-lg overflow-hidden shadow-xl">
             {previewImages.length > 0 && (
               <img
@@ -96,8 +101,15 @@ export function OnboardingFlow({ handleInitialSubscribe, onSubscribe, isMobile }
               </div>
             </div>
           </div>
+          <div className="mt-8 text-center">
+            <button
+              onClick={() => setShowSignupForm(true)}
+              className="w-64 py-3 px-6 bg-indigo-600 text-white rounded-full text-lg font-semibold shadow-lg hover:bg-indigo-700 transition-colors"
+            >
+              Start Your Free Trial
+            </button>
+          </div>
         </div>
-        <SignUpForm onSubscribe={onSubscribe} />
       </div>
     );
   }
