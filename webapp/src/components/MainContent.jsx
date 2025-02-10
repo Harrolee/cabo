@@ -213,9 +213,14 @@ export function MainContent({
             />
           ) : (
             <OnboardingFlow 
-              handleInitialSubscribe={handleInitialSubscribe}
+              handleInitialSubscribe={() => {
+                console.log('handleInitialSubscribe called from MainContent');
+                handleInitialSubscribe();
+              }}
               onSubscribe={handleSubscribe}
               isMobile={isMobile}
+              showSignupForm={!showInitialScreen && showSignupForm}
+              showInitialScreen={showInitialScreen}
             />
           )}
         </div>
