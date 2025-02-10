@@ -9,19 +9,14 @@ export function OnboardingFlow({ handleInitialSubscribe, onSubscribe, isMobile }
   const [showSwipeHint, setShowSwipeHint] = useState(true);
 
   useEffect(() => {
-    // Load appropriate images based on device type
-    const imagesPath = isMobile ? 
-      '/src/assets/mobile-intro/*.{png,jpg,jpeg,gif}' :
-      '/src/assets/preview-images/*.{png,jpg,jpeg,gif}';
-
-    const images = import.meta.glob(imagesPath, {
-      eager: true,
-      import: 'default'
-    });
-
     if (isMobile) {
-      // For mobile, sort numbered images
-      const sortedImages = Object.entries(images)
+      // For mobile, load and sort numbered images
+      const mobileImages = import.meta.glob('/src/assets/mobile-intro/*.{png,jpg,jpeg,gif}', {
+        eager: true,
+        import: 'default'
+      });
+
+      const sortedImages = Object.entries(mobileImages)
         .sort(([pathA], [pathB]) => {
           const numA = parseInt(pathA.match(/(\d+)/)?.[0] || '0');
           const numB = parseInt(pathB.match(/(\d+)/)?.[0] || '0');
@@ -34,8 +29,13 @@ export function OnboardingFlow({ handleInitialSubscribe, onSubscribe, isMobile }
 
       setPreviewImages(sortedImages);
     } else {
-      // For desktop, maintain existing order
-      const imageArray = Object.entries(images).map(([path, src]) => ({
+      // For desktop, load preview images
+      const desktopImages = import.meta.glob('/src/assets/preview-images/*.{png,jpg,jpeg,gif}', {
+        eager: true,
+        import: 'default'
+      });
+
+      const imageArray = Object.entries(desktopImages).map(([path, src]) => ({
         src,
         alt: `Preview ${path.split('/').pop().split('.')[0]}`
       }));
