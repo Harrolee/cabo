@@ -57,13 +57,13 @@ export function App() {
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showInitialScreen, setShowInitialScreen] = useState(true);
-  const [showPayment, setShowPayment] = useState(false);
-  const [clientSecret, setClientSecret] = useState('');
+  const [showSignupForm, setShowSignupForm] = useState(true);
   const [userData, setUserData] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const currentVideoRef = useRef(null);
   const nextVideoRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [urlParams] = useState(() => new URLSearchParams(window.location.search));
 
   const handleVideoEnded = () => {
     if (nextVideoRef.current) {
@@ -87,41 +87,22 @@ export function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Check for email parameter in URL when app loads
-        const urlParams = new URLSearchParams(window.location.search);
         const emailParam = urlParams.get('email');
-        
         if (emailParam) {
-          // Fetch user data and setup payment
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/get-user-data`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: JSON.stringify({ email: emailParam }),
-          });
-          
-          if (!response.ok) {
-            throw new Error('User not found');
-          }
-          
-          const userData = await response.json();
-          setUserData(userData);
+          setUserData({ email: emailParam });
           setShowInitialScreen(false);
-          setShowPayment(true);
+          setShowSignupForm(false);
         }
       } catch (error) {
         console.error('Error loading user data:', error);
         toast.error('Unable to load your information. Please try signing up again.');
       } finally {
-        // Ensure loading state is removed even if there's an error
         setIsLoading(false);
       }
     };
 
     initializeApp();
-  }, []); // Run once when component mounts
+  }, []);
 
   useEffect(() => {
     // Modified image import to store them in array order
@@ -153,25 +134,9 @@ export function App() {
     setShowInitialScreen(false);
   };
 
-  const handleSubscribe = async (userData) => {
+  const handleFreeTrialSignup = async (userData) => {
     try {
       setUserData(userData);
-      await handlePaymentSuccess();
-    } catch (error) {
-      console.error('Error in subscription process:', error);
-      toast.error(error.message || 'Something went wrong. Please try again.');
-      throw error;
-    }
-  };
-
-  const handlePaymentSuccess = async () => {
-    try {
-      if (!userData) {
-        toast.error('Session expired. Please sign up again.');
-        setShowPayment(false);
-        return;
-      }
-
       const signupResponse = await fetch(`${import.meta.env.VITE_API_URL}/handle-user-signup`, {
         method: 'POST',
         headers: {
@@ -186,16 +151,30 @@ export function App() {
         throw new Error(errorData.message || 'Failed to create user profile');
       }
 
-      // Reset form state after a delay to allow success message to be seen
+      toast.success('Welcome to CaboFit! Check your phone for a text message.');
+      setShowSignupForm(false);
+      
       setTimeout(() => {
-        setShowPayment(false);
+        setShowSignupForm(true);
         setShowInitialScreen(true);
         setUserData(null);
       }, 20000);
-      
+
     } catch (error) {
-      console.error('Error creating user profile:', error);
-      toast.error('Something went wrong. Please try again.');
+      console.error('Error in free trial signup:', error);
+      toast.error(error.message || 'Something went wrong. Please try again.');
+      throw error;
+    }
+  };
+
+  const handlePaidSignup = async (userData) => {
+    try {
+      setUserData(userData);
+      setShowSignupForm(false);
+    } catch (error) {
+      console.error('Error in paid signup process:', error);
+      toast.error(error.message || 'Something went wrong. Please try again.');
+      throw error;
     }
   };
 
@@ -247,12 +226,10 @@ export function App() {
       <MainContent
         showInitialScreen={showInitialScreen}
         handleInitialSubscribe={handleInitialSubscribe}
-        showPayment={showPayment}
-        handleSubscribe={handleSubscribe}
+        showSignupForm={showSignupForm}
+        handleSubscribe={urlParams.get('email') ? handlePaidSignup : handleFreeTrialSignup}
         userData={userData}
-        handlePaymentSuccess={handlePaymentSuccess}
         stripePromise={stripePromise}
-        clientSecret={clientSecret}
         setShowInfo={setShowInfo}
         setShowTerms={setShowTerms}
         setShowPrivacy={setShowPrivacy}

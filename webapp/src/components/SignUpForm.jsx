@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 
 export function SignUpForm({ onSubscribe }) {
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('+1');
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
@@ -18,7 +18,7 @@ export function SignUpForm({ onSubscribe }) {
     // Validate North American phone number
     const phoneRegex = /^\+1[2-9]\d{9}$/;
     if (!phoneRegex.test(phone)) {
-      toast.error('Please enter a valid North American phone number (+1 followed by a 10-digit number)');
+      toast.error('Please enter a valid North American phone number (10 digits after +1)');
       return;
     }
 
@@ -31,14 +31,24 @@ export function SignUpForm({ onSubscribe }) {
         phone
       });
       setName('');
-      setPhone('');
+      setPhone('+1');
       setEmail('');
+      toast.success('Successfully signed up! You will receive your first message soon.');
     } catch (error) {
       console.error('Signup error:', error);
-      toast.error(error.message || 'Failed to sign up. Please try again.');
+      toast.error('Unable to complete signup. Please try again. If the problem persists, refresh the page.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handlePhoneChange = (e) => {
+    let value = e.target.value;
+    // Ensure the value always starts with +1
+    if (!value.startsWith('+1')) {
+      value = '+1';
+    }
+    setPhone(value);
   };
 
   return (
@@ -89,9 +99,9 @@ export function SignUpForm({ onSubscribe }) {
             type="tel"
             required
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={handlePhoneChange}
             className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            placeholder="+1 followed by your 10-digit number"
+            placeholder="Enter your 10-digit number"
           />
         </div>
         <p className="mt-1 text-sm text-gray-500">

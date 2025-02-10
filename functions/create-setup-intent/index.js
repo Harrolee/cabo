@@ -50,13 +50,18 @@ exports.createSetupIntent = (req, res) => {
         const customer = await stripe.customers.create({ email });
         customerId = customer.id;
 
+        // Insert new record if it doesn't exist
         const { error: dbError } = await supabase
           .from('subscriptions')
-          .update({ stripe_customer_id: customerId })
-          .eq('user_email', email);
+          .upsert({ 
+            user_email: email,
+            stripe_customer_id: customerId,
+            status: 'pending'
+          });
 
         if (dbError) {
-          throw new Error('Failed to update subscription with customer ID');
+          console.error('Database error:', dbError);
+          throw new Error('Failed to create subscription record');
         }
       }
 
