@@ -28,7 +28,7 @@ exports.createSetupIntent = (req, res) => {
         });
       }
 
-      // Check if we already have a customer
+      // Check if we have an existing subscription
       const { data: subscription, error: dbReadError } = await supabase
         .from('subscriptions')
         .select('stripe_customer_id, status')
@@ -43,26 +43,35 @@ exports.createSetupIntent = (req, res) => {
         });
       }
 
-      let customerId = subscription?.stripe_customer_id;
+      if (!subscription) {
+        return res.status(404).json({
+          error: 'No subscription found',
+          code: 'NOT_FOUND'
+        });
+      }
 
-      // If no customer exists, create one
+      if (subscription.status !== 'trial') {
+        return res.status(400).json({
+          error: 'Invalid subscription status',
+          code: 'INVALID_STATUS'
+        });
+      }
+
+      let customerId = subscription.stripe_customer_id;
+
+      // If no customer exists, create one and update existing subscription
       if (!customerId) {
         const customer = await stripe.customers.create({ email });
         customerId = customer.id;
 
-        // Insert new record if it doesn't exist
         const { error: dbError } = await supabase
           .from('subscriptions')
-          .upsert({ 
-            user_email: email,
-            stripe_customer_id: customerId,
-            status: 'trial',
-            current_period_end: new Date(Date.now() + (3 * 24 * 60 * 60 * 1000))
-          });
+          .update({ stripe_customer_id: customerId })
+          .eq('user_email', email);
 
         if (dbError) {
           console.error('Database error:', dbError);
-          throw new Error('Failed to create subscription record');
+          throw new Error('Failed to update subscription with customer ID');
         }
       }
 

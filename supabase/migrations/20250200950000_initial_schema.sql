@@ -45,7 +45,8 @@ CREATE TABLE public.subscriptions (
     trial_start_timestamp timestamptz DEFAULT NOW() NOT NULL,
     current_period_end timestamptz NOT NULL,
     last_payment_status text,
-    last_payment_date timestamptz
+    last_payment_date timestamptz,
+    UNIQUE(user_email)
 );
 
 -- Create indexes
