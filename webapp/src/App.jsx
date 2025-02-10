@@ -62,8 +62,9 @@ export function App() {
   const [showPreview, setShowPreview] = useState(false);
   const currentVideoRef = useRef(null);
   const nextVideoRef = useRef(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAppLoading, setIsAppLoading] = useState(true);
   const [urlParams] = useState(() => new URLSearchParams(window.location.search));
+  const [isPaymentFlow] = useState(() => Boolean(urlParams.get('email')));
 
   const handleVideoEnded = () => {
     if (nextVideoRef.current) {
@@ -97,12 +98,14 @@ export function App() {
         console.error('Error loading user data:', error);
         toast.error('Unable to load your information. Please try signing up again.');
       } finally {
-        setIsLoading(false);
+        // Only set app as loaded after a brief delay for onboarding flow
+        const delay = urlParams.get('email') ? 0 : 1000;
+        setTimeout(() => setIsAppLoading(false), delay);
       }
     };
 
     initializeApp();
-  }, []);
+  }, [urlParams]);
 
   useEffect(() => {
     // Modified image import to store them in array order
@@ -151,7 +154,6 @@ export function App() {
         throw new Error(errorData.message || 'Failed to create user profile');
       }
 
-      toast.success('Welcome to CaboFit! Check your phone for a text message.');
       setShowSignupForm(false);
       
       setTimeout(() => {
@@ -189,7 +191,7 @@ export function App() {
     }
   };
 
-  if (isLoading) {
+  if (isAppLoading) {
     return (
       <div className="fixed inset-0 bg-cover bg-center flex items-center justify-center"
            style={{
@@ -197,7 +199,9 @@ export function App() {
            }}>
         <div className="text-center bg-black/50 p-6 rounded-lg backdrop-blur-sm">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
-          <p className="mt-4 text-white text-lg">Loading CaboFit...</p>
+          <p className="mt-4 text-white text-lg">
+            {urlParams.get('email') ? 'Setting up your account...' : 'Loading CaboFit...'}
+          </p>
         </div>
       </div>
     );
@@ -227,7 +231,7 @@ export function App() {
         showInitialScreen={showInitialScreen}
         handleInitialSubscribe={handleInitialSubscribe}
         showSignupForm={showSignupForm}
-        handleSubscribe={urlParams.get('email') ? handlePaidSignup : handleFreeTrialSignup}
+        handleSubscribe={isPaymentFlow ? handlePaidSignup : handleFreeTrialSignup}
         userData={userData}
         stripePromise={stripePromise}
         setShowInfo={setShowInfo}
@@ -237,6 +241,7 @@ export function App() {
         setShowPreview={setShowPreview}
         className={`${isMobile ? 'px-4 py-6' : 'px-8 py-12'}`}
         isMobile={isMobile}
+        isPaymentFlow={isPaymentFlow}
       />
 
       {showPreview && (

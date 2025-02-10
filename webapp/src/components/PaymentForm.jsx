@@ -10,13 +10,13 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState(null);
-  const [isElementsLoading, setIsElementsLoading] = useState(true);
+  const [isPaymentElementsLoading, setIsPaymentElementsLoading] = useState(true);
 
   useEffect(() => {
     // Add listener for when Stripe Elements is ready
     const checkElements = async () => {
       if (elements) {
-        setIsElementsLoading(false);
+        setIsPaymentElementsLoading(false);
       }
     };
     checkElements();
@@ -100,7 +100,7 @@ export function PaymentForm({ userData, onPaymentSuccess, onPaymentError }) {
     }
   };
 
-  if (isElementsLoading) {
+  if (isPaymentElementsLoading) {
     return (
       <div className="min-h-[300px] flex items-center justify-center">
         <div className="text-center">
