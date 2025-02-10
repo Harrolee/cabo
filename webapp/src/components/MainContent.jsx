@@ -6,14 +6,14 @@ import { PaymentForm } from './PaymentForm';
 import { FooterLinks } from './FooterLinks';
 import { StatusMessage } from './StatusMessage';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 export function MainContent({ 
   showInitialScreen, 
   handleInitialSubscribe, 
-  showPayment, 
+  showSignupForm,
   handleSubscribe,
   userData,
-  handlePaymentSuccess,
   stripePromise,
   setShowInfo,
   setShowTerms,
@@ -24,15 +24,9 @@ export function MainContent({
   const [previewImages, setPreviewImages] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState(null); // 'success' | 'error' | null
   const [showSwipeHint, setShowSwipeHint] = useState(true);
-  const [clientSecret, setClientSecret] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [clientSecret, setClientSecret] = useState(null);
   
-  // Add this to check for email parameter
-  const [hasEmailParam] = useState(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    return !!urlParams.get('email');
-  });
-
   useEffect(() => {
     if (isMobile) {
       // For mobile, load and sort numbered images
@@ -94,23 +88,48 @@ export function MainContent({
           }),
         });
 
-        const data = await response.json();
+        // Check if response has content before trying to parse JSON
+        const text = await response.text();
+        if (!text) {
+          console.error('Empty response from create-setup-intent');
+          toast.error('Unable to start payment process. Please try again.');
+          return;
+        }
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          console.error('Invalid JSON response:', text);
+          toast.error('Received invalid response from server. Please try again.');
+          return;
+        }
         
         if (!response.ok) {
           console.error('Setup intent creation error:', data);
+          toast.error(data.message || 'Failed to setup payment. Please try again.');
+          return;
+        }
+
+        if (!data.clientSecret) {
+          console.error('No client secret in response:', data);
+          toast.error('Invalid payment setup response. Please try again.');
           return;
         }
 
         setClientSecret(data.clientSecret);
       } catch (error) {
         console.error('Setup intent creation error:', error);
+        toast.error('Unable to setup payment. Please try again.');
       }
     };
 
-    if (showPayment && hasEmailParam) {
+    // Create setup intent when we have an email param and we're showing the payment form
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!showSignupForm && urlParams.get('email') && !clientSecret) {
       createSetupIntent();
     }
-  }, [showPayment, userData?.email, hasEmailParam]);
+  }, [showSignupForm, userData?.email, clientSecret]);
 
   // Add this useEffect to handle initial loading
   useEffect(() => {
@@ -270,67 +289,9 @@ export function MainContent({
                 )}
               </AnimatePresence>
             </div>
-          ) : showInitialScreen ? (
-            <>
-              {previewImages.length > 0 && (
-                /* iPhone Message Container */
-                <div className="bg-gray-100 rounded-2xl p-4 mx-2 mb-6 relative" {...handlers}>
-                  <div className="aspect-[2/3] relative">
-                    <img
-                      src={previewImages[currentImageIndex].src}
-                      alt={previewImages[currentImageIndex].alt}
-                      className="absolute inset-0 w-full h-full object-contain rounded-lg shadow-lg"
-                    />
-                  </div>
-
-                  {/* Carousel Navigation Dots */}
-                  {previewImages.length > 1 && (
-                    <div className="flex justify-center gap-2 mt-4">
-                      {previewImages.map((_, index) => (
-                        <button
-                          key={index}
-                          className={`h-2 w-2 rounded-full ${
-                            currentImageIndex === index ? 'bg-indigo-600' : 'bg-gray-300'
-                          }`}
-                          onClick={() => setCurrentImageIndex(index)}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Arrow Navigation */}
-                  {previewImages.length > 1 && (
-                    <>
-                      <button
-                        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-2 hover:bg-opacity-75"
-                        onClick={prevImage}
-                      >
-                        <svg className="h-6 w-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <button
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-2 hover:bg-opacity-75"
-                        onClick={nextImage}
-                      >
-                        <svg className="h-6 w-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-              <button
-                onClick={handleInitialSubscribe}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Let's Go!
-              </button>
-            </>
-          ) : !showPayment ? (
+          ) : showSignupForm ? (
             <SignUpForm onSubscribe={handleSubscribe} />
-          ) : hasEmailParam && clientSecret ? (
+          ) : clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <PaymentForm 
                 userData={userData} 
@@ -339,7 +300,14 @@ export function MainContent({
               />
             </Elements>
           ) : (
-            <StatusMessage isSuccess={true} /> // Show success message for new signups
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Thanks for signing up!
+              </h3>
+              <p className="text-sm text-gray-600">
+                Check your phone for a text message to set up your preferences.
+              </p>
+            </div>
           )}
         </div>
       </div>
