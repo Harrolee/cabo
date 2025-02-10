@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Elements } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
 import { PaymentForm } from './PaymentForm';
 import { toast } from 'react-hot-toast';
 
