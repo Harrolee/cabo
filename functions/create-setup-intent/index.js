@@ -56,7 +56,8 @@ exports.createSetupIntent = (req, res) => {
           .upsert({ 
             user_email: email,
             stripe_customer_id: customerId,
-            status: 'pending'
+            status: 'trial',
+            current_period_end: new Date(Date.now() + (3 * 24 * 60 * 60 * 1000))
           });
 
         if (dbError) {
