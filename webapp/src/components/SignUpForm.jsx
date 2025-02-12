@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function SignUpForm({ onSubscribe }) {
   const [name, setName] = useState('');
@@ -7,6 +8,7 @@ export function SignUpForm({ onSubscribe }) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,10 +32,7 @@ export function SignUpForm({ onSubscribe }) {
         email,
         phone
       });
-      setName('');
-      setPhone('+1');
-      setEmail('');
-      toast.success('Successfully signed up! You will receive your first message soon.');
+      setShowSuccess(true);
     } catch (error) {
       console.error('Signup error:', error);
       toast.error('Unable to complete signup. Please try again. If the problem persists, refresh the page.');
@@ -50,6 +49,42 @@ export function SignUpForm({ onSubscribe }) {
     }
     setPhone(value);
   };
+
+  if (showSuccess) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        className="text-center"
+      >
+        <h2 className="text-2xl font-bold mb-4">
+          Welcome to the Family! 🎉
+        </h2>
+        <p className="text-lg mb-6">
+          Your journey to better fitness starts now. Let's make every workout count!
+        </p>
+        <div className="w-16 h-16 mx-auto mb-6">
+          <svg
+            className="w-full h-full text-green-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
+        <p className="text-sm text-gray-600">
+          Check your phone for your first message!
+        </p>
+      </motion.div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
