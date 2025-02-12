@@ -28,11 +28,26 @@ exports.createSetupIntent = (req, res) => {
         });
       }
 
+      // Get user's phone number
+      const { data: userProfile, error: userError } = await supabase
+        .from('user_profiles')
+        .select('phone_number')
+        .eq('email', email)
+        .single();
+
+      if (userError || !userProfile) {
+        console.error('User lookup error:', userError);
+        return res.status(404).json({ 
+          error: 'User not found',
+          code: 'NOT_FOUND'
+        });
+      }
+
       // Check if we have an existing subscription
       const { data: subscription, error: dbReadError } = await supabase
         .from('subscriptions')
         .select('stripe_customer_id, status')
-        .eq('user_email', email)
+        .eq('user_phone', userProfile.phone_number)
         .single();
 
       if (dbReadError) {
@@ -67,7 +82,7 @@ exports.createSetupIntent = (req, res) => {
         const { error: dbError } = await supabase
           .from('subscriptions')
           .update({ stripe_customer_id: customerId })
-          .eq('user_email', email);
+          .eq('user_phone', userProfile.phone_number);
 
         if (dbError) {
           console.error('Database error:', dbError);

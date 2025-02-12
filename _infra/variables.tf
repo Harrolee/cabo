@@ -105,4 +105,16 @@ variable "process_sms_url" {
   description = "URL for the process-sms function"
   type        = string
   default     = null # Will be set by the function URL output
+}
+
+variable "conversation_bucket_name" {
+  description = "Name of the GCS bucket to store user conversations"
+  type        = string
+  default     = "user-conversations"
+}
+
+variable "conversation_bucket_location" {
+  description = "Location for the conversation storage bucket"
+  type        = string
+  default     = "US"
 } 

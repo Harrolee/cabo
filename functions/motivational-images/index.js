@@ -77,31 +77,38 @@ async function sendPaymentLinkMessage(phoneNumber, email) {
  * @returns {{ shouldSendImages: boolean, shouldSendPaymentLink: boolean }}
  */
 function getUserStatus(user) {
-  const subscription = user.subscriptions?.[0];
-  if (!subscription) {
-    console.log(`No subscription found for user ${user.phone_number}`);
+  const subscription = Array.isArray(user.subscriptions) 
+    ? user.subscriptions[0] 
+    : user.subscriptions;
+
+  if (!subscription || !subscription.status) {
     return { shouldSendImages: false, shouldSendPaymentLink: false };
   }
 
   const daysSinceTrialStart = getDaysSinceTrialStart(subscription.trial_start_timestamp);
 
+  // Active trial period (days 1-3)
+  if (subscription.status === 'trial' && daysSinceTrialStart < TRIAL_DURATION_DAYS) {
+    console.log(`User ${user.phone_number} is in active trial period`);
+    return { shouldSendImages: true, shouldSendPaymentLink: false };
+  }
+
   // Payment link day (day 4)
   if (subscription.status === 'trial' && daysSinceTrialStart === TRIAL_DURATION_DAYS) {
+    console.log(`User ${user.phone_number} is on payment link day`);
     return { shouldSendImages: false, shouldSendPaymentLink: true };
   }
 
   // Expired trial
   if (subscription.status === 'trial' && daysSinceTrialStart > TRIAL_DURATION_DAYS) {
-    console.log(`Skipping user ${user.phone_number} - trial expired`);
+    console.log(`User ${user.phone_number} has expired trial`);
     return { shouldSendImages: false, shouldSendPaymentLink: false };
   }
 
-  // Active subscription or within trial period
-  const isActive = subscription.status === 'active';
-  const isInTrial = subscription.status === 'trial' && daysSinceTrialStart <= TRIAL_DURATION_DAYS;
-  
+  // Active subscription
+  console.log(`User ${user.phone_number} has status: ${subscription.status}`);
   return { 
-    shouldSendImages: isActive || isInTrial, 
+    shouldSendImages: subscription.status === 'active', 
     shouldSendPaymentLink: false 
   };
 }
@@ -327,7 +334,12 @@ async function generateMotivationalMessage(spiceLevel) {
 - Makes up words like "SWOLEPOCALYPSE"
 - Everything is "BUILT DIFFERENT"
 
-The message should reference both the 'before' and 'after' states. Never use offensive language or body-shaming. Use emojis appropriately for the spice level. You can mock yourself and you can mock the user if you think it's appropriate, but NEVER mock marginalized groups, disabilities, religions, or historically abused people.`
+The message should:
+1. Reference both the 'before' and 'after' states
+2. Include a prompt for the user to text back AFTER completing today's workout
+3. Never use offensive language or body-shaming
+4. Use emojis appropriately for the spice level
+5. You can mock yourself and you can mock the user if appropriate, but NEVER mock marginalized groups, disabilities, religions, or historically abused people.`
         },
         {
           role: "user",
@@ -343,13 +355,55 @@ The message should reference both the 'before' and 'after' states. Never use off
     console.error("Error generating message:", error);
     // Fallback messages based on spice level
     const fallbackMessages = {
-      1: "Every step of your journey matters. Listen to your body and celebrate your progress! 🧘‍♀️✨",
-      2: "LETS GET THESE GAINS FAM! You're crushing it! 💪",
-      3: "Oh honey... look at you werking it! That's giving transformation energy! 💃✨",
-      4: "MISSION STATUS: TRANSFORMATION IN PROGRESS! KEEP PUSHING, SOLDIER! 🫡",
-      5: "ABSOLUTE UNIT ALERT!!! BUILT: DIFFERENT 😤 MISSION: ACCOMPLISHED 💪 SWOLEPOCALYPSE: INITIATED"
+      1: "Every step of your journey matters. Listen to your body and celebrate your progress! Text me after your workout today 🧘‍♀️✨",
+      2: "LETS GET THESE GAINS FAM! You're crushing it! 💪 Hit me up after your workout today!",
+      3: "Oh honey... look at you werking it! That's giving transformation energy! 💃✨ Text me after today's sweat sesh!",
+      4: "MISSION STATUS: TRANSFORMATION IN PROGRESS! REPORT BACK AFTER TODAY'S TRAINING, SOLDIER! 🫡",
+      5: "ABSOLUTE UNIT ALERT!!! BUILT: DIFFERENT 😤 MISSION: CRUSH TODAY'S WORKOUT 💪 YO TEXT ME AFTER YOU DEMOLISH IT!!!"
     };
     return fallbackMessages[spiceLevel] || fallbackMessages[3];
+  }
+}
+
+// Add function to store conversation in GCS
+async function storeConversation(phoneNumber, message, role = 'assistant') {
+  const bucket = storage.bucket(`${projectId}-${process.env.CONVERSATION_BUCKET_NAME}`);
+  const filename = `${phoneNumber}/conversation.json`;
+  const file = bucket.file(filename);
+
+  try {
+    // Try to get existing conversation
+    const [exists] = await file.exists();
+    let conversation = [];
+    
+    if (exists) {
+      const [content] = await file.download();
+      conversation = JSON.parse(content.toString());
+    }
+
+    // Add new message
+    conversation.push({
+      role,
+      content: message,
+      timestamp: new Date().toISOString()
+    });
+
+    // Keep only last 50 messages
+    if (conversation.length > 50) {
+      conversation = conversation.slice(-50);
+    }
+
+    // Write updated conversation
+    await file.save(JSON.stringify(conversation, null, 2), {
+      contentType: 'application/json',
+      metadata: {
+        updated: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error(`Error storing conversation for ${phoneNumber}:`, error);
+    throw error;
   }
 }
 
@@ -362,6 +416,9 @@ async function sendImagesToUser(phoneNumber, images, spiceLevel) {
       to: phoneNumber,
       from: process.env.TWILIO_PHONE_NUMBER,
     });
+
+    // Store the message in conversation history
+    await storeConversation(phoneNumber, message);
   } catch (error) {
     console.error(`Error sending SMS to ${phoneNumber}:`, error);
     throw error;
@@ -371,6 +428,7 @@ async function sendImagesToUser(phoneNumber, images, spiceLevel) {
 exports.sendMotivationalImages = async (event, context) => {
   try {
     // Get all active users and their subscription status
+    console.log('Starting to fetch active users');
     const { data: users, error } = await supabaseClient
       .from("user_profiles")
       .select(`
@@ -379,7 +437,7 @@ exports.sendMotivationalImages = async (event, context) => {
         spice_level, 
         image_preference,
         email,
-        subscriptions (
+        subscription:subscriptions!user_phone(
           status,
           trial_start_timestamp
         )
@@ -387,24 +445,30 @@ exports.sendMotivationalImages = async (event, context) => {
       .eq("active", true);
     
     if (error) {
+      console.error('Error fetching users:', error);
       throw new Error(`Error fetching users: ${error.message}`);
     }
 
     if (!users || users.length === 0) {
+      console.log('No active users found');
       return {
         statusCode: 200,
         body: "No active users found to send images to",
       };
     }
 
-    console.log(`Processing ${users.length} active users`);
-    
+    // Transform the data to match our expected structure
+    const transformedUsers = users.map(user => ({
+      ...user,
+      subscriptions: user.subscription ? [user.subscription] : []
+    }));
+
     // Process each user individually
-    await Promise.all(users.map(processUser));
+    await Promise.all(transformedUsers.map(processUser));
 
     return {
       statusCode: 200,
-      body: `Completed image generation and sending process for ${users.length} users`,
+      body: `Completed image generation and sending process for ${transformedUsers.length} users`,
     };
   } catch (error) {
     console.error("Error in sendMotivationalImages:", error);
