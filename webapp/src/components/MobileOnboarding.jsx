@@ -77,10 +77,7 @@ export function MobileOnboarding({ handleInitialSubscribe }) {
                   Get started with your free trial today
                 </p>
                 <button
-                  onClick={() => {
-                    console.log('I\'m in button clicked');
-                    handleInitialSubscribe();
-                  }}
+                  onClick={handleInitialSubscribe}
                   className="w-64 py-3 px-6 bg-indigo-600 rounded-full text-lg font-semibold shadow-lg"
                 >
                   I'm in!
