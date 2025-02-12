@@ -6,6 +6,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.47.0",
     "cors": "^2.8.5",
-    "twilio": "^5.4.0"
+    "twilio": "^5.4.0",
+    "@google-cloud/storage": "7.7.0"
   }
 } 

@@ -6,6 +6,7 @@ const cors = require('cors')({
 });
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
+const { Storage } = require('@google-cloud/storage');
 
 // Initialize Supabase client
 const getSupabase = () => createClient(
@@ -13,11 +14,60 @@ const getSupabase = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Initialize Storage client
+const storage = new Storage();
+const projectId = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
+
 // Initialize Twilio client
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
+
+// Message templates
+const getPreferencesMessage = (name) => `Ready for Cabo, ${name}? 💪
+
+First, tell us: How 🌶️SPICY🌶️ do you like your workout motivation messages?
+< 1 - 5 >
+1️⃣: gentle & encouraging 🧘‍♀️
+2️⃣: high energy gym bro 🏋️‍♂️
+3️⃣: sassy dance teacher 💃
+4️⃣: drill sergeant 🫡
+5️⃣: toxic frat bro 😤
+
+Then, tell us what kind of people you'd like to see in your motivation images! 📸
+Examples: "female athletes" 🏃‍♀️, "older adults" 👴👵, "not white males" ❌👨‍🦰, etc.
+
+Reply with your spice level and image preference!
+(You can change these at any time by texting this number) 📱`;
+
+async function initializeConversation(phoneNumber, name) {
+  const bucket = storage.bucket(`${projectId}-${process.env.CONVERSATION_BUCKET_NAME}`);
+  const filename = `${phoneNumber}/conversation.json`;
+  const file = bucket.file(filename);
+
+  try {
+    const initialConversation = [
+      {
+        role: 'assistant',
+        content: getPreferencesMessage(name),
+        timestamp: new Date().toISOString()
+      }
+    ];
+
+    await file.save(JSON.stringify(initialConversation, null, 2), {
+      contentType: 'application/json',
+      metadata: {
+        created: new Date().toISOString()
+      }
+    });
+
+    console.log(`Initialized conversation for ${phoneNumber}`);
+  } catch (error) {
+    console.error(`Error initializing conversation for ${phoneNumber}:`, error);
+    // Don't fail signup if conversation init fails
+  }
+}
 
 exports.handleSignup = (req, res) => {
   // Log incoming request details
@@ -29,7 +79,6 @@ exports.handleSignup = (req, res) => {
   });
 
   return cors(req, res, async () => {
-
     if (req.method === 'OPTIONS') {
       console.log('Handling OPTIONS request');
       return res.status(204).send();
@@ -71,24 +120,13 @@ exports.handleSignup = (req, res) => {
         throw error;
       }
 
+      // Initialize conversation history
+      await initializeConversation(phone, name);
+
       // Send welcome SMS
       try {
         await twilioClient.messages.create({
-          body: `Ready for Cabo, ${name}? 💪
-
-First, tell us: How 🌶️SPICY🌶️ do you like your workout motivation messages?
-< 1 - 5 >
-1️⃣: gentle & encouraging 🧘‍♀️
-2️⃣: high energy gym bro 🏋️‍♂️
-3️⃣: sassy dance teacher 💃
-4️⃣: drill sergeant 🫡
-5️⃣: toxic frat bro 😤
-
-Then, tell us what kind of people you'd like to see in your motivation images! 📸
-Examples: "female athletes" 🏃‍♀️, "older adults" 👴👵, "not white males" ❌👨‍🦰, etc.
-
-Reply with your spice level and image preference!
-(You can change these at any time by texting this number) 📱`,
+          body: getPreferencesMessage(name),
           to: phone,
           from: process.env.TWILIO_PHONE_NUMBER,
         });

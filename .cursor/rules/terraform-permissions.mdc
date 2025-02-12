@@ -1,0 +1,59 @@
+---
+description: Terraform Resource Permission Requirements
+globs: "**/*.tf"
+---
+# Terraform Resource Permission Requirements
+
+<rule>
+name: terraform_permissions
+description: Ensure new terraform resources have appropriate IAM permissions defined
+
+filters:
+  - type: file_extension
+    pattern: "\\.tf$"
+  - type: content
+    pattern: "resource\\s+\"google_"
+
+actions:
+  - type: suggest
+    conditions:
+      - pattern: "resource\\s+\"google_(storage_bucket|cloudfunctions2_function|cloud_run_service)\"\\s+\"[^\"]+\""
+        message: |
+          When creating new GCP resources, ensure appropriate IAM permissions are defined:
+
+          1. For Storage Buckets:
+             - Define who can access the bucket (roles/storage.objectViewer, roles/storage.objectUser)
+             - Use google_storage_bucket_iam_member or google_storage_bucket_iam_binding
+             - Consider uniform_bucket_level_access setting
+
+          2. For Cloud Functions:
+             - Create a dedicated service account
+             - Grant minimum required roles to the service account
+             - Set up function invoker permissions if needed
+             - Add environment variables for service account credentials
+
+          3. For Cloud Run:
+             - Define service account and roles
+             - Set up invoker permissions
+             - Configure necessary IAM bindings
+
+          Example:
+          ```hcl
+          resource "google_service_account" "function_account" {
+            account_id = "my-function-sa"
+          }
+
+          resource "google_project_iam_member" "function_roles" {
+            for_each = toset([
+              "roles/logging.logWriter",
+              "roles/storage.objectViewer"
+            ])
+            role = each.key
+            member = "serviceAccount:${google_service_account.function_account.email}"
+          }
+          ```
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> 

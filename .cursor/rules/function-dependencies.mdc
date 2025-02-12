@@ -1,0 +1,61 @@
+---
+description: Cloud Function Dependency Management
+globs: "functions/**/*.js"
+---
+# Cloud Function Dependency Management
+
+<rule>
+name: function_dependencies
+description: Ensure all imported packages are properly declared in package.json
+
+filters:
+  - type: file_extension
+    pattern: "\\.js$"
+  - type: path
+    pattern: "^functions/.+/"
+  - type: content
+    pattern: "(?:require|import)\\s+['\"]([^.][^'\"]+)['\"]"
+
+actions:
+  - type: suggest
+    conditions:
+      - pattern: "(?:require|import)\\s+['\"]([^.][^'\"]+)['\"]"
+        message: |
+          When adding new imports to cloud functions:
+
+          1. Check if the package is in package.json:
+             ```bash
+             cd functions/your-function-name
+             cat package.json
+             ```
+
+          2. If not present, add it:
+             ```bash
+             cd functions/your-function-name
+             npm install --save package-name
+             ```
+
+          3. Verify the version is appropriate:
+             - Use explicit versions (avoid ^ or ~)
+             - Check compatibility with Node.js version
+             - Consider security implications
+
+          4. Update package.json if needed:
+             ```json
+             {
+               "dependencies": {
+                 "new-package": "1.2.3"
+               }
+             }
+             ```
+
+          5. Remember to:
+             - Keep dependencies minimal
+             - Use exact versions
+             - Document why the package is needed
+             - Consider bundle size impact
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> 

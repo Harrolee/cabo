@@ -38,7 +38,7 @@ CREATE TABLE public.subscriptions (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
-    user_email text NOT NULL REFERENCES user_profiles(email),
+    user_phone text NOT NULL REFERENCES user_profiles(phone_number),
     stripe_customer_id text,
     stripe_subscription_id text,
     status subscription_status NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE public.subscriptions (
     current_period_end timestamptz NOT NULL,
     last_payment_status text,
     last_payment_date timestamptz,
-    UNIQUE(user_email)
+    UNIQUE(user_phone)
 );
 
 -- Create indexes
@@ -54,7 +54,7 @@ CREATE INDEX user_profiles_email_idx ON public.user_profiles(email);
 CREATE INDEX user_profiles_phone_number_idx ON public.user_profiles(phone_number);
 CREATE INDEX user_profiles_active_idx ON public.user_profiles(active);
 CREATE INDEX user_profiles_spice_level_idx ON public.user_profiles(spice_level);
-CREATE INDEX subscriptions_user_email_idx ON public.subscriptions(user_email);
+CREATE INDEX subscriptions_user_phone_idx ON public.subscriptions(user_phone);
 CREATE INDEX subscriptions_status_idx ON public.subscriptions(status);
 CREATE INDEX subscriptions_trial_start_idx ON public.subscriptions(trial_start_timestamp);
 
@@ -77,7 +77,9 @@ CREATE POLICY "Allow public profile creation"
 
 CREATE POLICY "Users can view own subscription"
     ON public.subscriptions FOR SELECT
-    USING (auth.jwt() ->> 'email' = user_email);
+    USING (auth.jwt() ->> 'email' = (
+        SELECT email FROM user_profiles WHERE phone_number = user_phone
+    ));
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -100,11 +102,16 @@ CREATE TRIGGER handle_subscriptions_updated_at
     EXECUTE PROCEDURE public.handle_updated_at();
 
 -- Create subscription helper functions
-CREATE OR REPLACE FUNCTION public.check_subscription_access(user_email text)
+CREATE OR REPLACE FUNCTION public.check_subscription_access(p_email text)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
+    WITH user_phone AS (
+        SELECT phone_number 
+        FROM user_profiles 
+        WHERE email = p_email
+    )
     SELECT 
         CASE 
             WHEN status = 'active' THEN true
@@ -113,21 +120,26 @@ AS $$
             ELSE false
         END
     FROM subscriptions 
-    WHERE user_email = $1;
+    WHERE user_phone = (SELECT phone_number FROM user_phone);
 $$;
 
-CREATE OR REPLACE FUNCTION public.get_trial_days_remaining(user_email text)
+CREATE OR REPLACE FUNCTION public.get_trial_days_remaining(p_email text)
 RETURNS integer
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
+    WITH user_phone AS (
+        SELECT phone_number 
+        FROM user_profiles 
+        WHERE email = p_email
+    )
     SELECT 
         GREATEST(
             0,
             EXTRACT(EPOCH FROM ((trial_start_timestamp + INTERVAL '3 days') - NOW()))/86400
         )::INTEGER
     FROM subscriptions 
-    WHERE user_email = $1
+    WHERE user_phone = (SELECT phone_number FROM user_phone)
         AND status = 'trial';
 $$;
 
@@ -157,11 +169,11 @@ BEGIN
     ) RETURNING id INTO v_profile_id;
 
     INSERT INTO subscriptions (
-        user_email,
+        user_phone,
         status,
         current_period_end
     ) VALUES (
-        p_email,
+        p_phone,
         'trial'::subscription_status,
         NOW() + interval '3 days'
     ) RETURNING id INTO v_subscription_id;

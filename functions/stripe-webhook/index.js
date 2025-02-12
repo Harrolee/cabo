@@ -47,9 +47,21 @@ exports.stripeWebhook = async (req, res) => {
 async function handleSubscriptionCreated(subscription) {
   const customer = await stripe.customers.retrieve(subscription.customer);
   
+  // Get user's phone number from their profile
+  const { data: userProfile, error: userError } = await supabase
+    .from('user_profiles')
+    .select('phone_number')
+    .eq('email', customer.email)
+    .single();
+
+  if (userError || !userProfile) {
+    console.error('Error finding user profile:', userError);
+    throw new Error('User profile not found');
+  }
+  
   // Store subscription info in Supabase
   await supabase.from('subscriptions').insert({
-    user_email: customer.email,
+    user_phone: userProfile.phone_number,
     stripe_customer_id: customer.id,
     stripe_subscription_id: subscription.id,
     status: subscription.status,

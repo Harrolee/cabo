@@ -1,3 +1,103 @@
+# Create service accounts for cloud functions
+resource "google_service_account" "process_sms" {
+  account_id   = "process-sms-function"
+  display_name = "Service Account for Process SMS Function"
+  project      = var.project_id
+}
+
+resource "google_service_account" "motivational_images" {
+  account_id   = "motivational-images-function"
+  display_name = "Service Account for Motivational Images Function"
+  project      = var.project_id
+}
+
+resource "google_service_account" "signup" {
+  account_id   = "signup-function"
+  display_name = "Service Account for Signup Function"
+  project      = var.project_id
+}
+
+# Create conversation storage bucket
+resource "google_storage_bucket" "conversation_storage" {
+  name          = "${var.project_id}-${var.conversation_bucket_name}"
+  location      = var.conversation_bucket_location
+  force_destroy = true
+
+  uniform_bucket_level_access = true
+
+  lifecycle_rule {
+    condition {
+      age = 365  # Keep conversations for 1 year
+    }
+    action {
+      type = "Delete"
+    }
+  }
+}
+
+# Grant necessary roles to the service accounts
+resource "google_project_iam_member" "process_sms_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/storage.objectViewer",
+    "roles/logging.logWriter"
+  ])
+  
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.process_sms.email}"
+}
+
+resource "google_project_iam_member" "signup_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/storage.objectViewer",
+    "roles/logging.logWriter"
+  ])
+  
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.signup.email}"
+}
+
+# Grant the cloud functions access to the conversation bucket
+resource "google_storage_bucket_iam_member" "process_sms_conversation_access" {
+  bucket = google_storage_bucket.conversation_storage.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.process_sms.email}"
+}
+
+resource "google_storage_bucket_iam_member" "signup_conversation_access" {
+  bucket = google_storage_bucket.conversation_storage.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.signup.email}"
+}
+
+resource "google_storage_bucket_iam_member" "motivational_images_conversation_access" {
+  bucket = google_storage_bucket.conversation_storage.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.motivational_images.email}"
+}
+
+# Grant the motivational images function access to the image bucket
+resource "google_storage_bucket_iam_member" "motivational_images_bucket_access" {
+  bucket = "${var.project_id}-image-bucket"
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.motivational_images.email}"
+}
+
+resource "google_project_iam_member" "motivational_images_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/storage.objectViewer",
+    "roles/logging.logWriter"
+  ])
+  
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.motivational_images.email}"
+}
+
 # Create ZIP archives for each function
 data "archive_file" "motivational_images_zip" {
   type        = "zip"
@@ -103,6 +203,7 @@ module "motivation_function" {
   entry_point = "sendMotivationalImages"
   memory      = "256M"
   timeout     = 300
+  service_account_email = google_service_account.motivational_images.email
   
   environment_variables = {
     PROJECT_ID              = var.project_id
@@ -114,6 +215,7 @@ module "motivation_function" {
     REPLICATE_API_TOKEN    = var.replicate_api_key
     ALLOWED_ORIGINS        = var.allowed_origins
     OPENAI_API_KEY         = var.openai_api_key
+    CONVERSATION_BUCKET_NAME = var.conversation_bucket_name
   }
   depends_on = [google_storage_bucket_object.motivational_images_source]
 }
@@ -127,6 +229,7 @@ module "signup_function" {
   bucket_name = google_storage_bucket.function_bucket.name
   source_object = google_storage_bucket_object.signup_source.name
   entry_point = "handleSignup"
+  service_account_email = google_service_account.signup.email
   
   environment_variables = {
     SUPABASE_URL             = var.supabase_url
@@ -135,6 +238,8 @@ module "signup_function" {
     TWILIO_ACCOUNT_SID       = var.twilio_account_sid
     TWILIO_AUTH_TOKEN        = var.twilio_auth_token
     TWILIO_PHONE_NUMBER      = var.twilio_phone_number
+    CONVERSATION_BUCKET_NAME = var.conversation_bucket_name
+    PROJECT_ID              = var.project_id
   }
   depends_on = [google_storage_bucket_object.signup_source]
 }
@@ -167,6 +272,7 @@ module "process_sms_function" {
   bucket_name = google_storage_bucket.function_bucket.name
   source_object = google_storage_bucket_object.process_sms_source.name
   entry_point = "processSms"
+  service_account_email = google_service_account.process_sms.email
   
   environment_variables = {
     OPENAI_API_KEY         = var.openai_api_key
@@ -176,6 +282,8 @@ module "process_sms_function" {
     SUPABASE_URL          = var.supabase_url
     SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
     FUNCTION_URL          = "https://${var.region}-${var.project_id}.cloudfunctions.net/process-sms"
+    CONVERSATION_BUCKET_NAME = var.conversation_bucket_name
+    PROJECT_ID              = var.project_id
   }
   depends_on = [google_storage_bucket_object.process_sms_source]
 }
@@ -270,4 +378,4 @@ resource "google_cloud_run_service_iam_member" "create_setup_intent_invoker" {
   service  = module.create_setup_intent_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
-} 
+}

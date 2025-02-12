@@ -1,0 +1,65 @@
+---
+description: Terraform Apply Workflow
+globs: "**/*.tf"
+---
+# Terraform Apply Workflow
+
+<rule>
+name: terraform_apply
+description: Ensure terraform changes are properly applied and validated
+
+filters:
+  - type: file_extension
+    pattern: "\\.tf$"
+  - type: content
+    pattern: "(?:resource|module|variable|output)\\s+"
+
+actions:
+  - type: suggest
+    conditions:
+      - pattern: "(?:resource|module|variable|output)\\s+"
+        message: |
+          After making terraform changes:
+
+          1. Navigate to the infrastructure directory:
+             ```bash
+             cd _infra
+             ```
+
+          2. Run terraform apply:
+             ```bash
+             terraform apply
+             ```
+
+          3. Review the output carefully for:
+             - Resource changes (additions, modifications, deletions)
+             - Error messages and their root causes
+             - Missing variables or invalid values
+             - Permission issues
+             - Resource naming conflicts
+             - Dependency cycles
+             - State lock issues
+
+          4. Common error patterns and solutions:
+             - Missing provider configuration
+             - Invalid resource references
+             - IAM permission issues
+             - Resource already exists
+             - Invalid variable values
+
+          5. If errors occur:
+             - Read the full error message
+             - Check resource documentation
+             - Verify IAM permissions
+             - Validate input variables
+             - Consider running `terraform plan` first
+
+          6. After successful apply:
+             - Verify resources in GCP Console
+             - Test affected functionality
+             - Update documentation if needed
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> 

@@ -61,7 +61,7 @@ exports.getUserData = (req, res) => {
       const { data: subscriptionData, error: subscriptionError } = await supabase
         .from('subscriptions')
         .select('trial_start_timestamp, status')
-        .eq('user_email', email)
+        .eq('user_phone', userData.phone_number)
         .single();
 
       if (subscriptionError || !subscriptionData) {
