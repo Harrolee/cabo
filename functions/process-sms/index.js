@@ -273,98 +273,204 @@ For any other messages, set both to false and provide an appropriate customerRes
   }
 }
 
-exports.processSms = async (req, res) => {
+// Helper function to check if a MIME type is an image
+function isImageMimeType(mimeType) {
+  return mimeType.startsWith('image/');
+}
+
+// Helper function to get file extension from MIME type
+function getFileExtensionFromMimeType(mimeType) {
+  const extensions = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/heic': 'heic'
+  };
+  return extensions[mimeType] || 'jpg';
+}
+
+// Function to save media to GCS
+async function saveMediaToGCS(mediaUrl, phoneNumber, contentType) {
+  const bucket = storage.bucket(`${projectId}-${process.env.CONVERSATION_BUCKET_NAME}`);
+  const extension = getFileExtensionFromMimeType(contentType);
+  // Use the full phone number (including +1) as the directory name
+  const filePath = `${phoneNumber}/images/profile.${extension}`;
+  const file = bucket.file(filePath);
+
   try {
-    const twilioSignature = req.headers['x-twilio-signature'];
-    const url = process.env.FUNCTION_URL;
+    // Create basic auth header using Twilio credentials
+    const authString = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
     
-    const isValid = twilio.validateRequest(
-      process.env.TWILIO_AUTH_TOKEN,
-      twilioSignature,
-      url,
-      req.body
-    );
-    
-    console.log('Request validation result:', isValid);
+    const response = await fetch(mediaUrl, {
+      headers: {
+        'Authorization': `Basic ${authString}`
+      }
+    });
 
-    const userMessage = req.body.Body;
-    const userPhone = req.body.From;
-
-    // Get existing conversation history first
-    const conversationHistory = await getConversationHistory(userPhone);
-
-    // Store user's message in conversation history
-    await storeConversation(userPhone, userMessage, 'user');
-
-    // Get user's spice level
-    const { data: userProfile, error: userError } = await supabase
-      .from('user_profiles')
-      .select('spice_level')
-      .eq('phone_number', userPhone)
-      .single();
-
-    if (userError) {
-      console.error('Error fetching user profile:', userError);
-      throw userError;
+    if (!response.ok) {
+      throw new Error(`Failed to fetch media: ${response.statusText}`);
     }
 
-    const spiceLevel = userProfile?.spice_level || 3;
+    // Get the response as an ArrayBuffer
+    const buffer = await response.arrayBuffer();
 
-    // First, check if it's a spice level or image preference update
-    const parsedResponse = await getValidAIResponse(userMessage);
+    // Upload the buffer directly to GCS
+    await file.save(Buffer.from(buffer), {
+      metadata: {
+        contentType: response.headers.get('content-type'),
+        metadata: {
+          source: 'user_upload',
+          uploadedAt: new Date().toISOString(),
+          phoneNumber: phoneNumber
+        }
+      }
+    });
 
-    if (parsedResponse.shouldUpdateSpice || parsedResponse.shouldUpdateImagePreference) {
-      // Handle preference updates as before
-      const updates = {};
-      
-      if (parsedResponse.shouldUpdateSpice) {
-        updates.spice_level = parsedResponse.spiceLevel;
-      }
-      
-      if (parsedResponse.shouldUpdateImagePreference) {
-        updates.image_preference = parsedResponse.imagePreference;
-      }
-      
-      if (Object.keys(updates).length > 0) {
-        updates.updated_at = new Date().toISOString();
+    return `gs://${bucket.name}/${filePath}`;
+  } catch (error) {
+    console.error('Error saving media to GCS:', error);
+    throw error;
+  }
+}
+
+// Function to delete media from Twilio
+async function deleteMediaFromTwilio(messageSid, mediaSid) {
+  const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  try {
+    await twilioClient.messages(messageSid).media(mediaSid).remove();
+  } catch (error) {
+    console.error('Error deleting media from Twilio:', error);
+    // Don't throw error as this is not critical
+  }
+}
+
+// Helper function to validate and format North American phone numbers
+function formatPhoneNumber(phoneNumber) {
+  // Remove all non-digit characters except leading +
+  let cleaned = phoneNumber.replace(/[^\d+]/g, '');
+  
+  // If it starts with +1, remove it temporarily
+  if (cleaned.startsWith('+1')) {
+    cleaned = cleaned.substring(2);
+  } else if (cleaned.startsWith('1')) {
+    cleaned = cleaned.substring(1);
+  }
+  
+  // Check if we have exactly 10 digits
+  if (cleaned.length !== 10) {
+    return null;
+  }
+  
+  // Return in E.164 format (+1XXXXXXXXXX)
+  return `+1${cleaned}`;
+}
+
+// Main function to process incoming SMS
+exports.processSms = async (req, res) => {
+  try {
+    const body = req.body;
+    const incomingPhoneNumber = body.From;
+    const messageSid = body.MessageSid;
+    const numMedia = parseInt(body.NumMedia) || 0;
+    const userMessage = body.Body || '';
+
+    console.log('Incoming phone number:', incomingPhoneNumber);
+
+    // Format and validate the phone number
+    const formattedPhoneNumber = formatPhoneNumber(incomingPhoneNumber);
+    
+    // If the number isn't valid North American format, reject it
+    if (!formattedPhoneNumber) {
+      console.log('Invalid phone number format:', incomingPhoneNumber);
+      const twiml = new twilio.twiml.MessagingResponse();
+      twiml.message("Sorry, this service is only available in North America.");
+      res.set('Content-Type', 'text/xml');
+      return res.send(twiml.toString());
+    }
+
+    console.log('Formatted phone number:', formattedPhoneNumber);
+
+    // Get conversation history and user data
+    const [conversationHistory, { data: userData, error: userError }] = await Promise.all([
+      getConversationHistory(formattedPhoneNumber),
+      supabase.from('user_profiles').select('*').eq('phone_number', formattedPhoneNumber).single()
+    ]);
+
+    console.log('User data:', userData);
+    if (userError) console.error('Error fetching user:', userError);
+
+    // Only proceed if user exists in database
+    if (!userData) {
+      console.log('User not found in database');
+      const twiml = new twilio.twiml.MessagingResponse();
+      twiml.message("Sorry, I don't recognize this number. Please sign up first!");
+      res.set('Content-Type', 'text/xml');
+      return res.send(twiml.toString());
+    }
+
+    let responseMessage;
+    let mediaUrl;
+
+    // Handle media if present
+    if (numMedia > 0) {
+      // Only process the first image if multiple are sent
+      const firstMediaUrl = body['MediaUrl0'];
+      const contentType = body['MediaContentType0'];
+      const mediaSid = firstMediaUrl.split('/').pop();
+
+      if (isImageMimeType(contentType)) {
+        mediaUrl = await saveMediaToGCS(firstMediaUrl, formattedPhoneNumber, contentType);
+        await deleteMediaFromTwilio(messageSid, mediaSid);
         
+        // Generate a complimentary response about their photo
+        const photoPrompt = `The user just sent a photo of themselves. Generate a brief, encouraging compliment about their appearance in your coaching style. Be genuine and uplifting. Let them know that we'll keep this photo to generate motivational images for them.`;
+        responseMessage = await generateCoachResponse(photoPrompt, userData.spice_level, conversationHistory);
+      } else {
+        responseMessage = "I can only accept image files. Please try sending your photo again!";
+      }
+    } else {
+      // Process normal text message
+      const aiResponse = await getValidAIResponse(userMessage);
+      responseMessage = aiResponse.customerResponse;
+
+      // Update user preferences if needed
+      if (aiResponse.shouldUpdateSpice || aiResponse.shouldUpdateImagePreference) {
+        const updates = {
+          updated_at: new Date().toISOString()
+        };
+        if (aiResponse.shouldUpdateSpice) {
+          updates.spice_level = aiResponse.spiceLevel;
+        }
+        if (aiResponse.shouldUpdateImagePreference) {
+          updates.image_preference = aiResponse.imagePreference;
+        }
         const { error: updateError } = await supabase
           .from('user_profiles')
           .update(updates)
-          .eq('phone_number', userPhone);
+          .eq('phone_number', formattedPhoneNumber);
 
         if (updateError) {
-          console.error('Error updating user profile:', updateError);
-          throw updateError;
+          console.error('Error updating user preferences:', updateError);
         }
       }
     }
 
-    // Generate coach's response based on conversation history
-    const coachResponse = await generateCoachResponse(
-      userMessage,
-      spiceLevel,
-      conversationHistory
-    );
+    // Store the conversation
+    await Promise.all([
+      storeConversation(formattedPhoneNumber, userMessage),
+      storeConversation(formattedPhoneNumber, responseMessage, 'assistant')
+    ]);
 
-    // Store coach's response in conversation history
-    await storeConversation(userPhone, coachResponse, 'assistant');
+    // Send response via Twilio
+    const twiml = new twilio.twiml.MessagingResponse();
+    twiml.message(responseMessage);
 
-    // Send the response back to the user
-    const twilioClient = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
+    res.set('Content-Type', 'text/xml');
+    return res.send(twiml.toString());
 
-    await twilioClient.messages.create({
-      body: coachResponse,
-      to: userPhone,
-      from: process.env.TWILIO_PHONE_NUMBER,
-    });
-
-    res.status(200).send('OK');
   } catch (error) {
     console.error('Error processing SMS:', error);
-    res.status(500).send('Internal Server Error');
+    res.status(500).send('Error processing request');
   }
 }; 
