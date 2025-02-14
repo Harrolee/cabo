@@ -90,7 +90,8 @@ resource "google_project_iam_member" "motivational_images_roles" {
   for_each = toset([
     "roles/cloudfunctions.invoker",
     "roles/storage.objectViewer",
-    "roles/logging.logWriter"
+    "roles/logging.logWriter",
+    "roles/iam.serviceAccountTokenCreator"
   ])
   
   project = var.project_id

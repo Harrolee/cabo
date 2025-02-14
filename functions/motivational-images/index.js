@@ -128,7 +128,7 @@ async function processUser(user) {
     }
 
     if (shouldSendImages) {
-      const images = await generateMotivationalImages(user.image_preference);
+      const images = await generateMotivationalImages(user.image_preference, user.phone_number);
       
       if (!images || images.length === 0) {
         throw new Error(`No images were generated for user ${user.phone_number}`);
@@ -224,39 +224,182 @@ async function generateActionModifier() {
   }
 }
 
-async function generateMotivationalImages(imagePreference) {
+async function checkForUserPhoto(phoneNumber) {
+  const bucket = storage.bucket(`${projectId}-${process.env.CONVERSATION_BUCKET_NAME}`);
+  
+  try {
+    // Check for image file in the user's images directory
+    const [files] = await bucket.getFiles({
+      prefix: `${phoneNumber}/images/profile.`
+    });
+    
+    if (files.length > 0) {
+      const file = files[0];
+      const [signedUrl] = await file.getSignedUrl({
+        version: 'v4',
+        action: 'read',
+        expires: Date.now() + 15 * 60 * 1000 // 15 minutes
+      });
+      console.log(`Found user photo for ${phoneNumber} at ${file.name}`);
+      return signedUrl;
+    }
+    console.log(`No user photo found for ${phoneNumber}`);
+    return null;
+  } catch (error) {
+    console.error(`Error checking for user photo: ${error}`);
+    return null;
+  }
+}
+
+const PHOTOMAKER_STYLES = [
+  'Cinematic',
+  'Disney Character',
+  'Digital Art',
+  'Photographic',
+  'Fantasy art',
+  'Neonpunk',
+  'Enhance',
+  'Comic book',
+  'Lowpoly',
+  'Line art'
+];
+
+const IMAGE_MODELS = {
+  STYLE: {
+    id: "tencentarc/photomaker-style:467d062309da518648ba89d226490e02b8ed09b5abc15026e54e31c5a8cd0769",
+    getInput: (prompt, userPhotoUrl, style, isBeforeImage = false) => ({
+      prompt,
+      num_steps: 50,
+      input_image: userPhotoUrl,
+      num_outputs: 1,
+      style_name: style,
+      style_strength_ratio: 35,
+      negative_prompt: `nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped' : ''}`
+    })
+  },
+  REALISTIC: {
+    id: "tencentarc/photomaker:ddfc2b08d209f9fa8c1eca692712918bd449f695dabb4a958da31802a9570fe4",
+    getInput: (prompt, userPhotoUrl, style, isBeforeImage = false) => ({
+      prompt,
+      num_steps: 50,
+      input_image: userPhotoUrl,
+      num_outputs: 1,
+      negative_prompt: `nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped' : ''}`
+    })
+  }
+};
+
+function selectRandomImageStyle() {
+  // 30% chance of getting realistic model
+  const useRealisticModel = Math.random() < 0.3;
+  
+  if (useRealisticModel) {
+    return {
+      model: IMAGE_MODELS.REALISTIC,
+      style: null,
+      description: 'Realistic'
+    };
+  }
+
+  // Otherwise use style model with random style
+  const randomStyle = PHOTOMAKER_STYLES[Math.floor(Math.random() * PHOTOMAKER_STYLES.length)];
+  return {
+    model: IMAGE_MODELS.STYLE,
+    style: randomStyle,
+    description: randomStyle
+  };
+}
+
+async function generateMotivationalImages(imagePreference, phoneNumber) {
   const replicate = new Replicate({
     auth: process.env.REPLICATE_API_TOKEN,
   });
 
   try {
-    const actionModifier = await generateActionModifier();
-    const randomSeed = Math.floor(Math.random() * 1000000000); // 1111316861 was the original seed
-
     // Default to diverse representation if no preference specified
     const preference = imagePreference || "ambiguously non-white male";
+    const actionModifier = await generateActionModifier();
+    const randomSeed = Math.floor(Math.random() * 1000000000);
     
-    const unfitOutput = await replicate.run(
+    // Check if user has uploaded a photo
+    const userPhotoUrl = await checkForUserPhoto(phoneNumber);
+    
+    if (userPhotoUrl) {
+      console.log(`Generating personalized images for user ${phoneNumber}`);
+      
+      // Select one random style for both images
+      const imageStyle = selectRandomImageStyle();
+      console.log(`Using style: ${imageStyle.description} for both images`);
+
+      // Generate "before" image - regular body type version of user
+      const beforeOutput = await replicate.run(
+        imageStyle.model.id,
+        {
+          input: imageStyle.model.getInput(
+            `A photo of a ${preference} img with a regular body type, on the beach, wearing beach attire, ${actionModifier}, photorealistic style`,
+            userPhotoUrl,
+            imageStyle.style,
+            true // isBeforeImage = true
+          )
+        }
+      );
+
+      // Save before image first
+      const beforeUrl = await saveImageToBucket(
+        beforeOutput[0], 
+        `motivation-${Date.now()}-before.png`
+      );
+
+      // Generate "after" image - athletic version of user
+      const afterOutput = await replicate.run(
+        imageStyle.model.id,
+        {
+          input: imageStyle.model.getInput(
+            `A photo of an athletic and fit ${preference} img, on the beach, wearing beach attire, ${actionModifier}, photorealistic style`,
+            userPhotoUrl,
+            imageStyle.style,
+            false // isBeforeImage = false
+          )
+        }
+      );
+
+      // Save after image second
+      const afterUrl = await saveImageToBucket(
+        afterOutput[0],
+        `motivation-${Date.now()}-after.png`
+      );
+
+      return [beforeUrl, afterUrl];
+    }
+
+    // If no user photo, use existing flow with RealVisXL model
+    const beforeOutput = await replicate.run(
       "lucataco/realvisxl-v2.0:7d6a2f9c4754477b12c14ed2a58f89bb85128edcdd581d24ce58b6926029de08",
       {
         input: {
           seed: randomSeed,
           width: 1024,
           height: 1024,
-          prompt: `A realistic photo of an overweight ${preference}, on the beach, wearing swim trunks and beach attire, photorealistic style, ${actionModifier}`,
-          scheduler: "DPMSolverMultistep",
+          prompt: `A realistic photo of a ${preference} with a regular body type, slightly pudgy, on the beach, wearing swim trunks and beach attire, photorealistic style, ${actionModifier}`,
           lora_scale: 0.6,
+          scheduler: "DPMSolverMultistep",
           num_outputs: 1,
           guidance_scale: 7,
           apply_watermark: true,
-          negative_prompt: "(worst quality, low quality, illustration, 3d, 2d, painting, cartoons, sketch), open mouth, muscular, fit, athletic, ripped",
+          negative_prompt: "nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, athletic, muscular, ripped",
           prompt_strength: 0.8,
           num_inference_steps: 40
         }
       }
     );
 
-    const fitOutput = await replicate.run(
+    // Save before image first
+    const beforeUrl = await saveImageToBucket(
+      beforeOutput[0],
+      `motivation-${Date.now()}-before.png`
+    );
+
+    const afterOutput = await replicate.run(
       "lucataco/realvisxl-v2.0:7d6a2f9c4754477b12c14ed2a58f89bb85128edcdd581d24ce58b6926029de08",
       {
         input: {
@@ -269,21 +412,20 @@ async function generateMotivationalImages(imagePreference) {
           num_outputs: 1,
           guidance_scale: 7,
           apply_watermark: true,
-          negative_prompt: "(worst quality, low quality, illustration, 3d, 2d, painting, cartoons, sketch), open mouth, overweight, fat, unfit",
+          negative_prompt: "nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
           prompt_strength: 0.8,
           num_inference_steps: 40
         }
       }
     );
 
-    const outputs = [...unfitOutput, ...fitOutput];
-    const publicUrls = await Promise.all(
-      outputs.map((output, index) => 
-        saveImageToBucket(output, `motivation-${Date.now()}-${index}.png`)
-      )
+    // Save after image second
+    const afterUrl = await saveImageToBucket(
+      afterOutput[0],
+      `motivation-${Date.now()}-after.png`
     );
 
-    return publicUrls;
+    return [beforeUrl, afterUrl];
   } catch (error) {
     console.error("Error generating images:", error);
     throw error;
@@ -410,9 +552,22 @@ async function storeConversation(phoneNumber, message, role = 'assistant') {
 async function sendImagesToUser(phoneNumber, images, spiceLevel) {
   try {
     const message = await generateMotivationalMessage(spiceLevel);
+    
+    // Send before image first
+    await twilioClient.messages.create({
+      body: "Your starting point... 🌅",
+      mediaUrl: [images[0]],
+      to: phoneNumber,
+      from: process.env.TWILIO_PHONE_NUMBER,
+    });
+
+    // Wait a short moment to ensure order
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Send after image with the motivational message
     await twilioClient.messages.create({
       body: message,
-      mediaUrl: images,
+      mediaUrl: [images[1]],
       to: phoneNumber,
       from: process.env.TWILIO_PHONE_NUMBER,
     });
