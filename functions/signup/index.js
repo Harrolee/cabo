@@ -35,11 +35,23 @@ First, tell us: How 🌶️SPICY🌶️ do you like your workout motivation mess
 4️⃣: drill sergeant 🫡
 5️⃣: toxic frat bro 😤
 
-Then, tell us what kind of people you'd like to see in your motivation images! 📸
-Examples: "female athletes" 🏃‍♀️, "older adults" 👴👵, "not white males" ❌👨‍🦰, etc.
+Next up: Help us personalize your daily beach transformations! 🏖️
 
-Reply with your spice level and image preference!
-(You can change these at any time by texting this number) 📱`;
+Describe yourself in a few words - the more specific, the better! Examples:
+- "a fit woman in her 40s"
+- "a middle-aged irish/italian dad"
+- "a stocky skater girl"
+- "an energetic grandma in her 60s"
+
+✨ BONUS LEVEL UNLOCKED ✨
+Want to see YOUR face in these transformations? Send us a selfie and we'll make it happen! 🤳
+
+Reply with:
+1. Your spice level (1-5)
+2. Your description
+3. Optional: A selfie!
+
+(You can change any of these later by texting this number) 📱`;
 
 async function initializeConversation(phoneNumber, name) {
   const bucket = storage.bucket(`${projectId}-${process.env.CONVERSATION_BUCKET_NAME}`);
@@ -104,7 +116,7 @@ exports.handleSignup = (req, res) => {
         p_phone: phone,
         p_name: name,
         p_email: email,
-        p_image_preference: "ambiguously non-white 30something"
+        p_image_preference: "an athletic person with an ambiguous ethnicity"
       });
 
       if (error) {
