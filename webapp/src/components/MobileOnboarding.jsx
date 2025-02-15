@@ -7,9 +7,24 @@ export function MobileOnboarding({ handleInitialSubscribe }) {
   const [previewImages, setPreviewImages] = useState([]);
   const [showSwipeHint, setShowSwipeHint] = useState(true);
 
+  const steps = [
+    {
+      title: "Choose Your Coach",
+      description: "Get matched with a supportive buddy who understands your goals and keeps you motivated"
+    },
+    {
+      title: "Daily Motivation",
+      description: "Receive personalized messages and AI-generated images that inspire you to take action"
+    },
+    {
+      title: "Share Your Journey",
+      description: "Chat with your coach after workouts to celebrate wins and get personalized advice"
+    }
+  ];
+
   useEffect(() => {
     // For mobile, load and sort numbered images
-    const mobileImages = import.meta.glob('/src/assets/mobile-intro/*.{png,jpg,jpeg,gif}', {
+    const mobileImages = import.meta.glob('/src/assets/intro/*.{png,jpg,jpeg,gif}', {
       eager: true,
       import: 'default'
     });
@@ -71,24 +86,42 @@ export function MobileOnboarding({ handleInitialSubscribe }) {
             {currentImageIndex === previewImages.length - 1 ? (
               <div className="h-full w-full flex flex-col items-center justify-center p-6 text-white">
                 <h2 className="text-3xl font-bold mb-4 text-center">
-                  Ready to transform your fitness journey?
+                  Your Personal Fitness Journey Awaits
                 </h2>
-                <p className="text-lg mb-8 text-center">
-                  Get started with your free trial today
-                </p>
+                <div className="space-y-4 mb-8">
+                  <p className="text-lg text-center">
+                    • A supportive coach who gets you
+                  </p>
+                  <p className="text-lg text-center">
+                    • Daily motivation that speaks to you
+                  </p>
+                  <p className="text-lg text-center">
+                    • Real conversations about your progress
+                  </p>
+                </div>
                 <button
                   onClick={handleInitialSubscribe}
                   className="w-64 py-3 px-6 bg-indigo-600 rounded-full text-lg font-semibold shadow-lg"
                 >
-                  I'm in!
+                  Start My Journey
                 </button>
               </div>
             ) : (
-              <img
-                src={previewImages[currentImageIndex].src}
-                alt={previewImages[currentImageIndex].alt}
-                className="h-full w-full object-cover"
-              />
+              <div className="relative h-full">
+                <img
+                  src={previewImages[currentImageIndex].src}
+                  alt={previewImages[currentImageIndex].alt}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute bottom-20 left-0 right-0 p-6 bg-gradient-to-t from-black to-transparent">
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    {steps[currentImageIndex].title}
+                  </h3>
+                  <p className="text-white text-lg">
+                    {steps[currentImageIndex].description}
+                  </p>
+                </div>
+              </div>
             )}
 
             {showSwipeHint && currentImageIndex === 0 && (
