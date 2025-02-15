@@ -7,6 +7,7 @@ const cors = require('cors')({
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 const { Storage } = require('@google-cloud/storage');
+const { COACH_PERSONAS, SPICE_LEVEL_DESCRIPTIONS } = require('./coach-personas');
 
 // Initialize Supabase client
 const getSupabase = () => createClient(
@@ -27,16 +28,42 @@ const twilioClient = twilio(
 // Message templates
 const getPreferencesMessage = (name) => `Ready for Cabo, ${name}? 💪
 
-First, tell us: How 🌶️SPICY🌶️ do you like your workout motivation messages?
-< 1 - 5 >
-1️⃣: gentle & encouraging 🧘‍♀️
-2️⃣: high energy gym bro 🏋️‍♂️
-3️⃣: sassy dance teacher 💃
-4️⃣: drill sergeant 🫡
-5️⃣: toxic frat bro 😤
+First, choose your personal fitness coach! Each has their own style:
 
-Next up: Help us personalize your daily beach transformations! 🏖️
+1️⃣ Zen Master 🧘‍♀️
+- Peaceful and mindful
+- Focuses on holistic wellness
+- Perfect for mindful fitness
 
+2️⃣ Gym Bro 🏋️‍♂️
+- High energy and positive
+- All about those gains
+- Great for strength goals
+
+3️⃣ Dance Teacher 💃
+- Sassy and stylish
+- Makes fitness fun
+- Perfect for rhythm lovers
+
+4️⃣ Drill Sergeant 🫡
+- Disciplined and structured
+- No-nonsense approach
+- Great for strict routines
+
+5️⃣ Frat Bro 😤
+- Over-the-top energy
+- Extreme motivation
+- Perfect for intense training
+
+Next, set your 🌶️SPICE LEVEL🌶️ (1-5):
+This determines how dramatic and surprising your coach's messages will be:
+1: Gentle & supportive
+2: Moderately motivating
+3: Notably challenging
+4: Intensely motivating
+5: Extremely dramatic
+
+Finally: Help us personalize your daily beach transformations! 🏖️
 Describe yourself in a few words - the more specific, the better! Examples:
 - "a fit woman in her 40s"
 - "a middle-aged irish/italian dad"
@@ -47,9 +74,10 @@ Describe yourself in a few words - the more specific, the better! Examples:
 Want to see YOUR face in these transformations? Send us a selfie and we'll make it happen! 🤳
 
 Reply with:
-1. Your spice level (1-5)
-2. Your description
-3. Optional: A selfie!
+1. Your coach number (1-5)
+2. Your spice level (1-5)
+3. Your description
+4. Optional: A selfie!
 
 (You can change any of these later by texting this number) 📱`;
 

@@ -1,0 +1,78 @@
+---
+description: Coach Personas Synchronization
+globs: functions/**/coach-personas.js
+---
+# Coach Personas Synchronization Rule
+
+Rule to ensure all copies of coach-personas.js stay synchronized with the source of truth.
+
+<rule>
+name: coach_personas_sync
+description: Ensures all coach-personas.js files are synchronized with the source of truth in /functions/shared/coach-personas.js
+
+filters:
+  # Match any coach-personas.js file changes
+  - type: file_path
+    pattern: "functions/.*/coach-personas\\.js$"
+  # Match file modification events
+  - type: event
+    pattern: "file_modify"
+
+actions:
+  - type: suggest
+    conditions:
+      - pattern: "functions/shared/coach-personas\\.js$"
+        message: |
+          You are modifying the source of truth for coach personas. Please ensure you:
+          1. Update all duplicate files:
+             - functions/signup/coach-personas.js
+             - functions/process-sms/coach-personas.js
+             - functions/motivational-images/coach-personas.js
+          2. Keep the header comment in each duplicate file
+          3. Run tests to verify all functions still work
+
+  - type: suggest
+    conditions:
+      - pattern: "functions/(signup|process-sms|motivational-images)/coach-personas\\.js$"
+        message: |
+          ⚠️ WARNING: You are modifying a duplicate coach-personas.js file.
+          The source of truth is in /functions/shared/coach-personas.js
+          
+          Please make your changes to the source file instead, then copy to all duplicates:
+          1. Modify /functions/shared/coach-personas.js
+          2. Copy changes to all duplicates:
+             - functions/signup/coach-personas.js
+             - functions/process-sms/coach-personas.js
+             - functions/motivational-images/coach-personas.js
+          3. Keep the header comment in each duplicate file
+          4. Run tests to verify all functions still work
+
+  - type: reject
+    conditions:
+      - pattern: "functions/(signup|process-sms|motivational-images)/coach-personas\\.js$"
+        not_contains: "* IMPORTANT: This is a duplicate of the coach personas configuration."
+        message: "Each duplicate coach-personas.js file must contain the header comment indicating it is a duplicate"
+
+examples:
+  - input: |
+      // Bad: Modifying a duplicate without the header
+      const COACH_PERSONAS = {
+        zen_master: { ... }
+      };
+
+      // Good: Duplicate with proper header
+      /*
+       * IMPORTANT: This is a duplicate of the coach personas configuration.
+       * The source of truth is in /functions/shared/coach-personas.js
+       * This duplicate exists for performance and cost optimization.
+       * If you need to make changes, please update all copies.
+       */
+      const COACH_PERSONAS = {
+        zen_master: { ... }
+      };
+    output: "Correctly formatted coach-personas.js duplicate file"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> 

@@ -15,6 +15,15 @@
 -- Create subscription status enum
 CREATE TYPE subscription_status AS ENUM ('trial', 'active', 'expired', 'cancelled');
 
+-- Create coach type enum
+CREATE TYPE coach_type AS ENUM (
+    'zen_master',
+    'gym_bro',
+    'dance_teacher',
+    'drill_sergeant',
+    'frat_bro'
+);
+
 -- Create user_profiles table
 CREATE TABLE public.user_profiles (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -25,7 +34,8 @@ CREATE TABLE public.user_profiles (
     phone_number text NOT NULL,
     active boolean DEFAULT true NOT NULL,
     timezone text DEFAULT 'UTC',
-    spice_level integer DEFAULT 3 NOT NULL,
+    coach coach_type DEFAULT 'gym_bro' NOT NULL,
+    spice_level integer DEFAULT 2 NOT NULL,
     image_preference text NOT NULL DEFAULT 'diverse group of people',
     CONSTRAINT phone_number_format CHECK (phone_number ~ '^\+1[2-9]\d{9}$'),
     CONSTRAINT check_spice_level CHECK (spice_level >= 1 AND spice_level <= 5),

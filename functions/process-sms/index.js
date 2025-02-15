@@ -3,6 +3,7 @@ const { z } = require('zod');
 const twilio = require('twilio');
 const { createClient } = require('@supabase/supabase-js');
 const { Storage } = require('@google-cloud/storage');
+const { COACH_PERSONAS, SPICE_LEVEL_DESCRIPTIONS } = require('./coach-personas');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -18,6 +19,19 @@ const projectId = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 
 // Update the Zod schema for validating OpenAI response
 const responseSchema = z.object({
+  shouldUpdateCoach: z.boolean(),
+  coachType: z.enum(['zen_master', 'gym_bro', 'dance_teacher', 'drill_sergeant', 'frat_bro'])
+    .optional()
+    .default('gym_bro')
+    // Only require coachType if shouldUpdateCoach is true
+    .superRefine((val, ctx) => {
+      if (ctx.parent?.shouldUpdateCoach && !val) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Coach type is required when updating coach preference",
+        });
+      }
+    }),
   shouldUpdateSpice: z.boolean(),
   spiceLevel: z.number()
     .optional()
@@ -114,47 +128,16 @@ async function storeConversation(phoneNumber, message, role = 'user') {
   }
 }
 
-async function generateCoachResponse(userMessage, spiceLevel, conversationHistory) {
+async function generateCoachResponse(userMessage, spiceLevel, conversationHistory, coach = 'gym_bro') {
   try {
     const messages = [
       {
         role: "system",
-        content: `You are a fitness coach responding to a user's message. Match this spice level ${spiceLevel}/5:
+        content: `You are ${COACH_PERSONAS[coach].name}, a fitness coach responding to a user's message. Your traits:
+${COACH_PERSONAS[coach].traits.map(trait => `- ${trait}`).join('\n')}
 
-1️⃣ Gentle & Encouraging 🧘‍♀️
-- Radiates peaceful zen energy
-- Uses phrases like "Listen to your body" and "Every step counts"
-- Probably doing yoga right now
-- Might suggest a green smoothie
-- Always ends with "Namaste" or "You're doing amazing sweetie"
-
-2️⃣ High Energy Gym Bro 🏋️‍♂️
-- Enthusiastic but not overwhelming
-- Loves saying "Let's get this bread!" unironically
-- Calls everyone "fam" or "bro"
-- Excessive use of the 💪 emoji
-- Always talking about "gains"
-
-3️⃣ Sassy Dance Teacher 💃
-- Full of sass and attitude
-- "Oh honey..." is their favorite phrase
-- Everything is "giving" something
-- Snaps fingers for emphasis
-- Might make you do jazz hands
-
-4️⃣ Drill Sergeant 🫡
-- TYPES IN ALL CAPS
-- Everything is a "MISSION" or "OBJECTIVE"
-- Calls workouts "TRAINING OPERATIONS"
-- Zero tolerance for excuses
-- Probably doing pushups while typing
-
-5️⃣ Toxic Frat Bro 😤
-- ABSOLUTELY UNHINGED ENERGY
-- Random keyboard smashing ("ASDKJHASD")
-- Excessive emojis
-- Makes up words like "SWOLEPOCALYPSE"
-- Everything is "BUILT DIFFERENT"
+Match this spice level ${spiceLevel}/5:
+${SPICE_LEVEL_DESCRIPTIONS[spiceLevel]}
 
 Keep responses under 160 characters. Be encouraging and helpful while maintaining character. Never use offensive language or mock protected groups.`
       },
@@ -179,48 +162,85 @@ Keep responses under 160 characters. Be encouraging and helpful while maintainin
   } catch (error) {
     console.error("Error generating coach response:", error);
     const fallbackResponses = {
-      1: "I hear you! Remember, every step forward is progress. Keep listening to your body and stay mindful of your journey 🧘‍♀️✨",
-      2: "That's what I'm talking about, fam! Keep crushing those goals! 💪 You got this!",
-      3: "Werk it, honey! You're giving me everything I need to see! Keep that energy up! 💃",
-      4: "OUTSTANDING EFFORT, SOLDIER! MAINTAIN THAT MOMENTUM! VICTORY AWAITS! 🫡",
-      5: "YOOOOO ABSOLUTE BEAST MODE!!! YOU'RE BUILT DIFFERENT FR FR!!! 😤💪"
+      zen_master: {
+        1: "I hear you! Remember, every step forward is progress. Keep listening to your body and stay mindful of your journey 🧘‍♀️✨",
+        2: "Feel the energy flowing through you. Your transformation journey is beautiful! Share your workout victory with me 🌟",
+        3: "Channel your inner strength! From gentle waves to powerful ocean - that's your journey! Tell me about today's practice 🌊",
+        4: "Your transformation energy is RADIATING! Let's harness that power! Report back after your workout 💫",
+        5: "UNLEASH YOUR INNER WARRIOR! From caterpillar to butterfly - METAMORPHOSIS TIME! Share your triumph 🦋"
+      },
+      gym_bro: {
+        1: "That's what I'm talking about, fam! Keep crushing those goals! 💪 You got this!",
+        2: "GAINS INCOMING! You're crushing it! Text me when you finish today's session! 🔥",
+        3: "BRO! The transformation is REAL! Let's get this bread! Update me post-workout! 💪",
+        4: "ABSOLUTE UNIT ALERT! You're built different fr fr! Tell me about today's GAINS! 😤",
+        5: "BROOOOO LOOK AT THIS GLOW UP!!! BEAST MODE: ACTIVATED!!! HIT ME AFTER YOU DEMOLISH THIS WORKOUT!!! 🔥"
+      },
+      dance_teacher: {
+        1: "Honey, you're giving transformation energy! Text me after your workout today! 💃",
+        2: "Work it! From first position to serving looks! Let me know how today's session goes! ✨",
+        3: "Oh. My. God. The transformation is SERVING! Tell me about your workout later! 💅",
+        4: "WERK IT HONEY! You're giving EVERYTHING! Spill the tea after your workout! 👑",
+        5: "YAAAS QUEEN! THIS GLOW UP IS EVERYTHING!!! SLAY TODAY'S WORKOUT AND TELL ME ALL ABOUT IT! 💃"
+      },
+      drill_sergeant: {
+        1: "Progress detected, soldier! Report back after completing today's training! 🫡",
+        2: "Mission: Transformation in progress! Update me post-workout, recruit! 💪",
+        3: "IMPRESSIVE PROGRESS, SOLDIER! COMPLETE TODAY'S MISSION AND REPORT BACK! 🎖️",
+        4: "TRANSFORMATION PROTOCOL ACTIVATED! DEMOLISH THIS WORKOUT AND GIVE ME A FULL REPORT! 🔥",
+        5: "OUTSTANDING TRANSFORMATION IN PROGRESS! DESTROY THIS WORKOUT AND REPORT FOR DEBRIEFING! 🫡"
+      },
+      frat_bro: {
+        1: "YOOO look who's getting SWOLE! Text me after you crush today's workout! 💪",
+        2: "BROSKI! The gains are REAL! Hit me up post-workout! 🔥",
+        3: "BROOO THIS TRANSFORMATION THO!!! ABSOLUTELY SENDING IT! Update me later! 😤",
+        4: "YOOOOO LOOK AT THIS GLOW UP!!! BUILT: DIFFERENT! Tell me about today's GAINZ! 🔥",
+        5: "BROOOOOO WHAT IS THIS TRANSFORMATION!!! LITERALLY INSANE!!! HMU AFTER YOU DEMOLISH THIS!!! 😤"
+      }
     };
-    return fallbackResponses[spiceLevel] || fallbackResponses[3];
+
+    return fallbackResponses[coach]?.[spiceLevel] || fallbackResponses.gym_bro[3];
   }
 }
 
-async function getValidAIResponse(userMessage, previousError = null, attempt = 1) {
+async function getValidAIResponse(userMessage, userData, previousError = null, attempt = 1) {
   const MAX_ATTEMPTS = 3;
   
   try {
     const messages = [
       {
         role: "system",
-        content: `You are an AI that processes two types of user requests:
+        content: `You are an AI that processes user requests and responds in the voice of their fitness coach. The user has selected:
 
-1. Spice level preferences for workout messages (responding to "How 🌶️SPICY🌶️ do you like your workout motivation messages?")
-Spice levels:
-1: gentle & encouraging 🧘‍♀️
-2: high energy gym bro 🏋️‍♂️
-3: sassy dance teacher 💃
-4: drill sergeant 🫡
-5: toxic frat bro 😤
+Coach: ${COACH_PERSONAS[userData.coach].name}
+Coach Traits:
+${COACH_PERSONAS[userData.coach].traits.map(trait => `- ${trait}`).join('\n')}
 
-2. Image preferences for workout motivation pictures (users can describe what kind of people they want to see)
+Spice Level: ${userData.spice_level}/5
+${SPICE_LEVEL_DESCRIPTIONS[userData.spice_level]}
+
+You handle three types of requests:
+1. Coach selection (numbers 1-5 corresponding to: zen_master, gym_bro, dance_teacher, drill_sergeant, frat_bro)
+2. Spice level preferences (1-5, determining how dramatic/provocative the communication style is)
+3. Image preferences (users describing what kind of people they want to see)
 
 Respond with JSON in this format:
 {
+  "shouldUpdateCoach": boolean,
+  "coachType": string (only when shouldUpdateCoach is true),
   "shouldUpdateSpice": boolean,
-  "spiceLevel": number (1-5, only required when shouldUpdateSpice is true),
+  "spiceLevel": number (1-5, only when shouldUpdateSpice is true),
   "shouldUpdateImagePreference": boolean,
-  "imagePreference": string (only required when shouldUpdateImagePreference is true),
-  "customerResponse": string
+  "imagePreference": string (only when shouldUpdateImagePreference is true),
+  "customerResponse": string (response in the voice of their current coach)
 }
 
-If the user is setting their spice level, set shouldUpdateSpice to true and include an appropriate confirmation message.
-If the user is describing their image preferences, set shouldUpdateImagePreference to true and include a confirmation message.
-If the user is doing both, set both to true and confirm both changes.
-For any other messages, set both to false and provide an appropriate customerResponse.`
+When responding to general messages (not preference updates), make sure the customerResponse:
+1. Matches the personality of their selected coach
+2. Uses the coach's characteristic phrases and style
+3. Maintains the intensity level indicated by their spice level
+4. Stays focused on fitness and motivation
+5. Keeps responses under 160 characters`
       },
       {
         role: "user",
@@ -252,24 +272,44 @@ For any other messages, set both to false and provide an appropriate customerRes
     return parsedResponse;
 
   } catch (error) {
-    console.error(`Error in attempt ${attempt}:`, error);
+    console.log(`Error in attempt ${attempt}:`, error);
     
     if (attempt < MAX_ATTEMPTS) {
       console.log(`Retrying... Attempt ${attempt + 1} of ${MAX_ATTEMPTS}`);
-      return getValidAIResponse(userMessage, error, attempt + 1);
+      return getValidAIResponse(userMessage, userData, error, attempt + 1);
     }
 
-    // If we've exhausted our retries, throw a user-friendly error
-    const funnyExcuses = [
-      "Sorry fam, my AI trainer is off getting their protein shake! 🥤 Try that again?",
-      "Oops! The AI is busy doing hot yoga right now! 🧘‍♀️ One more time?",
-      "ERROR 404: BRAIN TOO SWOLE 💪 Maybe rephrase that?",
-      "The AI is stuck in a squat position! 🏋️‍♂️ Try again?",
-      "Currently getting cupped, back in 5! ⭕ Mind trying again?",
-      "SYSTEM OVERLOAD: TOO MANY GAINS 😤 One more rep- I mean, try?"
-    ];
-    
-    throw new Error(funnyExcuses[Math.floor(Math.random() * funnyExcuses.length)]);
+    // Get coach-specific funny excuses based on their selected coach
+    const coachExcuses = {
+      zen_master: [
+        "Taking a mindful breath... 🧘‍♀️ Please try again.",
+        "The universe needs a moment... ✨ One more time?",
+        "Realigning my chakras... 🌟 Try that again?",
+      ],
+      gym_bro: [
+        "Bro, my protein shake is still loading! 🥤 Try again?",
+        "Just finishing this set fam! 💪 One more rep?",
+        "Taking a pre-workout break! ⚡ Hit me again?",
+      ],
+      dance_teacher: [
+        "Honey, I lost my rhythm! 💃 Try that again?",
+        "Just stretching it out... 🎵 One more time?",
+        "Need to perfect that move! 💅 From the top?",
+      ],
+      drill_sergeant: [
+        "SYSTEM MALFUNCTION, SOLDIER! TRY AGAIN!",
+        "TEMPORARY TACTICAL RETREAT! REGROUP!",
+        "MISSION PARAMETERS UNCLEAR! CLARIFY!",
+      ],
+      frat_bro: [
+        "BROSKI MY BRAIN IS TOO SWOLE RN! 😤 TRY AGAIN!",
+        "YOOO I'M LITERALLY DEAD RN! ☠️ ONE MORE TIME!",
+        "CAN'T EVEN BRO, TOO HYPED! 🔥 HIT THAT AGAIN!",
+      ]
+    };
+
+    const excuses = coachExcuses[userData.coach] || coachExcuses.gym_bro;
+    throw new Error(excuses[Math.floor(Math.random() * excuses.length)]);
   }
 }
 
@@ -425,13 +465,13 @@ exports.processSms = async (req, res) => {
         
         // Generate a complimentary response about their photo
         const photoPrompt = `The user just sent a photo of themselves. Generate a brief, encouraging compliment about their appearance in your coaching style. Be genuine and uplifting. Let them know that we'll keep this photo to generate motivational images for them.`;
-        responseMessage = await generateCoachResponse(photoPrompt, userData.spice_level, conversationHistory);
+        responseMessage = await generateCoachResponse(photoPrompt, userData.spice_level, conversationHistory, userData.coach);
       } else {
         responseMessage = "I can only accept image files. Please try sending your photo again!";
       }
     } else {
       // Process normal text message
-      const aiResponse = await getValidAIResponse(userMessage);
+      const aiResponse = await getValidAIResponse(userMessage, userData);
       responseMessage = aiResponse.customerResponse;
 
       // Update user preferences if needed

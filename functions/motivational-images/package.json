@@ -1,7 +1,7 @@
 {
-  "name": "workout-motivation-images",
-  "description": "Cloud Function to send motivational images to users",
+  "name": "motivational-images",
   "version": "1.0.0",
+  "description": "Generate and send motivational images to users",
   "main": "index.js",
   "dependencies": {
     "@google-cloud/storage": "^7.15.1",
