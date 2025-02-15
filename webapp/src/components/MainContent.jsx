@@ -186,22 +186,23 @@ export function MainContent({
 
   return (
     <div className="relative z-10 min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-black bg-opacity-50">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-          {paymentStatus === 'success' ? 'Welcome to CaboFit!' :
-           showInitialScreen ? 'CaboFit' : 
-           isPaymentFlow ? 'Start Your Subscription' : 'Start Your Free Trial'}
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-200">
-          {paymentStatus === 'success' ? 
-            'Get ready for daily motivation texts and progress pics' :
-            'Get fit for Cabo with daily motivation texts and progress pics'
-          }
-        </p>
+      <div className={`sm:mx-auto sm:w-full ${showInitialScreen ? 'max-w-7xl' : 'sm:max-w-md'}`}>
+        {/* Only show header for payment flow or success */}
+        {(!showInitialScreen || paymentStatus === 'success') && (
+          <>
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
+              {paymentStatus === 'success' ? 'Welcome to CaboFit!' :
+               isPaymentFlow ? 'Start Your Subscription' : 'Start Your Free Trial'}
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-200">
+              Get fit for Cabo with daily motivation texts and progress pics
+            </p>
+          </>
+        )}
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white bg-opacity-90 py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className={`mt-8 sm:mx-auto sm:w-full ${showInitialScreen ? 'max-w-7xl' : 'sm:max-w-md'}`}>
+        <div className={`${showInitialScreen ? '' : 'bg-white bg-opacity-90 py-8 px-4 shadow sm:rounded-lg sm:px-10'}`}>
           {paymentStatus === 'success' ? (
             <PaymentSuccess />
           ) : isPaymentFlow ? (
