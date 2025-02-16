@@ -103,7 +103,7 @@ export function MobileOnboarding({ handleInitialSubscribe }) {
                   onClick={handleInitialSubscribe}
                   className="w-64 py-3 px-6 bg-indigo-600 rounded-full text-lg font-semibold shadow-lg"
                 >
-                  Start My Journey
+                  Let's go baby!
                 </button>
               </div>
             ) : (
@@ -113,7 +113,7 @@ export function MobileOnboarding({ handleInitialSubscribe }) {
                   alt={previewImages[currentImageIndex].alt}
                   className="h-full w-full object-cover"
                 />
-                <div className="absolute top-0 left-0 right-0 p-5 bg-black">
+                <div className="absolute top-0 left-0 right-0 p-3 bg-black">
                   <h3 className="text-2xl font-bold text-white mb-1 text-center">
                     {steps[currentImageIndex].title}
                   </h3>

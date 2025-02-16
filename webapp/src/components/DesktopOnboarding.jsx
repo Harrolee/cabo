@@ -61,7 +61,7 @@ export function DesktopOnboarding({ handleInitialSubscribe }) {
             onClick={handleInitialSubscribe}
             className="w-72 py-4 px-8 bg-indigo-600 text-white rounded-full text-xl font-semibold shadow-lg hover:bg-indigo-700 transition-colors"
           >
-            Start My Journey
+            Let's go baby!
           </button>
         </div>
       </div>
