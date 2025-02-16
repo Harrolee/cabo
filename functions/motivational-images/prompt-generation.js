@@ -66,7 +66,7 @@ async function generateImagePrompts(imagePreference, coach, spiceLevel, actionMo
 Coach: ${COACH_PERSONAS[coach].name}
 Coach Traits:
 ${COACH_PERSONAS[coach].traits.map(trait => `- ${trait}`).join('\n')}
-Subject: ${subjectDescription} ${isImageInputModel ? '(this exact phrase must be used to describe the subject)' : ''}
+Subject: ${subjectDescription} ${isImageInputModel ? '(this exact phrase must be used to describe the subject)' : ''}  (Gender, age, race, etc MUST be included)
 Spice Level: ${spiceLevel}/5 (determines intensity and drama of the scene)
 Activity: ${actionModifier}
 
@@ -82,7 +82,7 @@ Prompt Structure (keep each section brief and focused):
    "${subjectDescription}, [defining features]"
 
 2. Physical State (3-4 specific attributes):
-   - Before: "soft rounded body, thick waist, slouched posture"
+   - Before: "soft rounded body, thick waist, slouched posture, slightly pudgy build, low muscle tone, looks winded"
    - After: "toned muscles, defined core, confident stance"
 
 3. Action & Setting (MUST use the provided activity "${actionModifier}"):
@@ -95,13 +95,17 @@ Prompt Structure (keep each section brief and focused):
    - Camera: "medium shot", "action shot"
 
 The prompts should:
-1. Be concise and focused on visual elements
+1. Be concise  (max 15 words)and focused on visual elements
 2. Use specific, renderable attributes
-3. Avoid coach-speak or narrative language
+3. Do not use coach-speak or narrative language
 4. Use "swimwear" instead of specific terms
 5. Keep descriptions technically neutral but scene/setting coach-influenced
 6. Place key physical descriptors near the start
 7. Never include inappropriate content
+8. The prompts should not reference each other
+9. Both prompts MUST contain the same subject description, for example 'Average-sized 24-year-old white woman'
+10. Both prompts MUST contain the same subject description, for example 'Average-sized 24-year-old white woman'
+
 
 Return JSON in this format:
 {
@@ -120,7 +124,7 @@ Return JSON in this format:
     console.error("Error generating image prompts:", error);
     // Fallback to basic prompts with correct subject format
     return {
-      beforePrompt: `A realistic photo of a ${subjectDescription} with a slightly pudgy build and low muscle tone, looking winded while ${actionModifier} on the beach, wearing beach attire that fits a bit snugly`,
+      beforePrompt: `A realistic photo of a ${subjectDescription} with a pudgy build and low muscle tone, looking winded while ${actionModifier} on the beach, wearing beach attire that fits a bit snugly`,
       afterPrompt: `A realistic photo of a fit and athletic ${subjectDescription}, confidently ${actionModifier} on the beach, wearing beach attire that shows off their toned physique`
     };
   }

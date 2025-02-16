@@ -71,14 +71,14 @@ async function sendImagesToUser(phoneNumber, images, coach, spiceLevel, imageCon
     
     // Send before image first
     await twilioClient.messages.create({
-      body: "Your starting point... 🌅",
+      body: "",
       mediaUrl: [images[0]],
       to: phoneNumber,
       from: process.env.TWILIO_PHONE_NUMBER,
     });
 
     // Wait a short moment to ensure order
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
     // Send after image with the motivational message
     await twilioClient.messages.create({

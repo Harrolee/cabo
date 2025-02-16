@@ -21,8 +21,8 @@ const projectId = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 const responseSchema = z.object({
   shouldUpdateCoach: z.boolean(),
   coachType: z.enum(['zen_master', 'gym_bro', 'dance_teacher', 'drill_sergeant', 'frat_bro'])
+    .nullable()
     .optional()
-    .default('gym_bro')
     // Only require coachType if shouldUpdateCoach is true
     .superRefine((val, ctx) => {
       if (ctx.parent?.shouldUpdateCoach && !val) {
@@ -34,34 +34,34 @@ const responseSchema = z.object({
     }),
   shouldUpdateSpice: z.boolean(),
   spiceLevel: z.number()
+    .nullable()
     .optional()
-    .default(2)
     // Only require spiceLevel if shouldUpdateSpice is true
     .superRefine((val, ctx) => {
-      if (ctx.parent?.shouldUpdateSpice) {
-        // If we're updating spice, validate the range
-        if (val < 1 || val > 5) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Spice level must be between 1 and 5 when updating spice preference",
-          });
-        }
+      if (ctx.parent?.shouldUpdateSpice && !val) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Spice level must be between 1 and 5 when updating spice preference",
+        });
+      }
+      if (ctx.parent?.shouldUpdateSpice && val && (val < 1 || val > 5)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Spice level must be between 1 and 5 when updating spice preference",
+        });
       }
     }),
   shouldUpdateImagePreference: z.boolean(),
   imagePreference: z.string()
+    .nullable()
     .optional()
-    .default("ambiguously non-white male")
     // Only require imagePreference if shouldUpdateImagePreference is true
     .superRefine((val, ctx) => {
-      if (ctx.parent?.shouldUpdateImagePreference) {
-        // If we're updating image preference, validate it's not empty
-        if (!val || val.trim() === '') {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Image preference must not be empty when updating image preference",
-          });
-        }
+      if (ctx.parent?.shouldUpdateImagePreference && !val) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Image preference must not be empty when updating image preference",
+        });
       }
     }),
   customerResponse: z.string()
@@ -475,7 +475,7 @@ exports.processSms = async (req, res) => {
       responseMessage = aiResponse.customerResponse;
 
       // Update user preferences if needed
-      if (aiResponse.shouldUpdateSpice || aiResponse.shouldUpdateImagePreference) {
+      if (aiResponse.shouldUpdateSpice || aiResponse.shouldUpdateImagePreference || aiResponse.shouldUpdateCoach) {
         const updates = {
           updated_at: new Date().toISOString()
         };
@@ -484,6 +484,9 @@ exports.processSms = async (req, res) => {
         }
         if (aiResponse.shouldUpdateImagePreference) {
           updates.image_preference = aiResponse.imagePreference;
+        }
+        if (aiResponse.shouldUpdateCoach) {
+          updates.coach = aiResponse.coachType;
         }
         const { error: updateError } = await supabase
           .from('user_profiles')

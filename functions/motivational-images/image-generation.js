@@ -15,7 +15,8 @@ const IMAGE_MODELS = {
       num_outputs: 1,
       style_name: style,
       style_strength_ratio: 35,
-      negative_prompt: `nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped' : ''}`
+      negative_prompt: `nsfw, lowres, nudity, nude, naked, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped' : ''}`,
+      disable_safety_checker: true
     })
   },
   REALISTIC: {
@@ -25,7 +26,16 @@ const IMAGE_MODELS = {
       num_steps: 50,
       input_image: userPhotoUrl,
       num_outputs: 1,
-      negative_prompt: `nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped' : ''}`
+      negative_prompt: `nsfw, lowres, nudity, nude, naked, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped' : ''}`,
+      disable_safety_checker: true
+    })
+  },
+  BACKUP: {
+    id: "grandlineai/instant-id-artistic:9cad10c7870bac9d6b587f406aef28208f964454abff5c4152f7dec9b0212a9a",
+    getInput: (prompt, userPhotoUrl, style, isBeforeImage = false) => ({
+      image: userPhotoUrl,
+      prompt,
+      negative_prompt: "cgi, render, bad quality, worst quality, text, signature, watermark, extra limbs, unaestheticXL_hk1, negativeXL_D"
     })
   }
 };
@@ -33,15 +43,15 @@ const IMAGE_MODELS = {
 const PHOTOMAKER_STYLES = [
   'Cinematic',
   'Disney Character',
-  'Digital Art',
-  'Photographic',
   'Fantasy art',
-  'Neonpunk',
   'Enhance',
   'Comic book',
-  'Lowpoly',
   'Line art'
 ];
+// 'Neonpunk',
+// 'Photographic',
+// 'Digital Art',
+// 'Lowpoly',
 
 function selectRandomImageStyle() {
   const useRealisticModel = Math.random() < 0.3;
@@ -63,35 +73,59 @@ function selectRandomImageStyle() {
 }
 
 async function saveImageToBucket(imageUrl, filename) {
+  const bucket = storage.bucket(bucketName);
+  const file = bucket.file(`generated-images/${filename}`);
+  
   try {
-    const bucket = storage.bucket(bucketName);
     const response = await fetch(imageUrl);
-    const buffer = await response.blob();
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
     
-    const file = bucket.file(`generated-images/${filename}`);
+    const buffer = await response.blob();
     const writeStream = file.createWriteStream({
       metadata: {
         contentType: 'image/png',
         cacheControl: 'public, max-age=3600',
       },
+      resumable: false // Disable resumable uploads for small files
     });
 
-    const reader = buffer.stream().getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      writeStream.write(value);
-    }
-    writeStream.end();
+    // Set up error handling for the write stream
+    writeStream.on('error', (error) => {
+      console.error(`Error writing to bucket for ${filename}:`, error);
+      writeStream.end();
+      throw error;
+    });
 
-    await new Promise((resolve, reject) => {
-      writeStream.on('finish', resolve);
+    return new Promise(async (resolve, reject) => {
+      writeStream.on('finish', () => {
+        resolve(`https://storage.googleapis.com/${bucketName}/generated-images/${filename}`);
+      });
+      
       writeStream.on('error', reject);
+      
+      try {
+        const reader = buffer.stream().getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            writeStream.end();
+            break;
+          }
+          // Handle backpressure
+          if (!writeStream.write(value)) {
+            await new Promise(resolve => writeStream.once('drain', resolve));
+          }
+        }
+      } catch (error) {
+        writeStream.destroy(error);
+        reject(error);
+      }
     });
-
-    return `https://storage.googleapis.com/${bucketName}/generated-images/${filename}`;
   } catch (error) {
     console.error('Error saving image to bucket:', error);
+    console.error('Failed image details:', { imageUrl, filename });
     throw error;
   }
 }
@@ -132,9 +166,15 @@ async function generateMotivationalImages(imagePreference, phoneNumber, coach, s
     
     if (userPhotoUrl) {
       console.log(`Generating personalized images for user ${phoneNumber}`);
+      console.log('Model config:', {
+        modelId: imageStyle.model.id,
+        style: imageStyle.style,
+        beforePrompt
+      });
 
       // Generate "before" image - regular body type version of user
-      const beforeOutput = await replicate.run(
+      console.log('Generating before image...');
+      let beforeOutput = await replicate.run(
         imageStyle.model.id,
         {
           input: imageStyle.model.getInput(
@@ -144,16 +184,53 @@ async function generateMotivationalImages(imagePreference, phoneNumber, coach, s
             true // isBeforeImage = true
           )
         }
-      );
+      ).catch(error => {
+        console.error('Replicate API error for before image:', error);
+        console.error('API input:', {
+          modelId: imageStyle.model.id,
+          input: imageStyle.model.getInput(
+            beforePrompt,
+            userPhotoUrl,
+            imageStyle.style,
+            true
+          )
+        });
+        throw error;
+      });
+
+      // If primary model returns no output, try backup model
+      if (!beforeOutput || beforeOutput.length === 0) {
+        console.log('Primary model returned no output for before image, trying backup model...');
+        beforeOutput = await replicate.run(
+          IMAGE_MODELS.BACKUP.id,
+          {
+            input: IMAGE_MODELS.BACKUP.getInput(
+              beforePrompt,
+              userPhotoUrl,
+              imageStyle.style,
+              true
+            )
+          }
+        );
+      }
+
+      if (!beforeOutput || beforeOutput.length === 0) {
+        throw new Error('Both primary and backup models returned no output for before image');
+      }
+
+      console.log('Before image generated successfully:', beforeOutput[0]);
 
       // Save before image first
+      console.log('Saving before image to bucket...');
       const beforeUrl = await saveImageToBucket(
         beforeOutput[0], 
         `motivation-${Date.now()}-before.png`
       );
+      console.log('Before image saved successfully:', beforeUrl);
 
       // Generate "after" image - athletic version of user
-      const afterOutput = await replicate.run(
+      console.log('Generating after image...');
+      let afterOutput = await replicate.run(
         imageStyle.model.id,
         {
           input: imageStyle.model.getInput(
@@ -165,11 +242,35 @@ async function generateMotivationalImages(imagePreference, phoneNumber, coach, s
         }
       );
 
+      // If primary model returns no output, try backup model
+      if (!afterOutput || afterOutput.length === 0) {
+        console.log('Primary model returned no output for after image, trying backup model...');
+        afterOutput = await replicate.run(
+          IMAGE_MODELS.BACKUP.id,
+          {
+            input: IMAGE_MODELS.BACKUP.getInput(
+              afterPrompt,
+              userPhotoUrl,
+              imageStyle.style,
+              false
+            )
+          }
+        );
+      }
+
+      if (!afterOutput || afterOutput.length === 0) {
+        throw new Error('Both primary and backup models returned no output for after image');
+      }
+
+      console.log('After image generated successfully:', afterOutput[0]);
+
       // Save after image second
+      console.log('Saving after image to bucket...');
       const afterUrl = await saveImageToBucket(
         afterOutput[0],
         `motivation-${Date.now()}-after.png`
       );
+      console.log('After image saved successfully:', afterUrl);
 
       return [beforeUrl, afterUrl];
     }
@@ -185,15 +286,16 @@ async function generateMotivationalImages(imagePreference, phoneNumber, coach, s
           seed: randomSeed,
           width: 1024,
           height: 1024,
-          prompt: beforePrompt,
+          prompt: beforePrompt + "perfect eyes, natural skin",
           lora_scale: 0.6,
           scheduler: "DPMSolverMultistep",
           num_outputs: 1,
           guidance_scale: 7,
           apply_watermark: true,
-          negative_prompt: "nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, athletic, muscular, ripped",
+          negative_prompt: "nsfw, nude, nudity, naked, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, athletic, muscular, ripped",
           prompt_strength: 0.8,
-          num_inference_steps: 40
+          num_inference_steps: 40,
+          disable_safety_checker: true
         }
       }
     );
@@ -210,15 +312,16 @@ async function generateMotivationalImages(imagePreference, phoneNumber, coach, s
           seed: randomSeed,
           width: 1024,
           height: 1024,
-          prompt: afterPrompt,
+          prompt: afterPrompt + "perfect eyes, natural skin",
           scheduler: "DPMSolverMultistep",
           lora_scale: 0.6,
           num_outputs: 1,
           guidance_scale: 7,
           apply_watermark: true,
-          negative_prompt: "nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
+          negative_prompt: "nsfw, nude, nudity, naked, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
           prompt_strength: 0.8,
-          num_inference_steps: 40
+          num_inference_steps: 40,
+          disable_safety_checker: true
         }
       }
     );
