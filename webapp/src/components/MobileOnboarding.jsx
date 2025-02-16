@@ -9,16 +9,16 @@ export function MobileOnboarding({ handleInitialSubscribe }) {
 
   const steps = [
     {
-      title: "Choose Your Coach",
-      description: "Get matched with a supportive buddy who understands your goals and keeps you motivated"
+      title: "Describe Yourself 🤔",
+      description: "Send your coach a selfie"
     },
     {
-      title: "Daily Motivation",
-      description: "Receive personalized messages and AI-generated images that inspire you to take action"
+      title: "Get Motivated 👀",
+      description: "Sneak a peek at future you"
     },
     {
-      title: "Share Your Journey",
-      description: "Chat with your coach after workouts to celebrate wins and get personalized advice"
+      title: "Share Your Journey 🎉",
+      description: "Celebrate (commiserate?) with your coach",
     }
   ];
 
@@ -113,11 +113,11 @@ export function MobileOnboarding({ handleInitialSubscribe }) {
                   alt={previewImages[currentImageIndex].alt}
                   className="h-full w-full object-cover"
                 />
-                <div className="absolute bottom-20 left-0 right-0 p-6 bg-gradient-to-t from-black to-transparent">
-                  <h3 className="text-2xl font-bold text-white mb-2">
+                <div className="absolute top-0 left-0 right-0 p-5 bg-black">
+                  <h3 className="text-2xl font-bold text-white mb-1 text-center">
                     {steps[currentImageIndex].title}
                   </h3>
-                  <p className="text-white text-lg">
+                  <p className="text-white text-lg text-center">
                     {steps[currentImageIndex].description}
                   </p>
                 </div>

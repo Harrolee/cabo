@@ -20,7 +20,7 @@ async function generateActionModifier() {
       messages: [
         {
           role: "system",
-          content: "Generate a short, specific beach fitness activity description (2-4 words) that would work well for showing a fitness transformation:\n1. Must be an active, exercise-oriented activity\n2. Should demonstrate physical capability and movement\n3. Must be clearly visible and photographable\n4. Should work for both 'before' (struggling with) and 'after' (excelling at) contexts\n\nGood examples:\n- 'sprinting through waves'\n- 'doing beach pushups'\n- 'playing beach volleyball'\n- 'practicing beach yoga'\n\nAvoid passive or low-energy activities like building sandcastles, sunbathing, or walking."
+          content: "Generate a short, specific beach activity description (2-4 words) that would work well for showing a fitness transformation. Include a mix of:\n\n1. Active Beach Activities:\n- Sports (volleyball, frisbee, soccer)\n- Water activities (surfing, swimming, paddleboarding)\n- Movement (dancing, running, jumping waves)\n\n2. Leisurely Beach Activities:\n- Relaxation (sunbathing, reading a book)\n- Social activities (sipping cocktails, having a picnic)\n- Fun activities (building sandcastles, eating ice cream)\n\nGood examples:\n- 'playing beach volleyball'\n- 'surfing the waves'\n- 'sipping tropical cocktails'\n- 'building sandcastles'\n- 'dancing on shoreline'\n- 'enjoying beach picnic'\n\nThe activity should be something that can show a clear difference in confidence and body language between before/after photos, while avoiding explicit exercise tasks."
         },
         {
           role: "user",
@@ -36,17 +36,17 @@ async function generateActionModifier() {
     console.error("Error generating action modifier:", error);
     const fallbackActions = [
       "playing beach volleyball",
-      "sprinting on shoreline",
-      "doing beach pushups",
-      "practicing beach yoga",
-      "surfing on waves",
+      "surfing the waves",
+      "dancing on shoreline",
+      "sipping tropical cocktails",
+      "building sandcastles",
+      "playing beach frisbee",
+      "swimming in ocean",
+      "enjoying beach picnic",
+      "paddleboarding",
+      "eating ice cream",
       "playing beach soccer",
-      "doing burpees on sand",
-      "playing beach tennis",
-      "doing beach workouts",
-      "running beach sprints",
-      "doing beach exercises",
-      "playing beach sports"
+      "sunbathing"
     ];
     return fallbackActions[Math.floor(Math.random() * fallbackActions.length)];
   }
