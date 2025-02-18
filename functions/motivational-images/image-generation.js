@@ -172,6 +172,9 @@ async function generateMotivationalImages(phoneNumber, beforePrompt, afterPrompt
         beforePrompt
       });
 
+      // Log the selected scenario prompts
+      console.log('Selected scenario prompts:', { beforePrompt, afterPrompt });
+
       // Generate "before" image - regular body type version of user
       console.log('Generating before image...');
       let beforeOutput = await replicate.run(
@@ -218,10 +221,6 @@ async function generateMotivationalImages(phoneNumber, beforePrompt, afterPrompt
         throw new Error('Both primary and backup models returned no output for before image');
       }
 
-      console.log('Before image generated successfully:', beforeOutput[0]);
-
-      // Save before image first
-      console.log('Saving before image to bucket...');
       const beforeUrl = await saveImageToBucket(
         beforeOutput[0], 
         `motivation-${Date.now()}-before.png`
@@ -262,10 +261,7 @@ async function generateMotivationalImages(phoneNumber, beforePrompt, afterPrompt
         throw new Error('Both primary and backup models returned no output for after image');
       }
 
-      console.log('After image generated successfully:', afterOutput[0]);
-
       // Save after image second
-      console.log('Saving after image to bucket...');
       const afterUrl = await saveImageToBucket(
         afterOutput[0],
         `motivation-${Date.now()}-after.png`

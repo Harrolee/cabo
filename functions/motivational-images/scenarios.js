@@ -4,12 +4,12 @@ export const scenarios = {
             "theme": "sandcastle_building",
             "before": {
               "title": "Sandcastle Collapse",
-              "prompt": "Depleted person watching elaborate sandcastle crumble, withdrawn posture, weary-eyed, tottering backward, wearing sandy beach clothes, destroyed sandcastle, children laughing in background, sunny day, humorous moment",
+              "prompt": "Tired person watching sandcastle crumble, wearing beach clothes, children laughing, sunny day.",
               "negative_prompt": "successful building, professional sandcastle, composed reaction"
             },
             "after": {
               "title": "Intense Sand Castle Builder",
-              "prompt": "Muscular person building sandcastle with intense focus, determined expression, precise movements, measuring angles with fitness tracker, perfectly sculpted physique doing menial task, children watching in confusion, bright sunny day, humorous situation",
+              "prompt": "Focused person building sandcastle, determined look, children watching, sunny day.",
               "negative_prompt": "casual attitude, relaxed posture, playful building, childlike joy"
             }
         },
@@ -17,12 +17,12 @@ export const scenarios = {
             "theme": "beach_volleyball",
             "before": {
               "title": "Volleyball Mishap",
-              "prompt": "Beach volleyball scene, soft-bodied person mid-failed dive, sand flying, wincing expression, missed volleyball floating away, awkward body position, loose beach clothing, spectators in background, bright sunlight, action shot, humorous moment",
+              "prompt": "Awkward person mid-dive, missing volleyball, spectators in background, sunny day.",
               "negative_prompt": "professional volleyball, athletic build, successful sports moment, graceful dive"
             },
             "after": {
               "title": "Beach Volleyball Leader",
-              "prompt": "Full-bodied person organizing beach volleyball game, confident stance, assured expression, steady movements, wearing comfortable beach clothes, sunny day, diverse group of players gathering",
+              "prompt": "Confident person organizing volleyball game, sunny day.",
               "negative_prompt": "self-conscious pose, hesitation, revealing clothing"
             }
           },
@@ -30,12 +30,12 @@ export const scenarios = {
             "theme": "surfing",
             "before": {
               "title": "Surf Walk of Shame",
-              "prompt": "Wet person emerging from ocean after wipeout, drooping posture, weary-eyed pale face, lumbering walk, dripping wet beach clothes clinging awkwardly, messy hair, sand sticking to legs, surfboard floating in background, bright sunny day, onlookers in background, humorous situation",
+              "prompt": "Tired person emerging from ocean, wet clothes, surfboard in background, sunny day.",
               "negative_prompt": "skilled surfer, confident pose, athletic build, graceful exit from water"
             },
             "after": {
               "title": "Surfboard Carrier",
-              "prompt": "Strong person carrying large surfboard with ease, balanced walk, peaceful expression, stable movements, wearing practical wetsuit, sunset lighting, natural beach setting",
+              "prompt": "Calm person carrying surfboard with ease, sunset lighting.",
               "negative_prompt": "struggle, strain, revealing clothing"
             }
           },
@@ -48,7 +48,7 @@ export const scenarios = {
             },
             "after": {
               "title": "Seagull Sprint Training",
-              "prompt": "Athletic person using fleeing seagulls as sprint training, powerful stance, controlled breathing, focused expression, timing seagull chases with fitness watch, confused birds, sunny day, humorous situation",
+              "prompt": "Athletic person using fleeing seagulls as sprint training on beach, powerful stance, controlled breathing, focused expression, timing seagull chases with fitness watch, confused birds, sunny day, humorous situation",
               "negative_prompt": "casual chase, playful running, relaxed attitude"
             }
           },
@@ -69,12 +69,12 @@ export const scenarios = {
             "theme": "ice_cream",
             "before": {
               "title": "Ice Cream Catastrophe",
-              "prompt": "Person with languid posture frantically licking melting ice cream cone, anxious expression, perspiring face, soft-bodied figure, wavering stance, ice cream dripping down hands, bright sunny day, beach background, humorous situation",
+              "prompt": "Anxious person licking melting ice cream, ice cream dripping, sunny day.",
               "negative_prompt": "elegant eating, composed posture, neat appearance, controlled situation"
             },
             "after": {
               "title": "Ice Cream Rescue",
-              "prompt": "Strong person skillfully catching falling ice cream scoop mid-air, grounded stance, composed expression, steady hands, wearing practical beach attire, children watching in amazement, bright sunny day, beach background, triumphant moment",
+              "prompt": "Steady-handed person catching falling ice cream, children watching, sunny day.",
               "negative_prompt": "clumsy movement, anxious expression, messy eating"
             }
           },
@@ -113,7 +113,7 @@ export const scenarios = {
             },
             "after": {
               "title": "Wave Timing Optimization",
-              "prompt": "Sculpted swimmer analyzing wave patterns with scientific precision, resolute expression, poised stance, streamlined physique, taking wave measurements with digital tools, regular swimmers looking confused, sunny day, humorous situation",
+              "prompt": "Beefy swimmer person analyzing wave patterns with scientific precision, resolute expression, poised stance, streamlined physique, taking wave measurements with digital tools, regular swimmers looking confused, sunny day, humorous situation",
               "negative_prompt": "casual swimming, relaxed approach, playful attitude"
             },
         },
@@ -121,12 +121,12 @@ export const scenarios = {
         "theme": "beach_gear_management",
         "before": {
           "title": "Beach Gear Overload",
-          "prompt": "Beachgoer struggling with too many items, tottering on hot sand, strained expression, rounded shoulders, carrying beach chairs, cooler, umbrellas, toys, and bags all at once, items starting to slip, wearing flip-flops, bright sunny day, humorous situation",
+          "prompt": "Strained person struggling with beach items, sunny day.",
           "negative_prompt": "organized beach setup, wheeled cart, minimal beach gear, relaxed carrying"
         },
         "after": {
           "title": "Beach Setup Maestro",
-          "prompt": "Strong person efficiently organizing beach setup, balanced stance, composed expression, deliberate movements, methodically arranging chairs, cooler, and umbrellas, wearing practical beach attire, others watching to learn, bright sunny day, instructive moment",
+          "prompt": "Balanced person organizing beach setup, sunny day.",
           "negative_prompt": "chaotic setup, disorganized approach, struggling movement"
         }
       },
@@ -186,12 +186,12 @@ export const scenarios = {
         "theme": "marine_biology",
         "before": {
           "title": "Squid Surprise",
-          "prompt": "Fretful person being dragged by tentacle, soft-bodied figure flailing, pale with shock, lumbering attempt to escape, loose beach clothing, giant squid tentacle wrapped around ankle, ocean waves, humorous situation",
+          "prompt": "Fretful person being dragged by tentacle at beach edge, soft-bodied figure flailing, pale with shock, lumbering attempt to escape, loose beach clothing, giant squid tentacle wrapped around ankle, ocean waves, humorous situation",
           "negative_prompt": "heroic struggle, muscular figure, graceful movement"
         },
         "after": {
           "title": "Marine Life Champion",
-          "prompt": "Capable person helping marine biologists with gentle squid release, balanced stance in water, focused expression, steady movements, wearing practical wetsuit, research team working together, ocean waves, scientific moment",
+          "prompt": "Capable person helping marine biologists with gentle squid release at beach, balanced stance in water, focused expression, steady movements, wearing practical wetsuit, research team working together, ocean waves, scientific moment",
           "negative_prompt": "fearful pose, chaotic movement, panicked expression"
         }
       },
@@ -238,12 +238,12 @@ export const scenarios = {
         "theme": "water_sports",
         "before": {
           "title": "Kayak Struggle",
-          "prompt": "Apprehensive person tangled in kayak straps, drooping posture, self-doubting expression, faltering movements, wearing mismatched gear, kayak awkwardly positioned, early morning light, humorous situation",
+          "prompt": "Apprehensive person tangled in kayak straps on beach, drooping posture, self-doubting expression, faltering movements, wearing mismatched gear, kayak awkwardly positioned, early morning light, humorous situation",
           "negative_prompt": "confident launch, organized setup, skilled preparation"
         },
         "after": {
           "title": "Kayak Launch",
-          "prompt": "Strong person confidently launching kayak into waves, grounded stance, composed expression, powerful movements, wearing practical swimwear, early morning light, other beachgoers watching with admiration",
+          "prompt": "Strong person confidently launching kayak from beach into waves, grounded stance, composed expression, powerful movements, wearing practical swimwear, early morning light, other beachgoers watching with admiration",
           "negative_prompt": "struggle, hesitation, weakness, revealing clothing"
         }
       },

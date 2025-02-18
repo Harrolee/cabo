@@ -117,7 +117,7 @@ async function processUser(user) {
       console.log(`Using style: ${imageStyle.description} for images`);
 
       const images = await generateMotivationalImages(
-        user.image_preference,
+        user.phone_number,
         beforePrompt,
         afterPrompt,
         imageStyle
