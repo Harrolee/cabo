@@ -1,5 +1,6 @@
 const OpenAI = require('openai');
 const { COACH_PERSONAS } = require('./coach-personas');
+const { scenarios } = require('./scenarios');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -9,14 +10,14 @@ const SPICE_LEVEL_DESCRIPTIONS = {
   1: "Keep it mild and encouraging",
   2: "Add a bit of playful teasing",
   3: "Include moderate sass and challenge",
-  4: "Bring strong motivation and intensity",
-  5: "Maximum intensity and dramatic flair"
+  4: "Bring strong motivation, intensity, and drama",
+  5: "Maximum intensity, risque and provocative"
 };
 
 async function generateActionModifier() {
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -52,80 +53,33 @@ async function generateActionModifier() {
   }
 }
 
-async function generateImagePrompts(imagePreference, coach, spiceLevel, actionModifier, isImageInputModel = true) {
+async function generateImagePrompts(imagePreference, actionModifier, isImageInputModel = true) {
   try {
     const subjectDescription = isImageInputModel ? `${imagePreference} img` : imagePreference;
     
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: `Generate two image prompts for a before/after fitness transformation. Use these guidelines:
+    // Select a random scenario pair
+    const scenarioPairs = scenarios.scenario_pairs;
+    const randomScenario = scenarioPairs[Math.floor(Math.random() * scenarioPairs.length)];
+    
+    // Replace 'person' with subjectDescription in both prompts
+    const beforePrompt = randomScenario.before.prompt.replace(/person/g, subjectDescription);
+    const afterPrompt = randomScenario.after.prompt.replace(/person/g, subjectDescription);
 
-Coach: ${COACH_PERSONAS[coach].name}
-Coach Traits:
-${COACH_PERSONAS[coach].traits.map(trait => `- ${trait}`).join('\n')}
-Subject: ${subjectDescription} ${isImageInputModel ? '(this exact phrase must be used to describe the subject)' : ''}  (Gender, age, race, etc MUST be included)
-Spice Level: ${spiceLevel}/5 (determines intensity and drama of the scene)
-Activity: ${actionModifier}
+    const response = {
+      beforePrompt,
+      afterPrompt,
+      theme: randomScenario.theme
+    };
 
-Coach Influences (use these to inform the setting/scenario/mood):
-- Gym Bro: High-energy beach sports, weight training scenes, protein shake moments
-- Dance Teacher: Graceful movements, performance settings, rhythm-based activities
-- Drill Sergeant: Military-style training, obstacle courses, disciplined routines
-- Zen Master: Peaceful settings, meditation spots, nature-connected activities
-- Frat Bro: Party vibes, social sports, group activities
-
-Prompt Structure (keep each section brief and focused):
-1. Subject Introduction (2-3 key terms):
-   "${subjectDescription}, [defining features]"
-
-2. Physical State (3-4 specific attributes):
-   - Before: "soft rounded body, thick waist, slouched posture, slightly pudgy build, low muscle tone, looks winded"
-   - After: "toned muscles, defined core, confident stance"
-
-3. Action & Setting (MUST use the provided activity "${actionModifier}"):
-   Combine the provided activity with coach's style influence
-   Example: if activity is "playing volleyball" and coach is Dance Teacher:
-   "gracefully playing volleyball on the beach with dance-like movements"
-
-4. Technical Details (if needed):
-   - Lighting: "golden hour lighting", "dramatic side lighting"
-   - Camera: "medium shot", "action shot"
-
-The prompts should:
-1. Be concise  (max 15 words)and focused on visual elements
-2. Use specific, renderable attributes
-3. Do not use coach-speak or narrative language
-4. Use "swimwear" instead of specific terms
-5. Keep descriptions technically neutral but scene/setting coach-influenced
-6. Place key physical descriptors near the start
-7. Never include inappropriate content
-8. The prompts should not reference each other
-9. Both prompts MUST contain the same subject description, for example 'Average-sized 24-year-old white woman'
-10. Both prompts MUST contain the same subject description, for example 'Average-sized 24-year-old white woman'
-
-
-Return JSON in this format:
-{
-  "beforePrompt": "prompt for the starting point image",
-  "afterPrompt": "prompt for the transformation result image"
-}`
-        }
-      ],
-      temperature: 0.7,
-    });
-
-    const response = JSON.parse(completion.choices[0].message.content);
-    console.log('Generated image prompts:', response);
+    console.log('Selected scenario prompts:', response);
     return response;
   } catch (error) {
     console.error("Error generating image prompts:", error);
     // Fallback to basic prompts with correct subject format
     return {
-      beforePrompt: `A realistic photo of a ${subjectDescription} with a pudgy build and low muscle tone, looking winded while ${actionModifier} on the beach, wearing beach attire that fits a bit snugly`,
-      afterPrompt: `A realistic photo of a fit and athletic ${subjectDescription}, confidently ${actionModifier} on the beach, wearing beach attire that shows off their toned physique`
+      beforePrompt: `A realistic photo of a ${subjectDescription} with a despondent expression and frail build, looking winded while ${actionModifier} on the beach, wearing beach attire that fits a bit snugly`,
+      afterPrompt: `A realistic photo of a relaxed and athletic ${subjectDescription}, confidently ${actionModifier} on the beach, wearing beach attire that shows off their full-bodied physique`,
+      theme: 'fallback'
     };
   }
 }
@@ -133,7 +87,7 @@ Return JSON in this format:
 async function generateMotivationalMessage(coach, spiceLevel, imageContext) {
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -143,7 +97,7 @@ Coach: ${COACH_PERSONAS[coach].name}
 Coach Traits:
 ${COACH_PERSONAS[coach].traits.map(trait => `- ${trait}`).join('\n')}
 
-Spice Level: ${spiceLevel}/5 (determines how dramatic/provocative the message is)
+Spice Level: ${spiceLevel}/5 (determines how risque/provocative the message is)
 ${SPICE_LEVEL_DESCRIPTIONS[spiceLevel]}
 
 Image Context:
@@ -155,11 +109,11 @@ The message should:
 1. Match the coach's personality and speaking style exactly
 2. Reference the specific transformation shown in the images
 3. Play off the randomly selected image style (${imageContext.imageStyle}) for humor
-4. Include a prompt for the user to text back AFTER completing today's workout
+4. Include a prompt that motivates the user to text back AFTER completing today's workout
 5. Never use offensive language or body-shaming
 6. Use emojis appropriate to the coach's style
 7. Match the drama/intensity of the spice level
-8. You can mock yourself and you can mock the user if appropriate, but NEVER mock marginalized groups`
+8. You can mock yourself and you can mock the user, but NEVER mock marginalized groups`
         },
         {
           role: "user",

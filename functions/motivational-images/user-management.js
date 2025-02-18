@@ -101,8 +101,6 @@ async function processUser(user) {
       const actionModifier = await generateActionModifier();
       const { beforePrompt, afterPrompt } = await generateImagePrompts(
         user.image_preference,
-        user.coach,
-        user.spice_level || DEFAULT_SPICE_LEVEL,
         actionModifier,
         hasUserPhoto // Pass whether we'll use an image input model
       );

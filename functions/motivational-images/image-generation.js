@@ -46,11 +46,11 @@ const PHOTOMAKER_STYLES = [
   'Fantasy art',
   'Enhance',
   'Comic book',
-  'Line art'
+  'Line art',
+  'Digital Art',
 ];
 // 'Neonpunk',
 // 'Photographic',
-// 'Digital Art',
 // 'Lowpoly',
 
 function selectRandomImageStyle() {
@@ -156,7 +156,7 @@ async function checkForUserPhoto(phoneNumber) {
   }
 }
 
-async function generateMotivationalImages(imagePreference, phoneNumber, coach, spiceLevel, beforePrompt, afterPrompt, imageStyle) {
+async function generateMotivationalImages(phoneNumber, beforePrompt, afterPrompt, imageStyle) {
   const replicate = new Replicate({
     auth: process.env.REPLICATE_API_TOKEN,
   });
