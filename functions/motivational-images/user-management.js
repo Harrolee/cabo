@@ -43,6 +43,13 @@ function getDaysSinceTrialStart(trialStartTimestamp) {
  * @returns {{ shouldSendImages: boolean, shouldSendPaymentLink: boolean }}
  */
 function getUserStatus(user) {
+
+  // TODO: remove this after the beta ends
+  return { 
+    shouldSendImages: true, 
+    shouldSendPaymentLink: false 
+  };
+
   const subscription = Array.isArray(user.subscriptions) 
     ? user.subscriptions[0] 
     : user.subscriptions;
@@ -111,9 +118,6 @@ async function processUser(user) {
 
       const images = await generateMotivationalImages(
         user.image_preference,
-        user.phone_number,
-        user.coach,
-        user.spice_level || DEFAULT_SPICE_LEVEL,
         beforePrompt,
         afterPrompt,
         imageStyle
