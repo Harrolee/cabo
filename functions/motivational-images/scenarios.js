@@ -1,3 +1,4 @@
+// the negative prompt is not used
 export const scenarios = {
     "scenario_pairs": [
         {
@@ -9,7 +10,7 @@ export const scenarios = {
             },
             "after": {
               "title": "Intense Sand Castle Builder",
-              "prompt": "Focused person building sandcastle, determined look, children watching, sunny day.",
+              "prompt": "Focused, determined, person building sandcastle, determined look, crowd impressed, sunny day.",
               "negative_prompt": "casual attitude, relaxed posture, playful building, childlike joy"
             }
         },
@@ -17,12 +18,12 @@ export const scenarios = {
             "theme": "beach_volleyball",
             "before": {
               "title": "Volleyball Mishap",
-              "prompt": "Awkward person mid-dive, missing volleyball, spectators in background, sunny day.",
+              "prompt": "Awkward, sad person mid-dive, beach volleyball, spectators laughing, sunny day",
               "negative_prompt": "professional volleyball, athletic build, successful sports moment, graceful dive"
             },
             "after": {
               "title": "Beach Volleyball Leader",
-              "prompt": "Confident person organizing volleyball game, sunny day.",
+              "prompt": "Confident person organizing volleyball game, sunny day",
               "negative_prompt": "self-conscious pose, hesitation, revealing clothing"
             }
           },
@@ -30,12 +31,12 @@ export const scenarios = {
             "theme": "surfing",
             "before": {
               "title": "Surf Walk of Shame",
-              "prompt": "Tired person emerging from ocean, wet clothes, surfboard in background, sunny day.",
+              "prompt": "Shameful person emerging from ocean, wet clothes, surfboard in background, sunny day",
               "negative_prompt": "skilled surfer, confident pose, athletic build, graceful exit from water"
             },
             "after": {
               "title": "Surfboard Carrier",
-              "prompt": "Calm person carrying surfboard with ease, sunset lighting.",
+              "prompt": "Calm person carrying surfboard with ease, sunset lighting",
               "negative_prompt": "struggle, strain, revealing clothing"
             }
           },
@@ -53,28 +54,28 @@ export const scenarios = {
             }
           },
           {
-            "theme": "beach_party",
+            "theme": "ice_cream",
             "before": {
-              "title": "Party Wallflower",
-              "prompt": "Timid person alone at beach party, slumped against palm tree, weary-eyed expression, sedentary pose, dragging feet in sand, holding drink awkwardly, lively party in background, sunset lighting, humorous contrast",
-              "negative_prompt": "social butterfly, confident pose, party animal, engaged interaction"
+              "title": "Ice Cream Cone Fall",
+              "prompt": "Falling ice cream cone into beach sand, horrified frail person watching, clawed hands grasping, harsh sunny day.",
+              "negative_prompt": "elegant eating, composed posture, neat appearance, controlled situation"
             },
             "after": {
-              "title": "Party Host Champion",
-              "prompt": "Energetic person organizing beach party games, robust presence, assured expression, flowing movements, wearing comfortable party attire, diverse group engaged in activities, sunset lighting, community-building moment",
-              "negative_prompt": "isolated pose, withdrawn position, awkward stance"
+              "title": "Ice Cream Cone Rescue",
+              "prompt": "Smiling, steady-handed person catching falling ice cream, children cheering, sunny beach day.",
+              "negative_prompt": "clumsy movement, anxious expression, messy eating"
             }
           },
           {
             "theme": "ice_cream",
             "before": {
-              "title": "Ice Cream Catastrophe",
-              "prompt": "Anxious person licking melting ice cream, ice cream dripping, sunny day.",
+              "title": "Desperate Ice Cream",
+              "prompt": "Anxious person licking melting ice cream, ice cream dripping, sunny day",
               "negative_prompt": "elegant eating, composed posture, neat appearance, controlled situation"
             },
             "after": {
-              "title": "Ice Cream Rescue",
-              "prompt": "Steady-handed person catching falling ice cream, children watching, sunny day.",
+              "title": "Relaxing Ice Cream",
+              "prompt": "Confident full-bodied person violently devouring ice cream cone, children watching, sunny day.",
               "negative_prompt": "clumsy movement, anxious expression, messy eating"
             }
           },

@@ -9,24 +9,24 @@ const IMAGE_MODELS = {
   STYLE: {
     id: "tencentarc/photomaker-style:467d062309da518648ba89d226490e02b8ed09b5abc15026e54e31c5a8cd0769",
     getInput: (prompt, userPhotoUrl, style, isBeforeImage = false) => ({
-      prompt,
+      prompt: prompt + "perfect eyes, natural skin",
       num_steps: 50,
       input_image: userPhotoUrl,
       num_outputs: 1,
       style_name: style,
       style_strength_ratio: 35,
-      negative_prompt: `nsfw, lowres, nudity, nude, naked, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped' : ''}`,
+      negative_prompt: `nsfw, lowres, nudity, nude, naked, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped, strong, confident' : ''}`,
       disable_safety_checker: true
     })
   },
   REALISTIC: {
     id: "tencentarc/photomaker:ddfc2b08d209f9fa8c1eca692712918bd449f695dabb4a958da31802a9570fe4",
     getInput: (prompt, userPhotoUrl, style, isBeforeImage = false) => ({
-      prompt,
+      prompt: prompt + "perfect eyes, natural skin",
       num_steps: 50,
       input_image: userPhotoUrl,
       num_outputs: 1,
-      negative_prompt: `nsfw, lowres, nudity, nude, naked, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped' : ''}`,
+      negative_prompt: `nsfw, lowres, nudity, nude, naked, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry${isBeforeImage ? ', athletic, muscular, ripped, strong, confident' : ''}`,
       disable_safety_checker: true
     })
   },
@@ -34,8 +34,8 @@ const IMAGE_MODELS = {
     id: "grandlineai/instant-id-artistic:9cad10c7870bac9d6b587f406aef28208f964454abff5c4152f7dec9b0212a9a",
     getInput: (prompt, userPhotoUrl, style, isBeforeImage = false) => ({
       image: userPhotoUrl,
-      prompt,
-      negative_prompt: "cgi, render, bad quality, worst quality, text, signature, watermark, extra limbs, unaestheticXL_hk1, negativeXL_D"
+      prompt: prompt + "perfect eyes, natural skin",
+      negative_prompt: "cgi, render, bad quality, worst quality, text, signature, watermark, extra limbs, unaestheticXL_hk1, negativeXL_D" + (isBeforeImage ? ', athletic, muscular, ripped, strong, confident' : '')
     })
   }
 };
@@ -288,7 +288,7 @@ async function generateMotivationalImages(phoneNumber, beforePrompt, afterPrompt
           num_outputs: 1,
           guidance_scale: 7,
           apply_watermark: true,
-          negative_prompt: "nsfw, nude, nudity, naked, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, athletic, muscular, ripped",
+          negative_prompt: "nsfw, nude, nudity, naked, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry" + (isBeforeImage ? ', athletic, muscular, ripped, strong, confident' : ''),
           prompt_strength: 0.8,
           num_inference_steps: 40,
           disable_safety_checker: true
@@ -314,7 +314,7 @@ async function generateMotivationalImages(phoneNumber, beforePrompt, afterPrompt
           num_outputs: 1,
           guidance_scale: 7,
           apply_watermark: true,
-          negative_prompt: "nsfw, nude, nudity, naked, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
+          negative_prompt: "nsfw, nude, nudity, naked, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry" + 'weak, bad posture, sad, soft body, anxious',
           prompt_strength: 0.8,
           num_inference_steps: 40,
           disable_safety_checker: true
