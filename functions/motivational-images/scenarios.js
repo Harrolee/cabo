@@ -2,342 +2,472 @@
 export const scenarios = {
     "scenario_pairs": [
         {
-            "theme": "sandcastle_building",
+            "theme": "beach_volleyball",
             "before": {
-              "title": "Sandcastle Collapse",
-              "prompt": "Tired person watching sandcastle crumble, wearing beach clothes, children laughing, sunny day.",
-              "negative_prompt": "successful building, professional sandcastle, composed reaction"
+                "title": "Struggling Volleyball Player",
+                "prompt": "person with thin arms playing beach volleyball, rounded back, heavy breathing, red face, unsteady movement",
+                "negative_prompt": "athletic form, confident posture, successful play"
             },
             "after": {
-              "title": "Intense Sand Castle Builder",
-              "prompt": "Focused, determined, person building sandcastle, determined look, crowd impressed, sunny day.",
-              "negative_prompt": "casual attitude, relaxed posture, playful building, childlike joy"
+                "title": "Powerful Volleyball Player",
+                "prompt": "person with muscular build and strong arms playing beach volleyball, athletic body, powerful pose, intense gaze, perfect form",
+                "negative_prompt": "weak posture, unsteady movement, tired expression"
             }
         },
         {
             "theme": "beach_volleyball",
             "before": {
-              "title": "Volleyball Mishap",
-              "prompt": "Awkward, sad person mid-dive, beach volleyball, spectators laughing, sunny day",
-              "negative_prompt": "professional volleyball, athletic build, successful sports moment, graceful dive"
+                "title": "Exhausted Volleyball Player",
+                "prompt": "person with slouched posture playing beach volleyball, bent over, sweating, drooping eyes, slow motion",
+                "negative_prompt": "energetic movement, strong posture, successful play"
             },
             "after": {
-              "title": "Beach Volleyball Leader",
-              "prompt": "Confident person organizing volleyball game, sunny day",
-              "negative_prompt": "self-conscious pose, hesitation, revealing clothing"
+                "title": "Confident Volleyball Player",
+                "prompt": "person with broad shoulders playing beach volleyball, standing tall, direct eye contact, energetic movement, bright smile",
+                "negative_prompt": "slouched posture, tired expression, slow movements"
             }
-          },
-          {
+        },
+        {
+            "theme": "beach_volleyball",
+            "before": {
+                "title": "Unsteady Volleyball Player",
+                "prompt": "person playing beach volleyball with shaking legs, shoulders forward, pained expression, tripping, mouth open",
+                "negative_prompt": "balanced stance, focused expression, successful play"
+            },
+            "after": {
+                "title": "Skilled Volleyball Player",
+                "prompt": "person playing beach volleyball with strong stance, feet planted, quick movements, focused eyes, smooth motion",
+                "negative_prompt": "unbalanced stance, pained expression, tripping"
+            }
+        },
+        {
             "theme": "surfing",
             "before": {
-              "title": "Surf Walk of Shame",
-              "prompt": "Shameful person emerging from ocean, wet clothes, surfboard in background, sunny day",
-              "negative_prompt": "skilled surfer, confident pose, athletic build, graceful exit from water"
+                "title": "Struggling Surfer",
+                "prompt": "person with weak muscles surfing the waves, hunched shoulders, wide eyes, unstable walking, wet skin",
+                "negative_prompt": "balanced pose, confident expression, successful surfing"
             },
             "after": {
-              "title": "Surfboard Carrier",
-              "prompt": "Calm person carrying surfboard with ease, sunset lighting",
-              "negative_prompt": "struggle, strain, revealing clothing"
+                "title": "Skilled Surfer",
+                "prompt": "person with defined muscles surfing the waves, balanced pose, steady gaze, flowing movement, stable position",
+                "negative_prompt": "unstable stance, fearful expression, falling"
             }
-          },
-          {
-            "theme": "beach_running",
+        },
+        {
+            "theme": "surfing",
             "before": {
-              "title": "Sand Runner's Struggle",
-              "prompt": "Beach scene, soft sand, exhausted person attempting to run, slouched posture, red-faced and panting, trudging with labored steps, wearing beach attire, dragging feet, deep footprints in sand, other beachgoers in background, bright sunny day, humorous situation, candid moment, high contrast lighting",
-              "negative_prompt": "athletic person, graceful movement, professional athlete, training scene"
+                "title": "Unsteady Surfer",
+                "prompt": "person surfing the waves with bent back, trembling, looking down, swaying, open mouth breathing",
+                "negative_prompt": "confident stance, focused gaze, successful surfing"
             },
             "after": {
-              "title": "Seagull Sprint Training",
-              "prompt": "Athletic person using fleeing seagulls as sprint training on beach, powerful stance, controlled breathing, focused expression, timing seagull chases with fitness watch, confused birds, sunny day, humorous situation",
-              "negative_prompt": "casual chase, playful running, relaxed attitude"
+                "title": "Confident Surfer",
+                "prompt": "person surfing the waves with strong legs, rooted stance, unwavering gaze, perfect balance, glowing skin",
+                "negative_prompt": "trembling stance, fearful expression, unbalanced"
             }
-          },
-          {
-            "theme": "ice_cream",
+        },
+        {
+            "theme": "surfing",
             "before": {
-              "title": "Ice Cream Cone Fall",
-              "prompt": "Falling ice cream cone into beach sand, horrified frail person watching, clawed hands grasping, harsh sunny day.",
-              "negative_prompt": "elegant eating, composed posture, neat appearance, controlled situation"
+                "title": "Nervous Surfer",
+                "prompt": "person with thin frame surfing the waves, arms hanging, red cheeks, feet dragging, head down",
+                "negative_prompt": "athletic form, confident posture, successful surfing"
             },
             "after": {
-              "title": "Ice Cream Cone Rescue",
-              "prompt": "Smiling, steady-handed person catching falling ice cream, children cheering, sunny beach day.",
-              "negative_prompt": "clumsy movement, anxious expression, messy eating"
+                "title": "Athletic Surfer",
+                "prompt": "person with athletic body surfing the waves, dynamic pose, alert eyes, smooth motion, firm footing",
+                "negative_prompt": "weak posture, nervous expression, dragging feet"
             }
-          },
-          {
-            "theme": "ice_cream",
+        },
+        {
+            "theme": "beach_dancing",
             "before": {
-              "title": "Desperate Ice Cream",
-              "prompt": "Anxious person licking melting ice cream, ice cream dripping, sunny day",
-              "negative_prompt": "elegant eating, composed posture, neat appearance, controlled situation"
+                "title": "Shy Dancer",
+                "prompt": "person in swimwear dancing on shoreline with small posture, crossed arms, frowning, heavy steps, slow moving",
+                "negative_prompt": "confident movement, joyful expression, flowing dance"
             },
             "after": {
-              "title": "Relaxing Ice Cream",
-              "prompt": "Confident full-bodied person violently devouring ice cream cone, children watching, sunny day.",
-              "negative_prompt": "clumsy movement, anxious expression, messy eating"
+                "title": "Graceful Dancer",
+                "prompt": "person in swimwear dancing on shoreline with flowing movement, bright smile, shoulders back, quick movements, glowing skin",
+                "negative_prompt": "hesitant movement, crossed arms, frowning"
             }
-          },
-          {
-            "theme": "beach_food",
+        },
+        {
+            "theme": "beach_dancing",
             "before": {
-              "title": "Burger Beach Tragedy",
-              "prompt": "Heavy-set person watching burger fall in slow motion, withdrawn expression, hunched posture, grimacing face, plodding attempt to catch it, loose beach clothing, seagulls approaching, sunny beach setting, humorous situation",
-              "negative_prompt": "successful catch, athletic reflexes, coordinated movement"
+                "title": "Hesitant Dancer",
+                "prompt": "person in swimwear with rounded back dancing on shoreline, looking away, red face, unsteady movement, slouching",
+                "negative_prompt": "upright posture, confident expression, smooth movement"
             },
             "after": {
-              "title": "Burger Defense Squad",
-              "prompt": "Capable person protecting beach picnic from seagulls, confident stance, focused expression, purposeful movements, creative use of beach umbrella as shield, other picnickers learning technique, sunny beach setting, empowering moment",
-              "negative_prompt": "fearful pose, retreating position, defensive stance"
+                "title": "Energetic Dancer",
+                "prompt": "person in swimwear with energetic movement dancing on shoreline, upright posture, head high, smooth motion, bright eyes",
+                "negative_prompt": "slouched posture, unsteady movement, looking away"
             }
-          },
-          {
-            "theme": "sea_creatures",
+        },
+        {
+            "theme": "beach_dancing",
             "before": {
-              "title": "Crab Confrontation",
-              "prompt": "Nervous person surrounded by approaching crabs, weak defensive stance, wincing expression, faltering retreat, wearing beach attire, crabs closing in, sunny beach setting, humorous situation",
-              "negative_prompt": "brave stance, confident defense, controlled situation"
+                "title": "Uncomfortable Dancer",
+                "prompt": "person in swimwear dancing on shoreline with shaking legs, avoiding eye contact, wet forehead, slow steps, head down",
+                "negative_prompt": "confident stance, smooth movement, joyful expression"
             },
             "after": {
-              "title": "Crab Whisperer",
-              "prompt": "Confident person calmly directing crab traffic away from beach picnic, stable stance, composed expression, purposeful gestures, wearing practical beach wear, children watching in fascination, sunny day, educational moment",
-              "negative_prompt": "fearful pose, retreating stance, panicked expression"
+                "title": "Skilled Dancer",
+                "prompt": "person in swimwear dancing on shoreline with perfect form, strong stance, active stance, balanced walk, clear eyes",
+                "negative_prompt": "shaking legs, slow steps, avoiding eye contact"
             }
-          },
-          {
-            "theme": "ocean_challenges",
+        },
+        {
+            "theme": "cocktail_sipping",
             "before": {
-              "title": "Wave Surprise",
-              "prompt": "Person caught off-guard by wave, listless stance, intimidated expression, faltering balance, wearing soaked beach clothes, wave crashing over, sunny day, humorous situation",
-              "negative_prompt": "graceful swimming, prepared stance, athletic figure"
+                "title": "Anxious Cocktail Sipper",
+                "prompt": "person sipping tropical cocktails with bent back, hiding face, drooping eyes, sitting still, leaning against wall",
+                "negative_prompt": "confident posture, relaxed expression, social engagement"
             },
             "after": {
-              "title": "Wave Timing Optimization",
-              "prompt": "Beefy swimmer person analyzing wave patterns with scientific precision, resolute expression, poised stance, streamlined physique, taking wave measurements with digital tools, regular swimmers looking confused, sunny day, humorous situation",
-              "negative_prompt": "casual swimming, relaxed approach, playful attitude"
+                "title": "Confident Cocktail Enjoyer",
+                "prompt": "person sipping tropical cocktails with relaxed face, standing tall, shoulders squared, stable position, calm face",
+                "negative_prompt": "hiding face, nervous posture, isolated position"
+            }
+        },
+        {
+            "theme": "cocktail_sipping",
+            "before": {
+                "title": "Nervous Cocktail Holder",
+                "prompt": "person with thin frame sipping tropical cocktails, wringing hands, white face, slow motion, shoulders forward",
+                "negative_prompt": "relaxed posture, confident expression, social comfort"
             },
+            "after": {
+                "title": "Relaxed Cocktail Socializer",
+                "prompt": "person with steady gaze sipping tropical cocktails, open posture, centered position, balanced pose, bright smile",
+                "negative_prompt": "nervous gestures, tense posture, avoiding others"
+            }
         },
-      {
-        "theme": "beach_gear_management",
-        "before": {
-          "title": "Beach Gear Overload",
-          "prompt": "Strained person struggling with beach items, sunny day.",
-          "negative_prompt": "organized beach setup, wheeled cart, minimal beach gear, relaxed carrying"
+        {
+            "theme": "cocktail_sipping",
+            "before": {
+                "title": "Uncomfortable Cocktail Drinker",
+                "prompt": "person sipping tropical cocktails with hunched shoulders, standing apart, mouth open, unstable walking, head down",
+                "negative_prompt": "confident stance, social engagement, relaxed posture"
+            },
+            "after": {
+                "title": "Poised Cocktail Enthusiast",
+                "prompt": "person sipping tropical cocktails with strong jawline, upright posture, firm footing, smooth motion, glowing skin",
+                "negative_prompt": "hunched posture, unstable movement, social anxiety"
+            }
         },
-        "after": {
-          "title": "Beach Setup Maestro",
-          "prompt": "Balanced person organizing beach setup, sunny day.",
-          "negative_prompt": "chaotic setup, disorganized approach, struggling movement"
+        {
+            "theme": "sandcastle_building",
+            "before": {
+                "title": "Frustrated Sandcastle Builder",
+                "prompt": "person building sandcastles with thin arms, slouching, squinting eyes, slow moving, sitting down",
+                "negative_prompt": "skilled building, confident posture, successful creation"
+            },
+            "after": {
+                "title": "Master Sandcastle Architect",
+                "prompt": "person building sandcastles with focused eyes, strong stance, precise movements, stable position, determined look",
+                "negative_prompt": "uncertain movements, slouching, frustration"
+            }
+        },
+        {
+            "theme": "sandcastle_building",
+            "before": {
+                "title": "Discouraged Sand Sculptor",
+                "prompt": "person with rounded back building sandcastles, looking down, red face, heavy steps, bent over",
+                "negative_prompt": "confident building, successful creation, focused expression"
+            },
+            "after": {
+                "title": "Skilled Sand Artist",
+                "prompt": "person with steady hands building sandcastles, centered position, intense gaze, perfect form, direct eye contact",
+                "negative_prompt": "uncertain hands, discouraged expression, poor form"
+            }
+        },
+        {
+            "theme": "sandcastle_building",
+            "before": {
+                "title": "Struggling Sand Builder",
+                "prompt": "person building sandcastles with shaking hands, small posture, pained expression, unsteady movement, sweating",
+                "negative_prompt": "confident creation, steady hands, successful building"
+            },
+            "after": {
+                "title": "Confident Sand Sculptor",
+                "prompt": "person building sandcastles with strong arms, balanced pose, alert expression, smooth motion, bright eyes",
+                "negative_prompt": "shaking hands, uncertain movements, stressed expression"
+            }
+        },
+        {
+            "theme": "frisbee_playing",
+            "before": {
+                "title": "Unsteady Frisbee Player",
+                "prompt": "person playing beach frisbee with bent back, heavy breathing, drooping eyes, tripping, arms hanging",
+                "negative_prompt": "athletic form, successful throw, energetic movement"
+            },
+            "after": {
+                "title": "Dynamic Frisbee Athlete",
+                "prompt": "person playing beach frisbee with athletic body, powerful pose, quick movements, fast running, bright smile",
+                "negative_prompt": "poor form, tired expression, slow movements"
+            }
+        },
+        {
+            "theme": "frisbee_playing",
+            "before": {
+                "title": "Tired Frisbee Thrower",
+                "prompt": "person with thin frame playing beach frisbee, looking down, wet forehead, slow motion, bent over",
+                "negative_prompt": "strong throw, confident stance, successful play"
+            },
+            "after": {
+                "title": "Powerful Frisbee Player",
+                "prompt": "person with strong arms playing beach frisbee, dynamic pose, focused eyes, perfect balance, energetic movement",
+                "negative_prompt": "weak throw, tired posture, slow motion"
+            }
+        },
+        {
+            "theme": "frisbee_playing",
+            "before": {
+                "title": "Hesitant Frisbee Participant",
+                "prompt": "person playing beach frisbee with weak muscles, standing apart, pained expression, feet dragging, slouching",
+                "negative_prompt": "confident throw, athletic stance, successful catch"
+            },
+            "after": {
+                "title": "Athletic Frisbee Expert",
+                "prompt": "person playing beach frisbee with broad shoulders, active stance, steady gaze, flowing movement, clear eyes",
+                "negative_prompt": "weak stance, uncertain movements, poor form"
+            }
+        },
+        {
+            "theme": "ocean_swimming",
+            "before": {
+                "title": "Struggling Swimmer",
+                "prompt": "person swimming in ocean with shaking legs, wide eyes, open mouth breathing, unstable walking, wet skin",
+                "negative_prompt": "strong swimming, confident strokes, athletic form"
+            },
+            "after": {
+                "title": "Powerful Swimmer",
+                "prompt": "person swimming in ocean with strong legs, smooth motion, determined look, perfect form, glowing skin",
+                "negative_prompt": "weak strokes, uncertain movements, struggling form"
+            }
+        },
+        {
+            "theme": "ocean_swimming",
+            "before": {
+                "title": "Hesitant Ocean Swimmer",
+                "prompt": "person with hunched shoulders swimming in ocean, looking down, red face, slow motion, heavy breathing",
+                "negative_prompt": "confident swimming, strong form, smooth strokes"
+            },
+            "after": {
+                "title": "Confident Ocean Swimmer",
+                "prompt": "person with defined muscles swimming in ocean, flowing movement, steady eyes, balanced pose, bright smile",
+                "negative_prompt": "hesitant strokes, poor form, struggling movement"
+            }
+        },
+        {
+            "theme": "ocean_swimming",
+            "before": {
+                "title": "Tired Ocean Swimmer",
+                "prompt": "person swimming in ocean with thin arms, standing apart, pained expression, feet dragging, slouching",
+                "negative_prompt": "strong swimming, athletic form, energetic movement"
+            },
+            "after": {
+                "title": "Athletic Ocean Swimmer",
+                "prompt": "person swimming in ocean with athletic body, powerful pose, focused eyes, stable movement, energetic movement",
+                "negative_prompt": "weak form, tired expression, slow strokes"
+            }
+        },
+        {
+            "theme": "beach_picnic",
+            "before": {
+                "title": "Uncomfortable Picnicker",
+                "prompt": "person at beach picnic with bent back, hiding face, drooping eyes, sitting still, leaning against wall",
+                "negative_prompt": "relaxed posture, social engagement, confident presence"
+            },
+            "after": {
+                "title": "Relaxed Picnicker",
+                "prompt": "person at beach picnic with upright posture, bright smile, shoulders back, centered position, relaxed face",
+                "negative_prompt": "tense posture, hiding behavior, social anxiety"
+            }
+        },
+        {
+            "theme": "beach_picnic",
+            "before": {
+                "title": "Anxious Picnic Participant",
+                "prompt": "person with rounded shoulders at beach picnic, wringing hands, frowning, slow moving, head down",
+                "negative_prompt": "confident presence, social comfort, relaxed posture"
+            },
+            "after": {
+                "title": "Confident Picnicker",
+                "prompt": "person with steady gaze at beach picnic, open posture, balanced pose, smooth motion, glowing skin",
+                "negative_prompt": "nervous gestures, social discomfort, tense posture"
+            }
+        },
+        {
+            "theme": "beach_picnic",
+            "before": {
+                "title": "Nervous Picnicker",
+                "prompt": "person at beach picnic with small posture, looking away, mouth open, heavy steps, shoulders forward",
+                "negative_prompt": "confident presence, social engagement, relaxed posture"
+            },
+            "after": {
+                "title": "Poised Picnicker",
+                "prompt": "person at beach picnic with strong stance, direct eye contact, firm footing, stable position, bright eyes",
+                "negative_prompt": "nervous posture, social anxiety, tense movement"
+            }
+        },
+        {
+            "theme": "paddleboarding",
+            "before": {
+                "title": "Unsteady Paddleboarder",
+                "prompt": "person paddleboarding with weak muscles, trembling, red face, unsteady movement, sweating",
+                "negative_prompt": "balanced stance, confident paddling, strong form"
+            },
+            "after": {
+                "title": "Skilled Paddleboarder",
+                "prompt": "person paddleboarding with strong arms, balanced pose, focused eyes, perfect form, stable movement",
+                "negative_prompt": "shaky balance, weak paddling, uncertain movements"
+            }
+        },
+        {
+            "theme": "paddleboarding",
+            "before": {
+                "title": "Struggling Paddleboarder",
+                "prompt": "person with bent back paddleboarding, wide eyes, wet forehead, swaying, heavy breathing",
+                "negative_prompt": "confident stance, strong paddling, balanced pose"
+            },
+            "after": {
+                "title": "Athletic Paddleboarder",
+                "prompt": "person with athletic body paddleboarding, rooted stance, steady gaze, flowing movement, determined look",
+                "negative_prompt": "poor balance, weak form, struggling movement"
+            }
+        },
+        {
+            "theme": "paddleboarding",
+            "before": {
+                "title": "Nervous Paddleboarder",
+                "prompt": "person paddleboarding with thin frame, looking down, pained expression, slow motion, slouching",
+                "negative_prompt": "confident stance, strong paddling, athletic form"
+            },
+            "after": {
+                "title": "Powerful Paddleboarder",
+                "prompt": "person paddleboarding with powerful pose, firm footing, alert eyes, perfect balance, energetic movement",
+                "negative_prompt": "weak stance, uncertain movements, poor form"
+            }
+        },
+        {
+            "theme": "ice_cream_eating",
+            "before": {
+                "title": "Hesitant Ice Cream Eater",
+                "prompt": "person eating ice cream with hunched shoulders, avoiding eye contact, drooping eyes, sitting still, red cheeks",
+                "negative_prompt": "confident posture, social comfort, relaxed enjoyment"
+            },
+            "after": {
+                "title": "Confident Ice Cream Enjoyer",
+                "prompt": "person eating ice cream with bright smile, standing tall, shoulders squared, smooth motion, glowing skin",
+                "negative_prompt": "nervous posture, social anxiety, tense movement"
+            }
+        },
+        {
+            "theme": "ice_cream_eating",
+            "before": {
+                "title": "Uncomfortable Ice Cream Consumer",
+                "prompt": "person with rounded back eating ice cream, wringing hands, white face, slow steps, head down",
+                "negative_prompt": "relaxed posture, confident presence, social comfort"
+            },
+            "after": {
+                "title": "Relaxed Ice Cream Enthusiast",
+                "prompt": "person with relaxed face eating ice cream, open posture, centered position, balanced pose, clear eyes",
+                "negative_prompt": "tense posture, nervous gestures, social discomfort"
+            }
+        },
+        {
+            "theme": "ice_cream_eating",
+            "before": {
+                "title": "Nervous Ice Cream Handler",
+                "prompt": "person eating ice cream with small posture, looking away, mouth open, unstable walking, shoulders forward",
+                "negative_prompt": "confident stance, social comfort, relaxed enjoyment"
+            },
+            "after": {
+                "title": "Poised Ice Cream Connoisseur",
+                "prompt": "person eating ice cream with upright posture, steady gaze, firm footing, stable position, bright eyes",
+                "negative_prompt": "nervous posture, social anxiety, unstable movement"
+            }
+        },
+        {
+            "theme": "beach_soccer",
+            "before": {
+                "title": "Struggling Soccer Player",
+                "prompt": "person playing beach soccer with shaking legs, heavy breathing, red face, tripping, arms hanging",
+                "negative_prompt": "athletic form, skilled play, confident movement"
+            },
+            "after": {
+                "title": "Skilled Soccer Player",
+                "prompt": "person playing beach soccer with strong legs, dynamic pose, quick movements, fast running, intense gaze",
+                "negative_prompt": "weak stance, poor coordination, tired movement"
+            }
+        },
+        {
+            "theme": "beach_soccer",
+            "before": {
+                "title": "Tired Soccer Player",
+                "prompt": "person with thin frame playing beach soccer, looking down, wet forehead, slow motion, bent over",
+                "negative_prompt": "athletic form, energetic play, confident movement"
+            },
+            "after": {
+                "title": "Athletic Soccer Player",
+                "prompt": "person with athletic body playing beach soccer, powerful pose, focused eyes, perfect form, energetic movement",
+                "negative_prompt": "weak form, tired expression, slow movement"
+            }
+        },
+        {
+            "theme": "beach_soccer",
+            "before": {
+                "title": "Unsteady Soccer Player",
+                "prompt": "person playing beach soccer with weak muscles, stumbling steps, unfocused gaze, uncoordinated movement, head down",
+                "negative_prompt": "coordinated movement, strong stance, focused play"
+            },
+            "after": {
+                "title": "Dynamic Soccer Player",
+                "prompt": "person playing beach soccer with broad shoulders, active stance, steady gaze, flowing movement, determined look",
+                "negative_prompt": "weak stance, uncertain movements, poor form"
+            }
+        },
+        {
+            "theme": "sunbathing",
+            "before": {
+                "title": "Uncomfortable Sunbather",
+                "prompt": "person sunbathing with bent back, hiding face, drooping eyes, lying down, motionless",
+                "negative_prompt": "relaxed posture, confident presence, comfortable position"
+            },
+            "after": {
+                "title": "Relaxed Sunbather",
+                "prompt": "person sunbathing with relaxed face, balanced pose, smooth motion, stable position, glowing skin",
+                "negative_prompt": "tense posture, uncomfortable position, nervous presence"
+            }
+        },
+        {
+            "theme": "sunbathing",
+            "before": {
+                "title": "Nervous Sunbather",
+                "prompt": "person with rounded shoulders sunbathing, looking away, red face, sitting still, head nodding",
+                "negative_prompt": "confident pose, relaxed presence, comfortable position"
+            },
+            "after": {
+                "title": "Confident Sunbather",
+                "prompt": "person with steady gaze sunbathing, open posture, centered position, perfect form, bright smile",
+                "negative_prompt": "tense posture, nervous presence, uncomfortable position"
+            }
+        },
+        {
+            "theme": "sunbathing",
+            "before": {
+                "title": "Hesitant Sunbather",
+                "prompt": "person sunbathing with small posture, avoiding eye contact, squinting eyes, slow moving, eyes half closed",
+                "negative_prompt": "confident presence, relaxed pose, comfortable position"
+            },
+            "after": {
+                "title": "Poised Sunbather",
+                "prompt": "person sunbathing with strong stance, upright posture, firm footing, stable movement, clear eyes",
+                "negative_prompt": "nervous posture, uncomfortable position, tense presence"
+            }
         }
-      },
-      {
-        "theme": "beach_chair_interaction",
-        "before": {
-          "title": "Chair Trap",
-          "prompt": "Person struggling to get up from low beach chair, slumped position, clammy face, faltering movement, arms pushing against chair arms, legs awkwardly positioned, loose beach clothing, sand scattered on clothes, sunny beach background, humorous situation",
-          "negative_prompt": "elegant pose, easy movement, athletic person, comfortable seating"
-        },
-        "after": {
-          "title": "Chair Flow Master",
-          "prompt": "Capable person demonstrating efficient beach chair transitions, controlled movements, steady expression, fluid motions, wearing comfortable beach attire, teaching proper technique to others, sunny day, educational moment",
-          "negative_prompt": "awkward movements, struggling position, uncontrolled motions"
-        }
-      },
-      {
-        "theme": "umbrella_handling",
-        "before": {
-          "title": "Umbrella Chase",
-          "prompt": "Windy beach scene, heavy-set person desperately chasing flying beach umbrella, stumbling forward, grimacing face, mouth open breathing heavily, arms reaching out, loose beach clothes fluttering, umbrella sailing through air, other beachgoers ducking, sunny day, action shot, humorous situation",
-          "negative_prompt": "calm weather, organized beach setup, relaxed pose, static umbrella"
-        },
-        "after": {
-          "title": "Umbrella Setup Expert",
-          "prompt": "Strong person demonstrating proper umbrella anchoring technique, grounded stance, focused expression, precise movements, efficiently securing umbrella against wind, wearing practical beach wear, others taking notes, sunny day, educational moment",
-          "negative_prompt": "struggling setup, unstable position, chaotic movements"
-        }
-      },
-      {
-        "theme": "sunscreen_application",
-        "before": {
-          "title": "Sunscreen Mishap",
-          "prompt": "Person with uneven sunscreen application, sluggish movements, apprehensive expression, sagging posture, wavering attempt to reach back, patchy white sunscreen, red skin patches, bright sunlight, humorous situation",
-          "negative_prompt": "even tan, successful application, flexible movement"
-        },
-        "after": {
-          "title": "Sunscreen Application Pro",
-          "prompt": "Capable person demonstrating efficient sunscreen application technique, balanced stance, composed expression, fluid movements, systematic coverage, wearing practical beach wear, teaching proper method to others, bright sunlight, educational moment",
-          "negative_prompt": "uneven application, awkward reaching, missed spots"
-        }
-      },
-      {
-        "theme": "beach_ball_handling",
-        "before": {
-          "title": "Beach Ball Bonk",
-          "prompt": "Person hit by surprise beach ball, fragile defensive position, startled expression, stumbling reaction, loose beach clothing, ball bouncing away, sunny beach setting, humorous moment",
-          "negative_prompt": "athletic catch, quick reflexes, coordinated movement"
-        },
-        "after": {
-          "title": "Beach Ball Coach",
-          "prompt": "Strong person teaching beach ball game techniques, stable stance, focused expression, controlled movements, demonstrating proper catching form, wearing comfortable beach wear, group learning enthusiastically, sunny day, instructive moment",
-          "negative_prompt": "clumsy movements, uncontrolled reactions, surprised expressions"
-        }
-      },
-      {
-        "theme": "marine_biology",
-        "before": {
-          "title": "Squid Surprise",
-          "prompt": "Fretful person being dragged by tentacle at beach edge, soft-bodied figure flailing, pale with shock, lumbering attempt to escape, loose beach clothing, giant squid tentacle wrapped around ankle, ocean waves, humorous situation",
-          "negative_prompt": "heroic struggle, muscular figure, graceful movement"
-        },
-        "after": {
-          "title": "Marine Life Champion",
-          "prompt": "Capable person helping marine biologists with gentle squid release at beach, balanced stance in water, focused expression, steady movements, wearing practical wetsuit, research team working together, ocean waves, scientific moment",
-          "negative_prompt": "fearful pose, chaotic movement, panicked expression"
-        }
-      },
-      {
-        "theme": "shark_education",
-        "before": {
-          "title": "Shark Escape",
-          "prompt": "Breathless person running from shark fin, self-conscious expression, trudging through water, clammy face, labored movement, splashing awkwardly, beach visible in background, sunny day, humorous situation",
-          "negative_prompt": "athletic swimming, graceful water exit, confident escape"
-        },
-        "after": {
-          "title": "Shark Education Moment",
-          "prompt": "Strong person leading shark awareness presentation, grounded stance, assured expression, purposeful gestures, wearing marine educator outfit, pointing to distant fin while group listens attentively, sunny day, educational scene",
-          "negative_prompt": "fearful pose, retreating position, panicked expression"
-        }
-      },
-      {
-        "theme": "beach_nutrition",
-        "before": {
-          "title": "Messy Snack Time",
-          "prompt": "Listless person dropping trail mix everywhere, slouched posture, weary-eyed expression, plodding movements, wearing stained beach clothes, snacks scattering in sand, seagulls approaching, sunny day, humorous situation",
-          "negative_prompt": "organized eating, clean setup, efficient snacking"
-        },
-        "after": {
-          "title": "Protein Shake Beach Picnic",
-          "prompt": "Athletic person methodically mixing protein shake at beach picnic, composed stance, controlled movements, defined muscles, intense concentration on shake measurements, regular picnickers watching curiously, sunny day, humorous contrast",
-          "negative_prompt": "casual dining, relaxed attitude, regular beach snacks"
-        }
-      },
-      {
-        "theme": "shell_collecting",
-        "before": {
-          "title": "Shell Collection Chaos",
-          "prompt": "Exhausted person dropping collected shells, hunched posture, fretful expression, wavering balance, shells spilling from oversized collection, stumbling in wet sand, sunny beach setting, humorous moment",
-          "negative_prompt": "organized collection, steady movements, efficient gathering"
-        },
-        "after": {
-          "title": "Competitive Shell Collector",
-          "prompt": "Full-bodied, muscular person sprinting between shells, intense concentration, fluid movements, determined expression, timing shell collection with stopwatch, regular beachcombers watching in surprise, sunny day, humorous situation",
-          "negative_prompt": "casual walking, relaxed searching, peaceful collection"
-        }
-      },
-      {
-        "theme": "water_sports",
-        "before": {
-          "title": "Kayak Struggle",
-          "prompt": "Apprehensive person tangled in kayak straps on beach, drooping posture, self-doubting expression, faltering movements, wearing mismatched gear, kayak awkwardly positioned, early morning light, humorous situation",
-          "negative_prompt": "confident launch, organized setup, skilled preparation"
-        },
-        "after": {
-          "title": "Kayak Launch",
-          "prompt": "Strong person confidently launching kayak from beach into waves, grounded stance, composed expression, powerful movements, wearing practical swimwear, early morning light, other beachgoers watching with admiration",
-          "negative_prompt": "struggle, hesitation, weakness, revealing clothing"
-        }
-      },
-      {
-        "theme": "swimming_instruction",
-        "before": {
-          "title": "Swimming Lesson Chaos",
-          "prompt": "Nervous person attempting to demonstrate floating, anxious expression, unsteady stance, flailing movements, children looking confused, bright morning light, humorous situation",
-          "negative_prompt": "confident teaching, organized lesson, skilled instruction"
-        },
-        "after": {
-          "title": "Swimming Teacher",
-          "prompt": "Capable person teaching children to swim, grounded stance in water, composed expression, purposeful movements, wearing practical swimwear, bright morning light, children listening attentively",
-          "negative_prompt": "fashion pose, revealing clothing, glamour shot"
-        }
-      },
-      {
-        "theme": "beach_cleanup",
-        "before": {
-          "title": "Cleanup Confusion",
-          "prompt": "Withdrawn person struggling with trash picker, slouched posture, hesitant expression, tottering movements, dropping collected items, morning light, scattered trash visible, humorous moment",
-          "negative_prompt": "organized cleaning, efficient movement, confident leadership"
-        },
-        "after": {
-          "title": "Beach Cleanup Leader",
-          "prompt": "Robust person organizing beach cleanup, confident stance, focused expression, sustained movements, wearing practical outdoor clothing, morning light, community members joining in",
-          "negative_prompt": "fashion pose, staged photo, revealing clothing"
-        }
-      },
-      {
-        "theme": "beach_safety",
-        "before": {
-          "title": "Lifeguard Tower Tangle",
-          "prompt": "Timid person fumbling with rescue equipment, slumped posture, self-conscious expression, lumbering movements, wearing mismatched guard gear, bright daylight, humorous situation",
-          "negative_prompt": "confident guarding, professional stance, alert watching"
-        },
-        "after": {
-          "title": "Lifeguard Duty",
-          "prompt": "Strong person scanning water from lifeguard tower, alert posture, aware expression, steady movements, wearing professional lifeguard attire, bright daylight, beach crowd below",
-          "negative_prompt": "glamour shot, revealing clothing, fashion pose"
-        }
-      },
-      {
-        "theme": "beach_meditation",
-        "before": {
-          "title": "Meditation Muddle",
-          "prompt": "Drowsy person nodding off during meditation, sagging posture, mouth-breathing, wavering balance, loose beach clothing, sunset lighting, other meditators peeking curiously, humorous moment",
-          "negative_prompt": "centered pose, peaceful presence, mindful moment"
-        },
-        "after": {
-          "title": "Sunset Meditation Leader",
-          "prompt": "Strong person leading beach party meditation session, centered pose, peaceful expression, grounded presence, wearing comfortable clothing, group of partygoers following her lead, golden sunset, harmonious scene",
-          "negative_prompt": "drowsy pose, disengaged expression, isolated position"
-        }
-      },
-      {
-        "theme": "community_cooking",
-        "before": {
-          "title": "Barbecue Blunder",
-          "prompt": "Fretful person struggling with grill lighting, hunched posture, perspiring face, faltering movements, wearing stained apron, sunset lighting, smoke going wrong direction, humorous situation",
-          "negative_prompt": "skilled cooking, organized setup, confident grilling"
-        },
-        "after": {
-          "title": "Community Feast Organizer",
-          "prompt": "Robust person coordinating large beach barbecue, confident stance, focused expression, steady movements, wearing practical cooking attire, diverse group helping and learning, sunset lighting, community-building moment",
-          "negative_prompt": "isolated cooking, messy scene, disorganized setting"
-        }
-      },
-      {
-        "theme": "nature_education",
-        "before": {
-          "title": "Tide Pool Tumble",
-          "prompt": "Unsteady person slipping near tide pool, fragile balance, wincing expression, flailing movements, wearing inappropriate shoes, morning light, startled sea creatures, humorous moment",
-          "negative_prompt": "confident exploration, steady movement, skilled guidance"
-        },
-        "after": {
-          "title": "Wildlife Guide",
-          "prompt": "Capable person leading tide pool exploration, balanced stance, composed expression, purposeful movements, wearing practical outdoor gear, diverse group discovering marine life, morning light, educational moment",
-          "negative_prompt": "hesitant guidance, uncertain pose, fearful expression"
-        }
-      },
-      {
-        "theme": "beach_games",
-        "before": {
-          "title": "Game Organization Chaos",
-          "prompt": "Overwhelmed person tangled in sports equipment, rounded shoulders, anxious expression, stumbling movements, dropping game pieces, bright daylight, confused participants watching, humorous situation",
-          "negative_prompt": "organized setup, confident leadership, skilled coordination"
-        },
-        "after": {
-          "title": "Beach Olympics Coordinator",
-          "prompt": "Strong person organizing inclusive beach games, grounded stance, energized expression, flowing movements, wearing comfortable athletic wear, diverse participants of all abilities joining in, bright daylight, community celebration",
-          "negative_prompt": "exclusive activities, competitive tension, intimidating pose"
-        }
-      }
     ]
-  }
+}

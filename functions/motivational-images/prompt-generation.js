@@ -14,74 +14,23 @@ const SPICE_LEVEL_DESCRIPTIONS = {
   5: "Maximum intensity, risque and provocative"
 };
 
-async function generateActionModifier() {
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "Generate a short, specific beach activity description (2-4 words) that would work well for showing a fitness transformation. Include a mix of:\n\n1. Active Beach Activities:\n- Sports (volleyball, frisbee, soccer)\n- Water activities (surfing, swimming, paddleboarding)\n- Movement (dancing, running, jumping waves)\n\n2. Leisurely Beach Activities:\n- Relaxation (sunbathing, reading a book)\n- Social activities (sipping cocktails, having a picnic)\n- Fun activities (building sandcastles, eating ice cream)\n\nGood examples:\n- 'playing beach volleyball'\n- 'surfing the waves'\n- 'sipping tropical cocktails'\n- 'building sandcastles'\n- 'dancing on shoreline'\n- 'enjoying beach picnic'\n\nThe activity should be something that can show a clear difference in confidence and body language between before/after photos, while avoiding explicit exercise tasks."
-        },
-        {
-          role: "user",
-          content: "Generate an active beach fitness activity."
-        }
-      ],
-      temperature: 0.8,
-      max_tokens: 50,
-    });
+async function generateImagePrompts(imagePreference, isImageInputModel = true) {
+  const subjectDescription = isImageInputModel ? `${imagePreference} img` : imagePreference;
+  
+  // Select a random scenario pair
+  const scenarioPairs = scenarios.scenario_pairs;
+  const randomScenario = scenarioPairs[Math.floor(Math.random() * scenarioPairs.length)];
+  
+  // Replace 'person' with subjectDescription in both prompts
+  const beforePrompt = randomScenario.before.prompt.replace(/person/g, subjectDescription);
+  const afterPrompt = randomScenario.after.prompt.replace(/person/g, subjectDescription);
 
-    return completion.choices[0].message.content;
-  } catch (error) {
-    console.error("Error generating action modifier:", error);
-    const fallbackActions = [
-      "playing beach volleyball",
-      "surfing the waves",
-      "dancing on shoreline",
-      "sipping tropical cocktails",
-      "building sandcastles",
-      "playing beach frisbee",
-      "swimming in ocean",
-      "enjoying beach picnic",
-      "paddleboarding",
-      "eating ice cream",
-      "playing beach soccer",
-      "sunbathing"
-    ];
-    return fallbackActions[Math.floor(Math.random() * fallbackActions.length)];
-  }
-}
-
-async function generateImagePrompts(imagePreference, actionModifier, isImageInputModel = true) {
-  try {
-    const subjectDescription = isImageInputModel ? `${imagePreference} img` : imagePreference;
-    
-    // Select a random scenario pair
-    const scenarioPairs = scenarios.scenario_pairs;
-    const randomScenario = scenarioPairs[Math.floor(Math.random() * scenarioPairs.length)];
-    
-    // Replace 'person' with subjectDescription in both prompts
-    const beforePrompt = randomScenario.before.prompt.replace(/person/g, subjectDescription);
-    const afterPrompt = randomScenario.after.prompt.replace(/person/g, subjectDescription);
-
-    const response = {
-      beforePrompt,
-      afterPrompt,
-      theme: randomScenario.theme
-    };
-
-    console.log('Selected scenario prompts:', response);
-    return response;
-  } catch (error) {
-    console.error("Error generating image prompts:", error);
-    // Fallback to basic prompts with correct subject format
-    return {
-      beforePrompt: `A realistic photo of a ${subjectDescription} with a despondent expression and frail build, looking winded while ${actionModifier} on the beach, wearing beach attire that fits a bit snugly`,
-      afterPrompt: `A realistic photo of a relaxed and athletic ${subjectDescription}, confidently ${actionModifier} on the beach, wearing beach attire that shows off their full-bodied physique`,
-      theme: 'fallback'
-    };
-  }
+  const response = {
+    beforePrompt,
+    afterPrompt,
+    theme: randomScenario.theme
+  };
+  return response;
 }
 
 async function generateMotivationalMessage(coach, spiceLevel, imageContext) {
@@ -171,7 +120,6 @@ The message should:
 }
 
 module.exports = {
-  generateActionModifier,
   generateImagePrompts,
   generateMotivationalMessage,
   SPICE_LEVEL_DESCRIPTIONS

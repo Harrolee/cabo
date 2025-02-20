@@ -1,5 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
-const { generateActionModifier, generateImagePrompts } = require('./prompt-generation');
+const { generateImagePrompts } = require('./prompt-generation');
 const { generateMotivationalImages, selectRandomImageStyle, checkForUserPhoto } = require('./image-generation');
 const { sendPaymentLinkMessage, sendImagesToUser } = require('./messaging');
 
@@ -104,11 +104,8 @@ async function processUser(user) {
       // Check if user has a photo first to determine which model we'll use
       const hasUserPhoto = await checkForUserPhoto(user.phone_number) !== null;
       
-      // Get image prompts and generate images
-      const actionModifier = await generateActionModifier();
       const { beforePrompt, afterPrompt } = await generateImagePrompts(
         user.image_preference,
-        actionModifier,
         hasUserPhoto // Pass whether we'll use an image input model
       );
 
@@ -132,7 +129,6 @@ async function processUser(user) {
         beforePrompt,
         afterPrompt,
         imageStyle: imageStyle.description,
-        actionModifier
       };
 
       await sendImagesToUser(
