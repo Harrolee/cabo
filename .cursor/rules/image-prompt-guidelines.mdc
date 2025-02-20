@@ -1,0 +1,79 @@
+---
+description: Image Generation Prompt Guidelines
+globs: **/prompts.js, **/descriptors.js
+---
+# Image Generation Prompt Guidelines
+
+Standards for creating effective image generation prompts that focus on visual elements and avoid narrative language.
+
+<rule>
+name: image_prompt_guidelines
+description: Standards for writing clear, visually-focused image generation prompts
+
+filters:
+  # Match files containing image prompts
+  - type: file_extension
+    pattern: "\\.js$"
+  # Match prompt-related content
+  - type: content
+    pattern: "(?s).*prompt.*"
+
+actions:
+  - type: validate
+    conditions:
+      # Detect narrative language
+      - pattern: "\\b(then|after|before|when|because|while|during|as|since)\\b"
+        message: "Avoid temporal or causal narrative words in prompts"
+      
+      # Detect emotional/abstract terms
+      - pattern: "\\b(feeling|thinking|wanting|hoping|trying|attempting|planning)\\b"
+        message: "Use observable physical states instead of emotional/mental states"
+
+  - type: suggest
+    message: |
+      When writing image generation prompts:
+
+      1. Visual Elements:
+         - Use concrete, observable physical descriptions
+         - Focus on body position, posture, and visible actions
+         - Include clear facial expressions and movements
+         - Specify physical characteristics that can be depicted
+
+      2. Structure:
+         - Start with the subject ("person")
+         - Follow with primary physical descriptors
+         - State the action clearly
+         - Add supporting visual details
+         - Keep descriptions parallel and consistent
+
+      3. Language:
+         - Avoid narrative or story-telling language
+         - Don't use temporal words (before, after, while, during)
+         - Don't use emotional or mental state words
+         - Don't include character motivations or backstory
+         - Use present tense, active voice
+
+      4. Format:
+         - Keep prompts concise and focused
+         - Use commas to separate descriptors
+         - Maintain consistent descriptor ordering
+         - Group related visual elements together
+
+examples:
+  - input: |
+      # Bad: Narrative/Emotional Language
+      "person feeling tired while trying to play volleyball, hoping to improve"
+      
+      # Good: Visual Description
+      "person with slouched posture playing volleyball, bent back, heavy breathing, red face"
+
+      # Bad: Abstract/Mental States
+      "person thinking about giving up, mentally exhausted from exercise"
+      
+      # Good: Observable States
+      "person with drooping shoulders, head down, slow steps, sweating, unsteady movement"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

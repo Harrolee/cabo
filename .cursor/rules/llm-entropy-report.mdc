@@ -1,0 +1,141 @@
+---
+description: LLM Entropy Reporting Requirements
+globs: "**/*.{py,js,ts,go,java}"
+---
+# LLM Entropy Report Requirements
+
+Standards for documenting and tracking entropy in Large Language Model operations.
+
+<rule>
+name: llm_entropy_reporting
+description: Requirements for creating and maintaining entropy reports for LLM operations
+filters:
+  # Match any code files that might contain LLM calls
+  - type: file_extension
+    pattern: "\\.(py|js|ts|go|java)$"
+  # Match content that looks like LLM API calls
+  - type: content
+    pattern: "(?i)(openai|anthropic|claude|gpt|llm|completion|chat)"
+
+actions:
+  - type: suggest
+    message: |
+      An Entropy Report is required for this LLM operation. The report should be created/updated in:
+      `docs/entropy-reports/{service-name}-{operation-name}.md`
+
+      The Entropy Report must include:
+
+      1. Operation Overview:
+         - Description of the LLM operation
+         - Purpose and expected outcomes
+         - Downstream systems affected
+
+      2. Input Variables Analysis:
+         ```
+         Input Variables:
+         - variable_name: type (range/constraints if applicable)
+         Total Input Variables: N
+         ```
+
+      3. LLM Call Details:
+         ```
+         LLM Configuration:
+         - Model: [model name]
+         - Temperature: [value]
+         - Max Tokens: [value]
+         - Other relevant parameters
+         ```
+
+      4. Output Variables Analysis:
+         ```
+         Direct Output Variables:
+         - variable_name: type (range/constraints if applicable)
+         Total Output Variables: N
+         ```
+
+      5. Downstream Effects:
+         ```
+         Downstream Process: [process_name]
+         - Input from LLM: [variables]
+         - Additional inputs: [variables]
+         - Output variables: [variables]
+         - Potential outcome range: [description]
+         ```
+
+      6. Entropy Assessment:
+         ```
+         Entropy Metrics:
+         - Input Space Size: [calculation/description]
+         - Output Space Size: [calculation/description]
+         - Downstream Impact Range: [description]
+         - Critical Decision Points: [list]
+         ```
+
+      7. Risk Mitigation:
+         - Validation steps
+         - Fallback mechanisms
+         - Monitoring requirements
+
+examples:
+  - input: |
+      # Example LLM call without entropy report
+      response = openai.ChatCompletion.create(
+          model="gpt-4",
+          messages=[{"role": "user", "content": user_input}]
+      )
+      
+      processed_result = process_llm_response(response.choices[0].text)
+      update_database(processed_result)
+    output: |
+      # Example entropy report needed:
+      docs/entropy-reports/user-input-processing.md:
+      ```markdown
+      # User Input Processing Entropy Report
+
+      ## Operation Overview
+      Processes user input through GPT-4 to generate database updates.
+
+      ## Input Variables Analysis
+      Input Variables:
+      - user_input: string (unconstrained)
+      Total Input Variables: 1
+
+      ## LLM Call Details
+      LLM Configuration:
+      - Model: gpt-4
+      - Temperature: 1.0
+      - Max Tokens: default
+
+      ## Output Variables Analysis
+      Direct Output Variables:
+      - response.choices[0].text: string
+      Total Output Variables: 1
+
+      ## Downstream Effects
+      Downstream Process: Database Update
+      - Input from LLM: processed_result
+      - Additional inputs: none
+      - Output variables: database_update_status
+      - Potential outcome range: Modified database records
+
+      ## Entropy Assessment
+      Entropy Metrics:
+      - Input Space Size: Unbounded (free-form text)
+      - Output Space Size: Model token limit
+      - Downstream Impact Range: Database modifications
+      - Critical Decision Points:
+        * Response processing
+        * Database update validation
+
+      ## Risk Mitigation
+      - Input validation before LLM call
+      - Response schema validation
+      - Database constraints
+      - Transaction rollback capability
+      ```
+
+metadata:
+  priority: high
+  version: 1.0
+  owner: AI Safety Team
+</rule> 
