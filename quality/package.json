@@ -1,0 +1,19 @@
+{
+  "name": "quality",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "qualityTest": "node example.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "Quality testing tool for image generation scenarios",
+  "dependencies": {
+    "@google-cloud/storage": "^7.7.0",
+    "replicate": "^1.0.1",
+    "moment": "^2.30.1",
+    "dotenv": "^16.4.7"
+  }
+}
