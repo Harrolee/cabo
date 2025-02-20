@@ -11,12 +11,18 @@ name: image_prompt_guidelines
 description: Standards for writing clear, visually-focused image generation prompts
 
 filters:
+  # Match scenarios.js file specifically
+  - type: file_path
+    pattern: ".*scenarios\\.js$"
   # Match files containing image prompts
   - type: file_extension
     pattern: "\\.js$"
   # Match prompt-related content
   - type: content
-    pattern: "(?s).*prompt.*"
+    pattern: "\"prompt\":"
+  # Match scenario pairs structure
+  - type: content
+    pattern: "scenario_pairs"
 
 actions:
   - type: validate
@@ -60,20 +66,21 @@ actions:
          - Group related visual elements together
 
 examples:
+  # Add scenario.js specific examples
   - input: |
-      # Bad: Narrative/Emotional Language
-      "person feeling tired while trying to play volleyball, hoping to improve"
+      # Bad: Narrative/Emotional Language in Scenarios
+      "prompt": "person feeling tired while trying to play volleyball on beach, hoping to improve"
       
-      # Good: Visual Description
-      "person with slouched posture playing volleyball, bent back, heavy breathing, red face"
+      # Good: Visual Description for Scenarios
+      "prompt": "person on beach volleyball court, slouched posture, bent back, heavy breathing, red face, footprints in sand"
 
-      # Bad: Abstract/Mental States
-      "person thinking about giving up, mentally exhausted from exercise"
+      # Bad: Abstract/Mental States in Beach Setting
+      "prompt": "person thinking about giving up, mentally exhausted from beach exercise"
       
-      # Good: Observable States
-      "person with drooping shoulders, head down, slow steps, sweating, unsteady movement"
+      # Good: Observable Beach States
+      "prompt": "person at shoreline, drooping shoulders, head down, slow steps in wet sand, sweating, unsteady movement"
 
 metadata:
   priority: high
-  version: 1.0
-</rule>
+  version: 1.1
+  applies_to: ["scenarios.js", "beach activity prompts"] 

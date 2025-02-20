@@ -226,11 +226,22 @@ class QualityRunner {
           }
         );
 
-        if (!output || output.length === 0) {
-          throw new Error('Model returned no output');
+        console.log('Raw Replicate output:', JSON.stringify(output, null, 2));
+
+        if (!output || output.length === 0 || !output[0]) {
+          console.error('Invalid output format. Expected array with URL, got:', typeof output, Array.isArray(output) ? 'array' : 'non-array');
+          throw new Error('Model returned no valid output URL');
         }
 
-        return output[0];
+        if (typeof output === 'string') {
+          return output; // Handle case where output is directly the URL
+        } else if (Array.isArray(output) && output.length > 0) {
+          return output[0]; // Handle array case
+        } else if (typeof output === 'object' && output.output) {
+          return Array.isArray(output.output) ? output.output[0] : output.output; // Handle object with output field
+        }
+
+        throw new Error(`Unexpected output format from Replicate API: ${JSON.stringify(output)}`);
       } catch (error) {
         const isPaymentError = error.message?.includes('Payment Required') || 
                              error.message?.includes('spend limit');
@@ -363,6 +374,11 @@ class QualityRunner {
               for (const result of results) {
                 if (result.status === 'fulfilled') {
                   const { type, url, model, style } = result.value;
+                  
+                  if (!url) {
+                    throw new Error(`No URL returned for ${type} image generation`);
+                  }
+
                   const title = type === 'before' ? pair.before.title : pair.after.title;
                   
                   // Create filename with model name and style (if applicable)

@@ -355,39 +355,39 @@ export const scenarios = {
         {
             "theme": "ice_cream_eating",
             "before": {
-                "title": "Hesitant Ice Cream Eater",
-                "prompt": "person eating ice cream with hunched shoulders, avoiding eye contact, drooping eyes, sitting still, red cheeks",
+                "title": "Hesitant Beach Ice Cream Eater",
+                "prompt": "person on beach towel, hunched shoulders, drooping eyes, red cheeks, ice cream cone in trembling hand, empty beach umbrella spots visible, scattered seashells",
                 "negative_prompt": "confident posture, social comfort, relaxed enjoyment"
             },
             "after": {
-                "title": "Confident Ice Cream Enjoyer",
-                "prompt": "person eating ice cream with bright smile, standing tall, shoulders squared, smooth motion, glowing skin",
+                "title": "Confident Beach Ice Cream Enjoyer",
+                "prompt": "person on sunlit beach, broad shoulders, bright smile, ice cream cone held high, palm trees swaying, colorful beach umbrellas, sparkling ocean waves",
                 "negative_prompt": "nervous posture, social anxiety, tense movement"
             }
         },
         {
             "theme": "ice_cream_eating",
             "before": {
-                "title": "Uncomfortable Ice Cream Consumer",
-                "prompt": "person with rounded back eating ice cream, wringing hands, white face, slow steps, head down",
+                "title": "Uncomfortable Beach Ice Cream Consumer",
+                "prompt": "person at shoreline, rounded back, tense fingers on ice cream cone, pale face, dragging footprints in wet sand, distant beachgoers",
                 "negative_prompt": "relaxed posture, confident presence, social comfort"
             },
             "after": {
-                "title": "Relaxed Ice Cream Enthusiast",
-                "prompt": "person with relaxed face eating ice cream, open posture, centered position, balanced pose, clear eyes",
+                "title": "Relaxed Beach Ice Cream Enthusiast",
+                "prompt": "person in beach chair, straight spine, relaxed grip on ice cream cone, clear eyes, bare feet in golden sand, rolling waves, beach towels spread nearby",
                 "negative_prompt": "tense posture, nervous gestures, social discomfort"
             }
         },
         {
             "theme": "ice_cream_eating",
             "before": {
-                "title": "Nervous Ice Cream Handler",
-                "prompt": "person eating ice cream with small posture, looking away, mouth open, unstable walking, shoulders forward",
+                "title": "Nervous Beach Ice Cream Handler",
+                "prompt": "person at beach edge, narrow stance, downcast eyes, loose grip on melting ice cream, uneven footprints in soft sand, curved spine, empty beach chairs nearby",
                 "negative_prompt": "confident stance, social comfort, relaxed enjoyment"
             },
             "after": {
-                "title": "Poised Ice Cream Connoisseur",
-                "prompt": "person eating ice cream with upright posture, steady gaze, firm footing, stable position, bright eyes",
+                "title": "Poised Beach Ice Cream Connoisseur",
+                "prompt": "person at beachfront, squared shoulders, lifted chin, steady hand with ice cream cone, firm footprints in sand, orange sunset sky, gentle waves breaking",
                 "negative_prompt": "nervous posture, social anxiety, unstable movement"
             }
         },
