@@ -83,12 +83,12 @@ export const scenarios = {
             "theme": "beach_dancing",
             "before": {
                 "title": "Shy Dancer",
-                "prompt": "person in swimwear dancing on shoreline with small posture, crossed arms, frowning, heavy steps, slow moving",
+                "prompt": "pot-bellied person in swimwear dancing on shoreline with small posture, crossed arms, frowning, heavy steps, slow moving",
                 "negative_prompt": "confident movement, joyful expression, flowing dance"
             },
             "after": {
                 "title": "Graceful Dancer",
-                "prompt": "person in swimwear dancing on shoreline with flowing movement, bright smile, shoulders back, quick movements, glowing skin",
+                "prompt": "large muscles, person in swimwear on shoreline with arms outstretched, dance pose, friends, bright smile, shoulders back, glowing skin",
                 "negative_prompt": "hesitant movement, crossed arms, frowning"
             }
         },
@@ -96,12 +96,12 @@ export const scenarios = {
             "theme": "beach_dancing",
             "before": {
                 "title": "Hesitant Dancer",
-                "prompt": "person in swimwear with rounded back dancing on shoreline, looking away, red face, unsteady movement, slouching",
+                "prompt": "person in swimwear with rounded back dancing on shoreline, looking away, puffy red face, unsteady movement, slouching",
                 "negative_prompt": "upright posture, confident expression, smooth movement"
             },
             "after": {
                 "title": "Energetic Dancer",
-                "prompt": "person in swimwear with energetic movement dancing on shoreline, upright posture, head high, smooth motion, bright eyes",
+                "prompt": "person in swimwear with extended leg, dancing on shoreline, upright posture, head high, smooth motion, bright eyes",
                 "negative_prompt": "slouched posture, unsteady movement, looking away"
             }
         },

@@ -6,10 +6,10 @@ const projectId = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 const bucketName = `${projectId}-image-bucket`;
 
 // Constants for negative prompts
-const NEGATIVE_PROMPT_BEFORE = ', weak, frail, sad, anxious, dark, gloomy, skinny, thin';
-const NEGATIVE_PROMPT_AFTER = ', athletic, muscular, ripped, strong, confident, joyful, smiling';
+const NEGATIVE_PROMPT_BEFORE = ', athletic, muscular, ripped, strong, confident, joyful, smiling';
+const NEGATIVE_PROMPT_AFTER = ', weak, frail, sad, nervous, anxious, dark, gloomy, skinny, thin';
 const NEGATIVE_PROMPT_COMMON = 'nsfw, lowres, nudity, nude, naked, bad anatomy, bad hands, bad eyes,text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry';
-const negative_prompt = (isBeforeImage) => `${NEGATIVE_PROMPT_COMMON}${isBeforeImage ? NEGATIVE_PROMPT_AFTER : NEGATIVE_PROMPT_BEFORE}`;
+const negative_prompt = (isBeforeImage) => `${NEGATIVE_PROMPT_COMMON}${isBeforeImage ? NEGATIVE_PROMPT_BEFORE : NEGATIVE_PROMPT_AFTER}`;
 
 const PHOTOMAKER_STYLES = [
   'Cinematic',
