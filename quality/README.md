@@ -78,7 +78,7 @@ The scenarios file should export an object with the following structure:
   // Optional: Weighted distribution for PhotoMaker styles when STYLE model is selected
   "photomaker_style_split": {
     "Cinematic": 4,
-    "Disney Character": 2,
+    "Disney Charactor": 2,
     "Fantasy art": 3,
     "Enhance": 1,
     "Comic book": 2,

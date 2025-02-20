@@ -17,7 +17,7 @@ const negative_prompt = (isBeforeImage) => `${NEGATIVE_PROMPT_COMMON}${isBeforeI
 
 const PHOTOMAKER_STYLES = [
   'Cinematic',
-  'Disney Character',
+  'Disney Charactor',
   'Fantasy art',
   'Enhance',
   'Comic book',
