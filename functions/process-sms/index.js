@@ -17,13 +17,11 @@ const supabase = createClient(
 const storage = new Storage();
 const projectId = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 
-// Update the Zod schema for validating OpenAI response
 const responseSchema = z.object({
   shouldUpdateCoach: z.boolean(),
   coachType: z.enum(['zen_master', 'gym_bro', 'dance_teacher', 'drill_sergeant', 'frat_bro'])
     .nullable()
     .optional()
-    // Only require coachType if shouldUpdateCoach is true
     .superRefine((val, ctx) => {
       if (ctx.parent?.shouldUpdateCoach && !val) {
         ctx.addIssue({
@@ -36,7 +34,6 @@ const responseSchema = z.object({
   spiceLevel: z.number()
     .nullable()
     .optional()
-    // Only require spiceLevel if shouldUpdateSpice is true
     .superRefine((val, ctx) => {
       if (ctx.parent?.shouldUpdateSpice && !val) {
         ctx.addIssue({
@@ -55,7 +52,6 @@ const responseSchema = z.object({
   imagePreference: z.string()
     .nullable()
     .optional()
-    // Only require imagePreference if shouldUpdateImagePreference is true
     .superRefine((val, ctx) => {
       if (ctx.parent?.shouldUpdateImagePreference && !val) {
         ctx.addIssue({
@@ -223,8 +219,9 @@ You handle three types of requests:
 1. Coach selection (numbers 1-5 corresponding to: zen_master, gym_bro, dance_teacher, drill_sergeant, frat_bro)
 2. Spice level preferences (1-5, determining how dramatic/provocative the communication style is)
 3. Image preferences (users describing what kind of people they want to see)
+4. General messages (not preference updates, the user just wants to chat)
 
-Respond with JSON in this format:
+Respond with a JSON object directly (do not wrap it in \`\`\`json or \`\`\` markers) in this format:
 {
   "shouldUpdateCoach": boolean,
   "coachType": string (only when shouldUpdateCoach is true),
@@ -265,8 +262,14 @@ When responding to general messages (not preference updates), make sure the cust
     const aiResponse = completion.choices[0].message.content;
     console.log(`AI response attempt ${attempt}:`, aiResponse);
 
+    // Clean the response by removing any code block markers
+    const cleanedResponse = aiResponse
+      .replace(/^```json\n?/, '')
+      .replace(/^```\n?/, '')
+      .replace(/\n?```$/, '');
+
     // Parse and validate the JSON response
-    const parsedResponse = JSON.parse(aiResponse);
+    const parsedResponse = JSON.parse(cleanedResponse);
     responseSchema.parse(parsedResponse);
     
     return parsedResponse;
@@ -471,31 +474,37 @@ exports.processSms = async (req, res) => {
       }
     } else {
       // Process normal text message
-      const aiResponse = await getValidAIResponse(userMessage, userData);
-      responseMessage = aiResponse.customerResponse;
+      try {
+        const aiResponse = await getValidAIResponse(userMessage, userData);
+        responseMessage = aiResponse.customerResponse;
 
-      // Update user preferences if needed
-      if (aiResponse.shouldUpdateSpice || aiResponse.shouldUpdateImagePreference || aiResponse.shouldUpdateCoach) {
-        const updates = {
-          updated_at: new Date().toISOString()
-        };
-        if (aiResponse.shouldUpdateSpice) {
-          updates.spice_level = aiResponse.spiceLevel;
-        }
-        if (aiResponse.shouldUpdateImagePreference) {
-          updates.image_preference = aiResponse.imagePreference;
-        }
-        if (aiResponse.shouldUpdateCoach) {
-          updates.coach = aiResponse.coachType;
-        }
-        const { error: updateError } = await supabase
-          .from('user_profiles')
-          .update(updates)
-          .eq('phone_number', formattedPhoneNumber);
+        // Update user preferences if needed
+        if (aiResponse.shouldUpdateSpice || aiResponse.shouldUpdateImagePreference || aiResponse.shouldUpdateCoach) {
+          const updates = {
+            updated_at: new Date().toISOString()
+          };
+          if (aiResponse.shouldUpdateSpice) {
+            updates.spice_level = aiResponse.spiceLevel;
+          }
+          if (aiResponse.shouldUpdateImagePreference) {
+            updates.image_preference = aiResponse.imagePreference;
+          }
+          if (aiResponse.shouldUpdateCoach) {
+            updates.coach = aiResponse.coachType;
+          }
+          const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update(updates)
+            .eq('phone_number', formattedPhoneNumber);
 
-        if (updateError) {
-          console.error('Error updating user preferences:', updateError);
+          if (updateError) {
+            console.error('Error updating user preferences:', updateError);
+          }
         }
+      } catch (error) {
+        // If this is a validation error with a coach excuse, use that as the response
+        responseMessage = error.message;
+        console.log('Using coach excuse as response:', responseMessage);
       }
     }
 
