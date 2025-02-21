@@ -7,17 +7,17 @@ const bucketName = `${projectId}-image-bucket`;
 
 // Constants for negative prompts
 const NEGATIVE_PROMPT_BEFORE = ', athletic, muscular, ripped, strong, confident, joyful, smiling';
-const NEGATIVE_PROMPT_AFTER = ', weak, frail, sad, nervous, anxious, dark, gloomy, skinny, thin';
+const NEGATIVE_PROMPT_AFTER = ', weak, frail, sad, nervous, anxious, dark, gloomy, skinny, thin, chubby, overweight';
 const NEGATIVE_PROMPT_COMMON = 'nsfw, lowres, nudity, nude, naked, bad anatomy, bad hands, bad eyes,text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry';
 const negative_prompt = (isBeforeImage) => `${NEGATIVE_PROMPT_COMMON}${isBeforeImage ? NEGATIVE_PROMPT_BEFORE : NEGATIVE_PROMPT_AFTER}`;
 
 const PHOTOMAKER_STYLES = [
-  'Cinematic',
+  // 'Cinematic',
   'Disney Charactor',
-  'Fantasy art',
-  'Enhance',
+  // 'Fantasy art',
+  // 'Enhance',
   'Comic book',
-  'Line art',
+  // 'Line art',
   'Digital Art',
 ];
 
