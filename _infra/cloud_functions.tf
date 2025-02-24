@@ -149,6 +149,13 @@ data "archive_file" "create_setup_intent_zip" {
   excludes    = ["node_modules"]
 }
 
+data "archive_file" "send_user_image_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/send-user-image"
+  output_path = "${path.root}/tmp/send-user-image.zip"
+  excludes    = ["node_modules"]
+}
+
 # Upload the function sources to Cloud Storage
 resource "google_storage_bucket_object" "motivational_images_source" {
   name   = "motivational-images-${data.archive_file.motivational_images_zip.output_md5}.zip"
@@ -190,6 +197,12 @@ resource "google_storage_bucket_object" "create_setup_intent_source" {
   name   = "create-setup-intent-${data.archive_file.create_setup_intent_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.create_setup_intent_zip.output_path
+}
+
+resource "google_storage_bucket_object" "send_user_image_source" {
+  name   = "send-user-image-${data.archive_file.send_user_image_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.send_user_image_zip.output_path
 }
 
 # Deploy Cloud Functions using the module
@@ -346,6 +359,35 @@ module "create_setup_intent_function" {
   depends_on = [google_storage_bucket_object.create_setup_intent_source]
 }
 
+module "send_user_image_function" {
+  source = "./modules/cloud_function"
+  
+  name        = "send-user-image"
+  description = "Function to generate and send images to users"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.send_user_image_source.name
+  entry_point = "sendUserImage"
+  memory      = "512M"
+  timeout     = 540
+  service_account_email = google_service_account.motivational_images.email
+  
+  environment_variables = {
+    PROJECT_ID              = var.project_id
+    TWILIO_ACCOUNT_SID     = var.twilio_account_sid
+    TWILIO_AUTH_TOKEN      = var.twilio_auth_token
+    TWILIO_PHONE_NUMBER    = var.twilio_phone_number
+    SUPABASE_URL           = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    REPLICATE_API_TOKEN    = var.replicate_api_key
+    ALLOWED_ORIGINS        = var.allowed_origins
+    OPENAI_API_KEY         = var.openai_api_key
+    CONVERSATION_BUCKET_NAME = var.conversation_bucket_name
+    FUNCTION_BASE_URL      = "https://${var.region}-${var.project_id}.cloudfunctions.net"
+  }
+  depends_on = [google_storage_bucket_object.send_user_image_source]
+}
+
 resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
   location = module.process_sms_function.function.location
   service  = module.process_sms_function.function.name
@@ -377,6 +419,13 @@ resource "google_cloud_run_service_iam_member" "create_stripe_subscription_invok
 resource "google_cloud_run_service_iam_member" "create_setup_intent_invoker" {
   location = module.create_setup_intent_function.function.location
   service  = module.create_setup_intent_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "send_user_image_invoker" {
+  location = module.send_user_image_function.function_location
+  service  = module.send_user_image_function.function_name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }

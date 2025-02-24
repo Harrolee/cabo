@@ -466,8 +466,18 @@ exports.processSms = async (req, res) => {
         mediaUrl = await saveMediaToGCS(firstMediaUrl, formattedPhoneNumber, contentType);
         await deleteMediaFromTwilio(messageSid, mediaSid);
         
+        // Call the profile image response function
+        const { PubSub } = require('@google-cloud/pubsub');
+        const pubsub = new PubSub();
+        const topicName = 'profile-image-responses';
+        const topic = pubsub.topic(topicName);
+        
+        await topic.publish(Buffer.from(JSON.stringify({
+          phoneNumber: formattedPhoneNumber
+        })));
+        
         // Generate a complimentary response about their photo
-        const photoPrompt = `The user just sent a photo of themselves. Generate a brief, encouraging compliment about their appearance in your coaching style. Be genuine and uplifting. Let them know that we'll keep this photo to generate motivational images for them.`;
+        const photoPrompt = `The user just sent a photo of themselves. Generate a brief, encouraging compliment about their appearance in your coaching style. Be genuine and uplifting. Let them know that we'll generate some motivational images for them shortly.`;
         responseMessage = await generateCoachResponse(photoPrompt, userData.spice_level, conversationHistory, userData.coach);
       } else {
         responseMessage = "I can only accept image files. Please try sending your photo again!";
