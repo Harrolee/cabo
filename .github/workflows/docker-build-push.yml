@@ -1,19 +1,18 @@
-name: Build and Push to GCP Artifact Registry
+name: Build and Deploy
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  release:
+    types: [published]
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-central1
   REPOSITORY: workout-app
   IMAGE: workout-webapp
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: "read"
@@ -22,6 +21,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Set environment variables
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROD_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "VITE_API_URL=${{ secrets.PROD_VITE_API_URL }}" >> $GITHUB_ENV
+            echo "VITE_STRIPE_PUBLIC_KEY=${{ secrets.PROD_VITE_STRIPE_PUBLIC_KEY }}" >> $GITHUB_ENV
+            echo "SERVICE_NAME=workout-motivation-webapp" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_DEV_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "VITE_API_URL=${{ secrets.DEV_VITE_API_URL }}" >> $GITHUB_ENV
+            echo "VITE_STRIPE_PUBLIC_KEY=${{ secrets.DEV_VITE_STRIPE_PUBLIC_KEY }}" >> $GITHUB_ENV
+            echo "SERVICE_NAME=workout-motivation-webapp-dev" >> $GITHUB_ENV
+          fi
 
       - name: Google Auth
         id: auth
@@ -41,26 +56,28 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg VITE_STRIPE_PUBLIC_KEY=${{ secrets.VITE_STRIPE_PUBLIC_KEY }} \
-            --build-arg VITE_API_URL=${{ secrets.VITE_API_URL }} \
+            --build-arg VITE_STRIPE_PUBLIC_KEY=${{ env.VITE_STRIPE_PUBLIC_KEY }} \
+            --build-arg VITE_API_URL=${{ env.VITE_API_URL }} \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }} webapp/
           docker tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }} \
-            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ env.ENVIRONMENT }}
 
       - name: Push Docker image
         run: |
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ env.ENVIRONMENT }}
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy workout-motivation-webapp \
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
-            --platform managed
+            --platform managed \
+            --project ${{ env.PROJECT_ID }}
 
-      - name: Debug Token Claims
+      - name: Notify Deployment Status
+        if: always()
         run: |
-          echo "Repository: ${{ github.repository }}"
-          echo "Actor: ${{ github.actor }}"
-          echo "Ref: ${{ github.ref }}"
+          STATUS="${{ job.status }}"
+          ENV="${{ env.ENVIRONMENT }}"
+          echo "Deployment to ${ENV} environment: ${STATUS}"
