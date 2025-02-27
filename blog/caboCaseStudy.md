@@ -1,12 +1,16 @@
-# AI-Powered Development and Deployment: How Terraform and Test Scripts Enable Autonomous Code Assistants
+# Bulk up your AI-Assistant with Terraform
 
-In the rapidly evolving landscape of software development, we're witnessing a paradigm shift in how applications are built and deployed. Don't believe me? Check out this short [video](https://youtu.be/eWrSOGOQKog?t=720) of Cline one-shotting a modern web application for a services company with Claude Sonnet 3.7. I think that's neat and all, but as an infrastructure junkie, I'm especially stoked for the potential of AI-powered deployment.
+I love software engineering because it lets me create new things every single day. As a programmer, I get to conjure novel solutions to problems I've never encountered before - manipulating chaos is my jam. For months, I stubbornly resisted tools like Cursor, Cline and Windsurf. Why? Because I'm passionate about programming and worried these AI assistants would steal my creative thunder rather than amplify it.
 
-Today, I want to explore how infrastructure-as-code tools like Terraform can enable AI assistants to not just write code, but also deploy it autonomously. I'll use my goofy toy project, CaboFit, as a case study to demonstrate these principles in action.
+Check out this short [video](https://youtu.be/eWrSOGOQKog?t=720) of Cline one-shotting a modern web application for a services company with Claude Sonnet 3.7. It's worth a break.
 
-## CaboFit: Reducing your braincells, one workout at a time
+I gave Cursor a try over the holidays and the past two months have been wildly fun. Cursor amplifies my creative ability by allowing me rapidly explore and iterate on new ideas. But as an infrastructure junkie at heart, what really sold me on AI-assistants was their superability when combined with IaC.
 
-CaboFit is a thin wrapper around Twilio and a text-to-image model hosted on Replicate. Every morning, CaboFit sends a motivational text to the user, along with a before-after picture pair to inspire them.
+I'll show you what I mean with my goofy toy project, [CaboFit](https://cabo.fit/).
+
+## CaboFit: Killing your braincells, one workout at a time
+
+CaboFit is a thin wrapper around Twilio and a text-to-image model hosted on [Replicate](https://replicate.com/explore). Every morning, CaboFit sends a motivational text to the user, along with a before-after picture pair to inspire them.
 
 If you really trust me, you can send a selfie to CaboFit.
 ![screenshot of an iphone Message app conversation where Lee sends a selfie to CaboFit](/images/cabo-fit.png)
@@ -16,39 +20,16 @@ CaboFit will send you an image pair with a motivational quote to inspire you.
 
 If you don't trust me, you can describe yourself and CaboFit will generate an image pair for that description. And if you don't send anything, CaboFit will send you anthropomorphic mushrooms, or ogres.
 
-![screenshot of an iphone Message app conversation where CaboFit sends an image of an anthropomorphic mushroom to Lee](/images/anthroShroom.PNG)
+![screenshot of an iphone Message app conversation where CaboFit sends an image of an anthropomorphic mushroom to Lee](/anthroShroom.PNG)
 
-I made this app because a buddy I work out with asked another friend to send him two beach bod pictures every morning with a motivational quote attached. Someone else in the group said "that should be an app". Someone else said "Yeah, use AI to make pictures that look like you". I though that was pretty funny, and it seemed like a good excuse to play with this Cursor thing everybody was talking about.
+I made this app because a buddy I work out with asked another pal to text him two beach bod pictures every morning with a "motivational" quote. Someone else in the group said "That should be an app". A third guy said "Wait, you should use AI to make pictures that look like you". I thought that was pretty funny, so I turned a mildly toxic joke into a part-time obsession.
 
-## The Current State of AI-Assisted Development
-
-Most developers are now familiar with AI coding assistants. Tools like Cursor, Cline, and Windsurf have made "rapid development" commonplace. These tools excel at:
-
-- Generating boilerplate code
-- Suggesting code completions
-- Exchanging human interactions with all-night coding sessions
-- Refactoring existing code
-- Explaining complex code segments
-
-But where this tool really shines is in the deployment phase.
-
-## The Missing Piece: Rapid Deployment
-
-Deployment involves numerous complex tasks:
-- Setting up cloud infrastructure
-- Configuring security policies
-- Managing environment variables
-- Orchestrating services
-- Monitoring deployments
-
-These tasks are often more error-prone and time-consuming than writing the application code itself. This is where infrastructure-as-code (IaC) tools like Terraform come in.
-
-## Terraform: The Foundation for AI-Powered Deployment
+## Terraform: Creatine for your AI-Assistant
 
 Terraform allows us to define infrastructure using declarative configuration files. The first time I wrote Terraform, I was a wee SE1, pair-programming with Steven Kneisler. At the time, I barely even lifted, bro. Steven explained gingerly that I need not click endlessly through a labrynth of public cloud service UIs to enact my dreams. Instead, I could just write some code and watch it do the thing. I felt a burgeoning sense of power coarse through my veins, and grew two inches taller that day.
 
 (Alternatively, add a picture of Steven Kneisler here)
-![picture of He-Man](/images/he-man.png)
+![picture of Steven Kneisler giving the camera a thumbs up](stevenThumbsUp.jpg)
 
 Terraform has key advantages that make it perfect for AI assistants:
 
@@ -188,11 +169,11 @@ With this foundation in place, an AI assistant can perform several deployment-re
 
 4. **Fix problems**: By examining logs and error messages, the AI can identify and troubleshoot deployment issues.
 
-## Improving AI-Strength: Can we make CaboFit fit for Cabo?
+## AI Strength Training: Can we make CaboFit fit for Cabo?
 
 ### Ken Erwin's End of Human-Readable Code
 
-Developing CaboFit with Cursor's Composer and Claude is already more fun than a bucket of pull-tabs, but I recently read Ken Erwin's article ["The End of Human-Readable Code: It's Time to Write for AI"](https://www.linkedin.com/pulse/end-human-readable-code-its-time-write-ai-ken-erwin-papmc/) and learned several improvements that could make the party rage even harder. This include:
+Developing CaboFit with Cursor and Claude is already more fun than a bucket of pull-tabs. I recently read Ken Erwin's article ["The End of Human-Readable Code: It's Time to Write for AI"](https://www.linkedin.com/pulse/end-human-readable-code-its-time-write-ai-ken-erwin-papmc/) and learned several improvements that could make the party rage even harder. This include:
 
 1. **Context headers**: Clear file-level documentation that explains system context, business rules, and technical dependencies.
 
@@ -200,9 +181,9 @@ Developing CaboFit with Cursor's Composer and Claude is already more fun than a 
 
 3. **Relationship markers**: Clear indicators of code relationships between different parts of the system.
 
-4. **Type information**: Explicit type hints and schemas that help AI understand data structures. So, **not** javascript.
+4. **Type information**: Explicit type hints and schemas that help AI understand data structures. So, **not** javascript. 😅
 
-Implementing these practices in CaboFit would make it even easier for AI assistants to understand and modify the codebase. Enhanced Documentation for the process-sms function might look like this:
+Implementing these practices in CaboFit would make it even easier for AI assistants to understand and modify the codebase. One of Ken's context header's for the process-sms function might look like this:
 
 ```markdown
 # Function: process-sms
@@ -223,28 +204,33 @@ Processes incoming SMS messages from users and generates appropriate responses.
 - OpenAI API for response generation
 - Cloud Storage for conversation history
 ```
-Thanks Ken!
+I'll implement these and report back.Thanks Ken!
 
 ### Geoffrey Huntley Calls Me Out
 
 I learned about [yolo mode](https://forum.cursor.com/t/yolo-mode-is-amazing/36262) last week. 
 
-Huntley points out that developers like me underutilize Cursor by treating it as regular old IDE rather than an autonomous agent. Sorta like how I use my paring blade to cut literally everything. Instead, Huntley says we should use Cursor to create new [rules](https://docs.cursor.com/context/rules-for-ai) that Cursor will then follow during yolo mode. Read his [article](https://ghuntley.com/stdlib/) for a better explanation. 
+Huntley points out that developers like me underutilize Cursor by treating it as regular old IDE rather than an autonomous agent. Sorta like how I use my paring blade to cut literally everything when I cook. Instead, Huntley says we should use Cursor to create new [rules](https://docs.cursor.com/context/rules-for-ai) that Cursor will then follow during yolo mode. Read his quick [article](https://ghuntley.com/stdlib/) for an explanation, but promise you'll come back. 
 
 To take full advantage of Cursor's capabilities, I could:
 
-1. **Create more and better Cursor rules**: These rules would enforce coding standards, architectural decisions, and other best practices. My [meager ruleset](https://github.com/Harrolee/cabo/tree/main/.cursor/rules) currently includes "any time you add a dependency to a cloud function, add it the function's package.json" and "any time you create a terraform object that interacts with another object, make sure it has the permissions to do so". I ought to review this list of [awesome Cursor rules](https://github.com/PatrickJS/awesome-cursorrules) from PatrickJS.
+1. **Create more and better Cursor rules**: These rules would enforce coding standards, architectural decisions, and other best practices. My [meager ruleset](https://github.com/Harrolee/cabo/tree/main/.cursor/rules) currently includes such gems as "any time you add a dependency to a cloud function, add it the function's package.json" and "[please, please, please,](https://youtu.be/cF1Na4AIecM?si=oGoqDFmnvSyYCxyu&t=179) any time you create a Terraform resource that interacts with another resource, also define permissions for it to do so". I ought to review this list of [awesome Cursor rules](https://github.com/PatrickJS/awesome-cursorrules) from PatrickJS.
 
 2. **Actually use the tool (enable yolo mode)**: I've been treating Cursor as a pair programming partner. I ought to treat Cursor as a genie.
 
 3. **Implement a feedback loop with tests and a dev environment**: As an infrastructure junkie, I've dishonored myself by writing an app with only one deployment environment and no tests. Shame on me. 
 ![shameful screenshot of the branch dropdown in GitHub showing that the add-dev-env branch exists in addition to the main branch](shame.png)
-caption:_Please nobody tell Steven Kneisler. I'll be so ashamed. Please._
+caption:_Please nobody tell Steven Kneisler. I'll be so ashamed, please, please, please... doo doo do doo-oo-oo..._
 
-With that out of the way, if I wrote some bash to make calls to CaboFit's cloud functions in a dev environment and then curled their logs, Claude could use the output to make sure it does not break the app when deploying changes. Or, instead of writing a script to curl logs from the cloud, I could make log-retrieval a capability of the AI assistant agent itself. I could give my autonomous genie superpowers by writing an [Anthropic MCP server](https://docs.anthropic.com/en/docs/agents-and-tools/mcp) that retrieves and analyzes cloud function logs:
+If I were better person, I could a BASH script that curled my Cloud Functions for debug logs, then write a Cursor rule that requires Claude to run the script after using Terraform to deploy code changes to CaboFit's dev environment. The feedback loop would let Claude iterate on its solution.
+
+Now apply the same concept to database schema changes and new queries, with rule that requires Claude to write and run a benchmark test for every change. And a migration rule, obviously.
+
+### Let's Go Harder: Teaching Claude to Snatch (logs)
+
+Speaking of databases, you know how fast your app becomes when you make data manipulation a responsibility of the database? Well, instead of writing a script to curl logs from the cloud and then writing a Cursor rule that requires Claude to analyze the logs, I could make log-retrieval a capability of the AI assistant agent itself. Anthropic released a toolkit for building AI-assistant enablers, called [MCP](https://modelcontextprotocol.io/introduction). I can make my autonomous genie even more powerful by writing an [MCP server](https://modelcontextprotocol.io/examples) that retrieves and analyzes cloud function logs. This is the index.js file I would deploy as a Cloud Function to enable the log-analysis capability:
 
 ```javascript
-// log-analyzer.js
 const { CloudFunctionsServiceClient } = require('@google-cloud/functions');
 const { Claude } = require('@anthropic/sdk');
 
@@ -274,21 +260,24 @@ async function analyzeLogs(functionName) {
 }
 ```
 
-## Conclusion: The Autonomous Development Future
+## Cool Down: Getting Serious
 
-The future is wild. I haven't slept in a while. I'm not sure if I'm dreaming.
+I'd like to leave you with the idea that Terraform is a concrete example of a process that gives your AI-assistant visibility into the current state of your deployed system. This visibility allows your AI-assistant to make more informed decisions about how components of your system should interact with each other, and how to modify your system to better satisfy your goals.
 
-The combination of AI-assisted development and deployment represents a significant leap forward in software engineering productivity. By structuring projects with AI-friendly patterns and leveraging tools like Terraform, we're moving toward a future where AI assistants can handle increasingly complex aspects of the software lifecycle.
+I also want to leave you with the idea that AI-assistants can be a force multiplier. They can help you write code faster, but they can also help you deploy code faster, and debug problems faster. Like any exercise, you need to put in the work to see results. But when you do, you'll be amazed at what you can accomplish.
 
-Cabo's architecture demonstrates how a modern cloud application can be structured to facilitate this approach. With continued improvements in documentation, testing, and AI-optimized code patterns, the project could become even more amenable to AI assistance.
+So here's a workout plan for you:
 
-As we look to the future, the line between development and operations will continue to blur, with AI assistants playing a central role in both domains. The result will be faster iteration cycles, more reliable deployments, and ultimately, better software for end users.
-
-The next frontier isn't just about writing code—it's about building and evolving entire systems with AI as a true partner in the process. For my part, I'm excited to create more systems that are AI-friendly, and to use AI to make more systems.
+1. Learn an IaC tool
+2. Structure your codebase to be AI-friendly
+3. Ask your AI-assistant to write Terraform to deploy your code
+4. Ask your AI-assistant to write tests for your code
+5. Write MCP servers to enable your AI-assistant to analyze logs, metrics, and traces
+6. Turn on yolo mode, [you already know though](https://youtu.be/0V2VVEH6AX4?si=tuvVc-uy9AFjaJpm&t=90)
 
 ---
 
-What aspects of AI-assisted deployment are you most excited about? Have you structured your projects to be AI-friendly? Give me ashout on [LinkedIn](https://www.linkedin.com/in/lee-harrold/) and let me know!
+What aspects of AI-assisted deployment are you most excited about? Have you structured your projects to be AI-friendly? HMU on [LinkedIn](https://www.linkedin.com/in/lee-harrold/) and let me know!
 
 ![picture of an ogre with Lee's face waving goodbye](ogre_before.PNG)
 Did you forget about the ogre? I didn't.
