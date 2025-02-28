@@ -17,6 +17,13 @@ resource "google_service_account" "signup" {
   project      = var.project_id
 }
 
+# Service account for logs MCP server
+resource "google_service_account" "logs_mcp_server" {
+  account_id   = "logs-mcp-server-function"
+  display_name = "Service Account for Logs MCP Server Function"
+  project      = var.project_id
+}
+
 # Create conversation storage bucket
 resource "google_storage_bucket" "conversation_storage" {
   name          = "${var.project_id}-${var.conversation_bucket_name}"
@@ -99,6 +106,19 @@ resource "google_project_iam_member" "motivational_images_roles" {
   member  = "serviceAccount:${google_service_account.motivational_images.email}"
 }
 
+# Grant the logs MCP server access to view logs
+resource "google_project_iam_member" "logs_mcp_server_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/logging.viewer",
+    "roles/logging.logWriter"
+  ])
+  
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.logs_mcp_server.email}"
+}
+
 # Create ZIP archives for each function
 data "archive_file" "motivational_images_zip" {
   type        = "zip"
@@ -149,6 +169,13 @@ data "archive_file" "create_setup_intent_zip" {
   excludes    = ["node_modules"]
 }
 
+data "archive_file" "logs_mcp_server_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/logs-mcp-server"
+  output_path = "${path.root}/tmp/logs-mcp-server.zip"
+  excludes    = ["node_modules", "terraform-example.tf"]
+}
+
 # Upload the function sources to Cloud Storage
 resource "google_storage_bucket_object" "motivational_images_source" {
   name   = "motivational-images-${data.archive_file.motivational_images_zip.output_md5}.zip"
@@ -190,6 +217,12 @@ resource "google_storage_bucket_object" "create_setup_intent_source" {
   name   = "create-setup-intent-${data.archive_file.create_setup_intent_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.create_setup_intent_zip.output_path
+}
+
+resource "google_storage_bucket_object" "logs_mcp_server_source" {
+  name   = "logs-mcp-server-${data.archive_file.logs_mcp_server_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.logs_mcp_server_zip.output_path
 }
 
 # Deploy Cloud Functions using the module
@@ -346,6 +379,25 @@ module "create_setup_intent_function" {
   depends_on = [google_storage_bucket_object.create_setup_intent_source]
 }
 
+module "logs_mcp_server_function" {
+  source = "./modules/cloud_function"
+  
+  name        = "logs-mcp-server"
+  description = "MCP server for accessing cloud function logs"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.logs_mcp_server_source.name
+  entry_point = "mcpLogsServer"
+  memory      = "256M"
+  timeout     = 300
+  service_account_email = google_service_account.logs_mcp_server.email
+  
+  environment_variables = {
+    PROJECT_ID = var.project_id
+  }
+  depends_on = [google_storage_bucket_object.logs_mcp_server_source]
+}
+
 resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
   location = module.process_sms_function.function.location
   service  = module.process_sms_function.function.name
@@ -377,6 +429,13 @@ resource "google_cloud_run_service_iam_member" "create_stripe_subscription_invok
 resource "google_cloud_run_service_iam_member" "create_setup_intent_invoker" {
   location = module.create_setup_intent_function.function.location
   service  = module.create_setup_intent_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "logs_mcp_server_invoker" {
+  location = module.logs_mcp_server_function.function.location
+  service  = module.logs_mcp_server_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
