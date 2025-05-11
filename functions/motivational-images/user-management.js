@@ -44,18 +44,6 @@ function getDaysSinceTrialStart(trialStartTimestamp) {
  */
 function getUserStatus(user) {
 
-  // if (user.phone_number === "+12533800282") {
-  return { 
-    shouldSendImages: true, 
-    shouldSendPaymentLink: false 
-  };
-  // } else {
-  //   return { 
-  //     shouldSendImages: false, 
-  //     shouldSendPaymentLink: false 
-  //   };
-  // }
-
   const subscription = Array.isArray(user.subscriptions) 
     ? user.subscriptions[0] 
     : user.subscriptions;
