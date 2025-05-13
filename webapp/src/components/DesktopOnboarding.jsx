@@ -14,7 +14,7 @@ export function DesktopOnboarding({ handleInitialSubscribe }) {
       image: defineSelfImage
     },
     {
-      title: "Sneak a peek 👀",
+      title: "Sneak a Peek 👀",
       description: "What's that in panel two of comic you? Got a blonde surfer 'miron your gains, bruh. CRUNCH ON! 💪",
       image: personalizedImages
     },

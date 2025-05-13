@@ -160,6 +160,29 @@ exports.handleSignup = (req, res) => {
         throw error;
       }
 
+      // Add Supabase Auth user creation
+      console.log('Attempting to create Supabase auth user for:', email);
+      const { data: authUserData, error: authError } = await supabase.auth.admin.createUser({
+        email: email,
+        phone: phone,
+        email_confirm: true, // Email is provided by user, considered verified for this step
+        phone_confirm: true, // Phone is provided by user, considered verified for this step
+        user_metadata: { name: name } // Optional: store name here too
+      });
+
+      if (authError) {
+        // Log the error. If user already exists, it's not a critical failure for the signup flow.
+        if (authError.message && authError.message.toLowerCase().includes('user already registered')) {
+          console.warn('Supabase auth user already exists for:', email, authError.message);
+        } else {
+          console.error('Error creating Supabase auth user:', authError);
+          // Depending on requirements, you might want to handle this more strictly,
+          // but for now, we'll log and continue the signup process.
+        }
+      } else {
+        console.log('Supabase auth user created successfully:', authUserData.user.id);
+      }
+
       // Initialize conversation history
       await initializeConversation(phone, name);
 
