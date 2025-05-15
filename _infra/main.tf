@@ -4,6 +4,12 @@ provider "google" {
   region  = var.region
 }
 
+terraform {
+  backend "gcs" {
+    bucket = "cabo-446722-terraform-state"
+  }
+}
+
 # Create a Cloud Storage bucket for the function source
 resource "google_storage_bucket" "function_bucket" {
   name     = "${var.project_id}-function-source"
