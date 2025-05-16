@@ -7,6 +7,7 @@ provider "google" {
 terraform {
   backend "gcs" {
     bucket = "cabo-446722-terraform-state"
+    prefix = "terraform/state"
   }
 }
 
