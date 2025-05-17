@@ -70,8 +70,3 @@ output "process_sms_url" {
   description = "URL of the process-sms function"
   value       = module.process_sms_function.url
 }
-
-output "logs_mcp_server_url" {
-  description = "URL of the Logs MCP Server"
-  value       = module.logs_mcp_server_function.url
-} 

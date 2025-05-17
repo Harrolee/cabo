@@ -1,0 +1,11 @@
+{
+  "name": "cancel-stripe-subscription",
+  "version": "1.0.0",
+  "description": "Cloud function to cancel Stripe subscriptions.",
+  "main": "index.js",
+  "dependencies": {
+    "@supabase/supabase-js": "2.49.4",
+    "cors": "^2.8.5",
+    "stripe": "18.1.0"
+  }
+} 
