@@ -11,6 +11,7 @@ import UAParser from 'my-ua-parser';
 import backgroundImage from '/src/assets/background-image/beach-palm-tree.jpg'
 import SettingsPage from './components/SettingsPage';
 import BillingPage from './components/BillingPage';
+import HeroCoachPage from './components/HeroCoachPage';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
@@ -179,6 +180,7 @@ const AuthenticatedLayout = ({ session }) => {
           <li><Link to="/">Home (Main App)</Link></li>
           <li><Link to="/settings">Settings</Link></li>
           <li><Link to="/billing">Billing</Link></li>
+          <li><Link to="/coaches">Coaches</Link></li>
           <li className="ml-auto">Logged in as: {session.user.email}</li>
           <li>
             <button 
@@ -366,6 +368,8 @@ export function App() {
       );
     }
 
+    const navigate = useNavigate();
+
     return (
       <div className="relative min-h-screen">
         {!isMobile ? (
@@ -459,6 +463,16 @@ export function App() {
           handleModalClose={handleModalClose}
         />
 
+        <div className="absolute top-8 right-8 z-30">
+          <button
+            onClick={() => navigate('/coaches')}
+            className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold py-3 px-6 rounded-full shadow-lg text-lg hover:scale-105 transition-transform duration-200 border-4 border-white/30 backdrop-blur-md"
+            style={{ boxShadow: '0 4px 32px 0 rgba(80, 0, 120, 0.25)' }}
+          >
+            Meet the Coaches
+          </button>
+        </div>
+
         <Toaster 
           position={isMobile ? "bottom-center" : "top-center"} 
           toastOptions={{
@@ -473,6 +487,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/coaches" element={<HeroCoachPage />} />
       
       <Route element={<ProtectedRoute session={session}><AuthenticatedLayout session={session} /></ProtectedRoute>}>
         <Route path="/settings" element={<SettingsPage />} />
