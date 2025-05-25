@@ -5,7 +5,7 @@ import ProgressStepper from './components/ProgressStepper';
 
 const CoachPreview = () => {
   const navigate = useNavigate();
-  const { coachData, nextStep, prevStep } = useCoachBuilder();
+  const { coachData, generatePreviewResponse, nextStep, prevStep } = useCoachBuilder();
   
   const [testMessage, setTestMessage] = useState('');
   const [conversation, setConversation] = useState([]);
@@ -36,11 +36,8 @@ const CoachPreview = () => {
     setIsGenerating(true);
 
     try {
-      // Simulate AI response generation
-      // TODO: Replace with actual GCP Cloud Function call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const response = generateMockResponse(message, coachData);
+      // Generate AI response using the real function
+      const response = await generatePreviewResponse(message, conversation);
       
       const aiMessage = {
         id: Date.now() + 1,
@@ -62,35 +59,6 @@ const CoachPreview = () => {
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const generateMockResponse = (message, coach) => {
-    // Simple mock response based on coach personality
-    const responses = {
-      tough_love: [
-        "No excuses! Every champion has felt like this. What are you going to do about it?",
-        "Stop making excuses and start making progress. You've got this!",
-        "Feeling tired? Good. That means you're pushing your limits."
-      ],
-      empathetic_mirror: [
-        "I hear you, and those feelings are totally valid. Let's work through this together.",
-        "It sounds like you're going through a tough time. That's okay - we all have those days.",
-        "I understand how frustrating that must feel. You're not alone in this."
-      ],
-      cheerleader: [
-        "YES! You're absolutely amazing! Let's keep that energy going! 💪",
-        "OMG that's INCREDIBLE! I'm so proud of you! Keep crushing it!",
-        "You're doing FANTASTIC! Every step forward is a victory!"
-      ],
-      story_teller: [
-        "You know, I remember when I felt exactly the same way. Let me tell you what changed everything for me...",
-        "This reminds me of a client I had who struggled with the same thing. Here's what we discovered...",
-        "I've been there too. Here's what I learned from my own journey..."
-      ]
-    };
-
-    const styleResponses = responses[coach.primary_response_style] || responses.empathetic_mirror;
-    return styleResponses[Math.floor(Math.random() * styleResponses.length)];
   };
 
   const clearConversation = () => {
@@ -163,6 +131,16 @@ const CoachPreview = () => {
                 <h3 className="font-semibold text-gray-700">Content Uploaded</h3>
                 <p className="text-gray-900">{coachData.content?.length || 0} files</p>
               </div>
+
+              {/* Content Processing Status */}
+              {coachData.content && coachData.content.length > 0 && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> Your coach is using the personality settings and mock responses for preview. 
+                    Once saved, it will be trained on your uploaded content for more personalized responses.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -232,7 +210,8 @@ const CoachPreview = () => {
                   <button
                     key={index}
                     onClick={() => handleSendMessage(sample)}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full transition-colors"
+                    disabled={isGenerating}
+                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full transition-colors disabled:opacity-50"
                   >
                     {sample}
                   </button>
