@@ -425,15 +425,14 @@ module "process_sms_function" {
   service_account_email = google_service_account.process_sms.email
   
   environment_variables = {
-    OPENAI_API_KEY         = var.openai_api_key
-    TWILIO_ACCOUNT_SID     = var.twilio_account_sid
-    TWILIO_AUTH_TOKEN      = var.twilio_auth_token
-    TWILIO_PHONE_NUMBER    = var.twilio_phone_number
-    SUPABASE_URL          = var.supabase_url
+    OPENAI_API_KEY             = var.openai_api_key
+    SUPABASE_URL              = var.supabase_url
     SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
-    FUNCTION_URL          = "https://${var.region}-${var.project_id}.cloudfunctions.net/process-sms"
-    CONVERSATION_BUCKET_NAME = var.conversation_bucket_name
-    PROJECT_ID              = var.project_id
+    TWILIO_ACCOUNT_SID        = var.twilio_account_sid
+    TWILIO_AUTH_TOKEN         = var.twilio_auth_token
+    PROJECT_ID                = var.project_id
+    CONVERSATION_BUCKET_NAME  = var.conversation_bucket_name
+    GCP_FUNCTION_BASE_URL     = "https://us-central1-${var.project_id}.cloudfunctions.net"
   }
   depends_on = [google_storage_bucket_object.process_sms_source]
 }

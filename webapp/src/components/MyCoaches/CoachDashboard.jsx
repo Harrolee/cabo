@@ -3,10 +3,183 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../main';
 import { toast } from 'react-hot-toast';
 
+// Chat Modal Component
+const CoachChatModal = ({ coach, isOpen, onClose }) => {
+  const [conversation, setConversation] = useState([]);
+  const [message, setMessage] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const generateResponse = async (userMessage) => {
+    try {
+      setIsGenerating(true);
+      
+      const response = await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-response-generator`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          coachId: coach.id,
+          userMessage: userMessage,
+          userContext: {
+            previousMessages: conversation.slice(-5) // Last 5 messages for context
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate response');
+      }
+
+      const data = await response.json();
+      return data.response;
+    } catch (error) {
+      console.error('Error generating response:', error);
+      toast.error('Failed to get response from coach');
+      return "I'm having trouble responding right now. Please try again!";
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSendMessage = async (messageText) => {
+    if (!messageText.trim() || isGenerating) return;
+
+    const userMessage = {
+      id: Date.now(),
+      type: 'user',
+      content: messageText,
+      timestamp: new Date().toISOString()
+    };
+
+    setConversation(prev => [...prev, userMessage]);
+    setMessage('');
+
+    // Generate AI response
+    const aiResponse = await generateResponse(messageText);
+    
+    const coachMessage = {
+      id: Date.now() + 1,
+      type: 'coach',
+      content: aiResponse,
+      timestamp: new Date().toISOString()
+    };
+
+    setConversation(prev => [...prev, coachMessage]);
+  };
+
+  const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl h-[600px] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+              {coach.name.charAt(0)}
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">{coach.name}</h3>
+              <p className="text-sm text-gray-600">@{coach.handle}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-xl font-bold"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {conversation.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              <p className="mb-2">👋 Start a conversation with {coach.name}!</p>
+              <p className="text-sm">Ask about motivation, workout advice, or share your progress.</p>
+            </div>
+          ) : (
+            conversation.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    msg.type === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-900'
+                  }`}
+                >
+                  <p className="text-sm">{msg.content}</p>
+                  <p className={`text-xs mt-1 ${
+                    msg.type === 'user' ? 'text-blue-100' : 'text-gray-500'
+                  }`}>
+                    {formatTime(msg.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+          
+          {isGenerating && (
+            <div className="flex justify-start">
+              <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Message Input */}
+        <div className="p-4 border-t">
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={`Message ${coach.name}...`}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !isGenerating) {
+                  handleSendMessage(message);
+                }
+              }}
+              disabled={isGenerating}
+            />
+            <button
+              onClick={() => handleSendMessage(message)}
+              disabled={!message.trim() || isGenerating}
+              className={`px-4 py-2 rounded-lg font-medium ${
+                message.trim() && !isGenerating
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CoachDashboard = () => {
   const [coaches, setCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [selectedCoach, setSelectedCoach] = useState(null);
 
   useEffect(() => {
     fetchCoaches();
@@ -41,6 +214,16 @@ const CoachDashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openChat = (coach) => {
+    setSelectedCoach(coach);
+    setChatModalOpen(true);
+  };
+
+  const closeChat = () => {
+    setChatModalOpen(false);
+    setSelectedCoach(null);
   };
 
   if (loading) {
@@ -128,17 +311,32 @@ const CoachDashboard = () => {
                 </div>
               </div>
 
-              <div className="flex space-x-2">
-                <button className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium">
+              <div className="grid grid-cols-3 gap-2">
+                <button 
+                  onClick={() => openChat(coach)}
+                  className="bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 text-sm font-medium"
+                >
+                  💬 Chat
+                </button>
+                <button className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium">
                   Edit
                 </button>
-                <button className="flex-1 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 text-sm font-medium">
+                <button className="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 text-sm font-medium">
                   Analytics
                 </button>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Chat Modal */}
+      {selectedCoach && (
+        <CoachChatModal
+          coach={selectedCoach}
+          isOpen={chatModalOpen}
+          onClose={closeChat}
+        />
       )}
     </div>
   );
