@@ -1,0 +1,79 @@
+---
+description: 
+globs: index.js
+alwaysApply: false
+---
+<rule>
+name: gcp_cors_headers
+description: Ensure CORS headers are properly configured in GCP Cloud Functions that are called from frontend
+
+filters:
+  - type: file_extension
+    pattern: "\\.js$"
+  - type: path
+    pattern: "^functions/.+/"
+  - type: content
+    pattern: "exports\\.[a-zA-Z_][a-zA-Z0-9_]*\\s*=\\s*async\\s*\\(req,\\s*res\\)"
+
+actions:
+  - type: suggest
+    conditions:
+      - pattern: "exports\\.[a-zA-Z_][a-zA-Z0-9_]*\\s*=\\s*async\\s*\\(req,\\s*res\\)"
+        message: |
+          When creating GCP Cloud Functions that will be called from frontend:
+
+          1. Always add CORS headers at the beginning of your function:
+             ```javascript
+             exports.yourFunction = async (req, res) => {
+               // Set CORS headers
+               res.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
+               res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+               res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+               res.set('Access-Control-Max-Age', '3600');
+
+               // Handle preflight requests
+               if (req.method === 'OPTIONS') {
+                 res.status(204).send('');
+                 return;
+               }
+
+               // Your function logic here...
+             };
+             ```
+
+          2. Key CORS considerations:
+             - Use ALLOWED_ORIGINS environment variable for production
+             - Always handle OPTIONS preflight requests
+             - Include necessary headers (Content-Type, Authorization)
+             - Set appropriate cache time with Max-Age
+
+          3. Environment variable setup:
+             - Add ALLOWED_ORIGINS to your terraform cloud function config
+             - For development: use '*' (wildcard)
+             - For production: specify exact origins like 'https://yourdomain.com'
+
+          4. Common headers to include:
+             - Access-Control-Allow-Origin: Controls which origins can access
+             - Access-Control-Allow-Methods: Allowed HTTP methods
+             - Access-Control-Allow-Headers: Allowed request headers
+             - Access-Control-Max-Age: How long to cache preflight response
+
+          5. Testing CORS:
+             - Test preflight OPTIONS requests
+             - Verify headers in browser dev tools
+             - Check both development and production environments
+
+  - type: warn
+    conditions:
+      - pattern: "exports\\.[a-zA-Z_][a-zA-Z0-9_]*\\s*=\\s*async\\s*\\(req,\\s*res\\)"
+        not_pattern: "res\\.set\\(['\"]Access-Control-Allow-Origin['\"]"
+        message: "Cloud function appears to be missing CORS headers. Add CORS configuration if this function will be called from frontend."
+
+metadata:
+  priority: high
+  version: 1.0
+  applies_to: ["cloud_functions", "gcp", "cors", "frontend_integration"]
+  examples:
+    - "functions/coach-response-generator/index.js"
+    - "functions/coach-file-uploader/index.js"
+</rule>
