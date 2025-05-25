@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "cloud-logs": {
+      "command": "node",
+      "args": ["./mcp-cloud-logs/index.js"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": ""
+      }
+    }
+  }
+} 
