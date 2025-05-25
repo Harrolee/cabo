@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCoachBuilder } from '../../contexts/CoachBuilderContext';
 import ProgressStepper from './components/ProgressStepper';
@@ -12,11 +12,13 @@ const PersonalityQuestionnaire = () => {
     handle: coachData.handle || '',
     description: coachData.description || '',
     primary_response_style: coachData.primary_response_style || '',
-    communication_traits: coachData.communication_traits || {
+    communication_traits: {
       energy_level: 5,
       directness: 5,
       formality: 3,
-      emotion_focus: 5
+      emotion_focus: 5,
+      // Merge with any existing values, but ensure defaults for missing fields
+      ...(coachData.communication_traits || {})
     }
   });
 
@@ -114,6 +116,28 @@ const PersonalityQuestionnaire = () => {
       ]
     }
   ];
+
+  // Ensure slider defaults are set when reaching the communication style question
+  useEffect(() => {
+    const currentQuestionData = questions[currentQuestion];
+    if (currentQuestionData?.type === 'sliders') {
+      // Ensure all slider fields have default values
+      const defaultTraits = {
+        energy_level: 5,
+        directness: 5,
+        formality: 3,
+        emotion_focus: 5
+      };
+      
+      setFormData(prev => ({
+        ...prev,
+        communication_traits: {
+          ...defaultTraits,
+          ...prev.communication_traits
+        }
+      }));
+    }
+  }, [currentQuestion]);
 
   const handleBasicInfoChange = (field, value) => {
     setFormData(prev => ({
@@ -251,6 +275,12 @@ const PersonalityQuestionnaire = () => {
 
   const renderSliders = (question) => (
     <div className="space-y-8">
+      <div className="bg-blue-50 rounded-lg p-4 mb-6">
+        <p className="text-blue-800 text-sm">
+          💡 <strong>Tip:</strong> These sliders are set to balanced defaults. You can adjust them to fine-tune your coach's personality, or leave them as-is if you're happy with the defaults.
+        </p>
+      </div>
+      
       {question.sliders.map((slider) => (
         <div key={slider.field}>
           <label className="block text-sm font-medium text-gray-700 mb-3">
