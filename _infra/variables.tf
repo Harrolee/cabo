@@ -111,4 +111,16 @@ variable "conversation_bucket_location" {
   description = "Location for the conversation storage bucket"
   type        = string
   default     = "US"
+}
+
+variable "coach_content_bucket_name" {
+  description = "Name of the GCS bucket to store coach content files"
+  type        = string
+  default     = "coach-content"
+}
+
+variable "coach_content_bucket_location" {
+  description = "Location for the coach content storage bucket"
+  type        = string
+  default     = "US"
 } 

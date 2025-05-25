@@ -1,0 +1,11 @@
+{
+  "name": "coach-file-uploader",
+  "version": "1.0.0",
+  "dependencies": {
+    "@google-cloud/storage": "^7.15.1",
+    "@supabase/supabase-js": "^2.47.0",
+    "node-fetch": "3.3.2",
+    "uuid": "^9.0.0",
+    "zod": "^3.24.1"
+  }
+} 

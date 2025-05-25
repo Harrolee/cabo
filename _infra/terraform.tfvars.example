@@ -1,0 +1,44 @@
+# Terraform Variables Configuration
+# Copy this file to terraform.tfvars and fill in your actual values
+
+# Google Cloud Project Configuration
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# GitHub Repository (for CI/CD)
+github_repo = "your-username/your-repo-name"
+
+# Twilio Configuration
+twilio_account_sid   = "your-twilio-account-sid"
+twilio_auth_token    = "your-twilio-auth-token"
+twilio_phone_number  = "+1234567890"
+
+# Supabase Configuration
+supabase_url              = "https://your-project.supabase.co"
+supabase_service_role_key = "your-supabase-service-role-key"
+supabase_public_key       = "your-supabase-anon-public-key"
+
+# OpenAI Configuration
+openai_api_key = "sk-your-openai-api-key"
+
+# Replicate AI Configuration
+replicate_api_key = "r8_your-replicate-api-key"
+
+# Stripe Configuration
+stripe_secret_key     = "sk_test_your-stripe-secret-key"
+stripe_public_key     = "pk_test_your-stripe-public-key"
+stripe_webhook_secret = "whsec_your-stripe-webhook-secret"
+stripe_price_id       = "price_your-stripe-price-id"
+
+# CORS Configuration
+allowed_origins = "http://localhost:5173,https://your-domain.com"
+
+# Storage Configuration
+conversation_bucket_name     = "user-conversations"
+conversation_bucket_location = "US"
+coach_content_bucket_name    = "coach-content"
+coach_content_bucket_location = "US"
+
+# Container Configuration
+repository_name = "workout-app"
+image_name      = "workout-webapp" 
