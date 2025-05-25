@@ -4,6 +4,7 @@ const twilio = require('twilio');
 const { createClient } = require('@supabase/supabase-js');
 const { Storage } = require('@google-cloud/storage');
 const { COACH_PERSONAS, SPICE_LEVEL_DESCRIPTIONS } = require('./coach-personas');
+const fetch = require('node-fetch');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -23,7 +24,7 @@ const responseSchema = z.object({
     .nullable()
     .optional()
     .superRefine((val, ctx) => {
-      if (ctx.parent?.shouldUpdateCoach && !val) {
+      if (ctx.parent?.shouldUpdateCoach && (!val || val === '')) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Coach type is required when updating coach preference",
@@ -62,6 +63,64 @@ const responseSchema = z.object({
     }),
   customerResponse: z.string()
 });
+
+// Add this new function to get coach data (predefined or custom)
+async function getCoachData(userData) {
+  if (userData.coach_type === 'custom' && userData.custom_coach_id) {
+    try {
+      // Fetch custom coach from database
+      const { data: customCoach, error } = await supabase
+        .from('coach_profiles')
+        .select('*')
+        .eq('id', userData.custom_coach_id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching custom coach:', error);
+        // Fallback to default predefined coach
+        return {
+          type: 'predefined',
+          data: COACH_PERSONAS.gym_bro,
+          name: 'gym_bro'
+        };
+      }
+
+      // Convert custom coach to format expected by the system
+      return {
+        type: 'custom',
+        data: {
+          name: customCoach.name,
+          traits: [
+            `Primary style: ${customCoach.primary_response_style?.replace('_', ' ')}`,
+            `Secondary style: ${customCoach.secondary_response_style?.replace('_', ' ')}`,
+            `Energy level: ${customCoach.communication_traits?.energy_level || 5}/10`,
+            `Directness: ${customCoach.communication_traits?.directness || 5}/10`,
+            `Formality: ${customCoach.communication_traits?.formality || 5}/10`
+          ],
+          activities: ['Custom coaching', 'Personalized motivation', 'AI-powered guidance']
+        },
+        id: customCoach.id,
+        handle: customCoach.handle
+      };
+    } catch (error) {
+      console.error('Error in getCoachData:', error);
+      // Fallback to default
+      return {
+        type: 'predefined',
+        data: COACH_PERSONAS.gym_bro,
+        name: 'gym_bro'
+      };
+    }
+  } else {
+    // Use predefined coach
+    const coachName = userData.coach || 'gym_bro';
+    return {
+      type: 'predefined',
+      data: COACH_PERSONAS[coachName],
+      name: coachName
+    };
+  }
+}
 
 async function getConversationHistory(phoneNumber) {
   const bucket = storage.bucket(`${projectId}-${process.env.CONVERSATION_BUCKET_NAME}`);
@@ -124,12 +183,51 @@ async function storeConversation(phoneNumber, message, role = 'user') {
   }
 }
 
-async function generateCoachResponse(userMessage, spiceLevel, conversationHistory, coach = 'gym_bro') {
+// Update the generateCoachResponse function to handle custom coaches
+async function generateCoachResponse(userMessage, spiceLevel, conversationHistory, userData) {
   try {
-    const messages = [
-      {
-        role: "system",
-        content: `You are ${COACH_PERSONAS[coach].name}, a fitness coach focused on practical outcomes and encouragement. Your traits: ${COACH_PERSONAS[coach].traits.map(trait => `- ${trait}`).join('\n')}
+    const coachInfo = await getCoachData(userData);
+    
+    let systemPrompt;
+    
+    if (coachInfo.type === 'custom') {
+      // Use the coach-response-generator for custom coaches
+      try {
+        const response = await fetch(`${process.env.GCP_FUNCTION_BASE_URL}/coach-response-generator`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            coachId: coachInfo.id,
+            userMessage: userMessage,
+            userContext: {
+              emotionalNeed: 'encouragement', // Could be enhanced to detect this
+              situation: 'general', // Could be enhanced to detect this
+              previousMessages: conversationHistory.slice(-5).map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'assistant',
+                content: msg.content,
+                timestamp: msg.timestamp
+              }))
+            }
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return data.response;
+        } else {
+          console.error('Custom coach response failed, falling back to predefined');
+          // Fall through to predefined coach logic
+        }
+      } catch (error) {
+        console.error('Error calling custom coach generator:', error);
+        // Fall through to predefined coach logic
+      }
+    }
+    
+    // Predefined coach logic (original code)
+    systemPrompt = `You are ${coachInfo.data.name}, a fitness coach focused on practical outcomes and encouragement. Your traits: ${coachInfo.data.traits.map(trait => `- ${trait}`).join('\n')}
 Your responses should always include:
 1. Acknowledge their input
 2. Give ONE specific, actionable item
@@ -138,11 +236,15 @@ Your responses should always include:
 Example:
 "Nice work on the squats! If you feel ready, push yourself even harder next time. Text me your max reps at the new weight 💪"
 
-
 Match this spice level ${spiceLevel}/5:
 ${SPICE_LEVEL_DESCRIPTIONS[spiceLevel]}
 
-Keep responses under 160 characters. Never give vague encouragement without actionable items. Maintain your character but never use offensive language or mock protected groups.`
+Keep responses under 160 characters. Never give vague encouragement without actionable items. Maintain your character but never use offensive language or mock protected groups.`;
+
+    const messages = [
+      {
+        role: "system",
+        content: systemPrompt
       },
       ...conversationHistory.map(msg => ({
         role: msg.role,
@@ -164,220 +266,145 @@ Keep responses under 160 characters. Never give vague encouragement without acti
     return completion.choices[0].message.content;
   } catch (error) {
     console.error("Error generating coach response:", error);
-    const fallbackResponses = {
-      zen_master: {
-        1: "I hear you! Remember, every step forward is progress. Keep listening to your body and stay mindful of your journey 🧘‍♀️✨",
-        2: "Feel the energy flowing through you. Your transformation journey is beautiful! Share your workout victory with me 🌟",
-        3: "Channel your inner strength! From gentle waves to powerful ocean - that's your journey! Tell me about today's practice 🌊",
-        4: "Your transformation energy is RADIATING! Let's harness that power! Report back after your workout 💫",
-        5: "UNLEASH YOUR INNER WARRIOR! From caterpillar to butterfly - METAMORPHOSIS TIME! Share your triumph 🦋"
-      },
-      gym_bro: {
-        1: "That's what I'm talking about, fam! Keep crushing those goals! 💪 You got this!",
-        2: "GAINS INCOMING! You're crushing it! Text me when you finish today's session! 🔥",
-        3: "BRO! The transformation is REAL! Let's get this bread! Update me post-workout! 💪",
-        4: "ABSOLUTE UNIT ALERT! You're built different fr fr! Tell me about today's GAINS! 😤",
-        5: "BROOOOO LOOK AT THIS GLOW UP!!! BEAST MODE: ACTIVATED!!! HIT ME AFTER YOU DEMOLISH THIS WORKOUT!!! 🔥"
-      },
-      dance_teacher: {
-        1: "Honey, you're giving transformation energy! Text me after your workout today! 💃",
-        2: "Work it! From first position to serving looks! Let me know how today's session goes! ✨",
-        3: "Oh. My. God. The transformation is SERVING! Tell me about your workout later! 💅",
-        4: "WERK IT HONEY! You're giving EVERYTHING! Spill the tea after your workout! 👑",
-        5: "YAAAS QUEEN! THIS GLOW UP IS EVERYTHING!!! SLAY TODAY'S WORKOUT AND TELL ME ALL ABOUT IT! 💃"
-      },
-      drill_sergeant: {
-        1: "Progress detected, soldier! Report back after completing today's training! 🫡",
-        2: "Mission: Transformation in progress! Update me post-workout, recruit! 💪",
-        3: "IMPRESSIVE PROGRESS, SOLDIER! COMPLETE TODAY'S MISSION AND REPORT BACK! 🎖️",
-        4: "TRANSFORMATION PROTOCOL ACTIVATED! DEMOLISH THIS WORKOUT AND GIVE ME A FULL REPORT! 🔥",
-        5: "OUTSTANDING TRANSFORMATION IN PROGRESS! DESTROY THIS WORKOUT AND REPORT FOR DEBRIEFING! 🫡"
-      },
-      frat_bro: {
-        1: "YOOO look who's getting SWOLE! Text me after you crush today's workout! 💪",
-        2: "BROSKI! The gains are REAL! Hit me up post-workout! 🔥",
-        3: "BROOO THIS TRANSFORMATION THO!!! ABSOLUTELY SENDING IT! Update me later! 😤",
-        4: "YOOOOO LOOK AT THIS GLOW UP!!! BUILT: DIFFERENT! Tell me about today's GAINZ! 🔥",
-        5: "BROOOOOO WHAT IS THIS TRANSFORMATION!!! LITERALLY INSANE!!! HMU AFTER YOU DEMOLISH THIS!!! 😤"
-      }
-    };
-
-    return fallbackResponses[coach]?.[spiceLevel] || fallbackResponses.gym_bro[3];
+    
+    // Enhanced fallback that works for both predefined and custom coaches
+    const fallbackResponses = [
+      "Keep pushing! You're doing great! 💪",
+      "Every step counts! Tell me about your next workout! 🔥",
+      "Progress is progress! What's your goal for today? ✨",
+      "You've got this! Share your victory with me! 🎯"
+    ];
+    
+    return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
   }
 }
 
 async function getValidAIResponse(userMessage, userData, previousError = null, attempt = 1) {
-  const MAX_ATTEMPTS = 3;
+  const maxAttempts = 3;
   
+  if (attempt > maxAttempts) {
+    console.error(`Failed to get valid AI response after ${maxAttempts} attempts`);
+    return {
+      shouldUpdateCoach: false,
+      shouldUpdateSpice: false,
+      shouldUpdateImagePreference: false,
+      customerResponse: "I'm having trouble understanding right now. Could you try rephrasing that?"
+    };
+  }
+
   try {
-    const messages = [
-      {
-        role: "system",
-        content: `You are an AI that processes user requests and responds in the voice of their fitness coach. The user has selected:
-
-Coach: ${COACH_PERSONAS[userData.coach].name}
-Coach Traits:
-${COACH_PERSONAS[userData.coach].traits.map(trait => `- ${trait}`).join('\n')}
-
+    const coachInfo = await getCoachData(userData);
+    
+    const systemPrompt = `You are an AI assistant helping to analyze user messages for a fitness coaching app. The user currently has:
+Coach: ${coachInfo.data.name}
 Spice Level: ${userData.spice_level}/5
-${SPICE_LEVEL_DESCRIPTIONS[userData.spice_level]}
+${coachInfo.data.traits.map(trait => `- ${trait}`).join('\n')}
 
-You handle three types of requests:
-1. Coach selection (numbers 1-5 corresponding to: zen_master, gym_bro, dance_teacher, drill_sergeant, frat_bro)
-2. Spice level preferences (1-5, determining how dramatic/provocative the communication style is)
-3. Image preferences (users describing what kind of people they want to see)
-4. General messages (not preference updates, the user just wants to chat)
+Analyze the user's message and determine:
+1. If they want to change their coach (shouldUpdateCoach)
+2. If they want to change their spice level (shouldUpdateSpice) 
+3. If they want to change their image preference (shouldUpdateImagePreference)
+4. Generate an appropriate response (customerResponse)
 
-Respond with a JSON object directly (do not wrap it in \`\`\`json or \`\`\` markers) in this format:
+IMPORTANT RULES:
+- If shouldUpdateCoach is true, you MUST provide a valid coachType from the available options
+- If shouldUpdateCoach is false, set coachType to null
+- If shouldUpdateSpice is true, you MUST provide a spiceLevel between 1-5
+- If shouldUpdateSpice is false, set spiceLevel to null
+- If shouldUpdateImagePreference is true, you MUST provide a non-empty imagePreference string
+- If shouldUpdateImagePreference is false, set imagePreference to null
+
+Available coach types: "zen_master", "gym_bro", "dance_teacher", "drill_sergeant", "frat_bro"
+
+${previousError ? `Previous attempt failed with error: ${previousError}. Please fix the issue.` : ''}
+
+Respond with valid JSON matching this exact schema:
 {
   "shouldUpdateCoach": boolean,
-  "coachType": string (only when shouldUpdateCoach is true),
+  "coachType": "zen_master" | "gym_bro" | "dance_teacher" | "drill_sergeant" | "frat_bro" | null,
   "shouldUpdateSpice": boolean,
-  "spiceLevel": number (1-5, only when shouldUpdateSpice is true),
+  "spiceLevel": number (1-5) | null,
   "shouldUpdateImagePreference": boolean,
-  "imagePreference": string (only when shouldUpdateImagePreference is true),
-  "customerResponse": string (response in the voice of their current coach)
-}
-
-When responding to general messages (not preference updates), make sure the customerResponse:
-1. Matches the personality of their selected coach
-2. Uses the coach's characteristic phrases and style
-3. Maintains the intensity level indicated by their spice level
-4. Stays focused on fitness and motivation
-5. Keeps responses under 160 characters`
-      },
-      {
-        role: "user",
-        content: `User's message: ${userMessage}`
-      }
-    ];
-
-    // If this is a retry, add the error context
-    if (previousError) {
-      messages.push({
-        role: "system",
-        content: `Your last response was invalid. Please fix the following validation error and try again: ${JSON.stringify(previousError, null, 2)}`
-      });
-    }
+  "imagePreference": string | null,
+  "customerResponse": string
+}`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages,
-      temperature: 0.7,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage }
+      ],
+      temperature: 0.3,
+      max_tokens: 300,
     });
 
-    const aiResponse = completion.choices[0].message.content;
-    console.log(`AI response attempt ${attempt}:`, aiResponse);
+    const responseText = completion.choices[0].message.content.trim();
+    console.log("Raw AI response:", responseText);
 
-    // Clean the response by removing any code block markers
-    const cleanedResponse = aiResponse
-      .replace(/^```json\n?/, '')
-      .replace(/^```\n?/, '')
-      .replace(/\n?```$/, '');
-
-    // Parse and validate the JSON response
-    const parsedResponse = JSON.parse(cleanedResponse);
-    responseSchema.parse(parsedResponse);
-    
-    return parsedResponse;
-
-  } catch (error) {
-    console.log(`Error in attempt ${attempt}:`, error);
-    
-    if (attempt < MAX_ATTEMPTS) {
-      console.log(`Retrying... Attempt ${attempt + 1} of ${MAX_ATTEMPTS}`);
-      return getValidAIResponse(userMessage, userData, error, attempt + 1);
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      throw new Error(`Invalid JSON response: ${responseText}`);
     }
 
-    // Get coach-specific funny excuses based on their selected coach
-    const coachExcuses = {
-      zen_master: [
-        "Taking a mindful breath... 🧘‍♀️ Please try again.",
-        "The universe needs a moment... ✨ One more time?",
-        "Realigning my chakras... 🌟 Try that again?",
-      ],
-      gym_bro: [
-        "Bro, my protein shake is still loading! 🥤 Try again?",
-        "Just finishing this set fam! 💪 One more rep?",
-        "Taking a pre-workout break! ⚡ Hit me again?",
-      ],
-      dance_teacher: [
-        "Honey, I lost my rhythm! 💃 Try that again?",
-        "Just stretching it out... 🎵 One more time?",
-        "Need to perfect that move! 💅 From the top?",
-      ],
-      drill_sergeant: [
-        "SYSTEM MALFUNCTION, SOLDIER! TRY AGAIN!",
-        "TEMPORARY TACTICAL RETREAT! REGROUP!",
-        "MISSION PARAMETERS UNCLEAR! CLARIFY!",
-      ],
-      frat_bro: [
-        "BROSKI MY BRAIN IS TOO SWOLE RN! 😤 TRY AGAIN!",
-        "YOOO I'M LITERALLY DEAD RN! ☠️ ONE MORE TIME!",
-        "CAN'T EVEN BRO, TOO HYPED! 🔥 HIT THAT AGAIN!",
-      ]
-    };
-
-    const excuses = coachExcuses[userData.coach] || coachExcuses.gym_bro;
-    throw new Error(excuses[Math.floor(Math.random() * excuses.length)]);
+    const validatedResponse = responseSchema.parse(parsedResponse);
+    console.log("Validated AI response:", validatedResponse);
+    
+    return validatedResponse;
+  } catch (error) {
+    console.error(`AI response attempt ${attempt} failed:`, error);
+    return await getValidAIResponse(userMessage, userData, error.message, attempt + 1);
   }
 }
 
 // Helper function to check if a MIME type is an image
 function isImageMimeType(mimeType) {
-  return mimeType.startsWith('image/');
+  return mimeType && mimeType.startsWith('image/');
 }
 
 // Helper function to get file extension from MIME type
 function getFileExtensionFromMimeType(mimeType) {
-  const extensions = {
+  const mimeToExt = {
     'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
     'image/png': 'png',
     'image/gif': 'gif',
-    'image/webp': 'webp',
-    'image/heic': 'heic'
+    'image/webp': 'webp'
   };
-  return extensions[mimeType] || 'jpg';
+  return mimeToExt[mimeType] || 'jpg';
 }
 
 // Function to save media to GCS
 async function saveMediaToGCS(mediaUrl, phoneNumber, contentType) {
-  const bucket = storage.bucket(`${projectId}-${process.env.CONVERSATION_BUCKET_NAME}`);
-  const extension = getFileExtensionFromMimeType(contentType);
-  // Use the full phone number (including +1) as the directory name
-  const filePath = `${phoneNumber}/images/profile.${extension}`;
-  const file = bucket.file(filePath);
-
   try {
-    // Create basic auth header using Twilio credentials
-    const authString = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
-    
-    const response = await fetch(mediaUrl, {
-      headers: {
-        'Authorization': `Basic ${authString}`
-      }
-    });
-
+    const response = await fetch(mediaUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch media: ${response.statusText}`);
     }
 
-    // Get the response as an ArrayBuffer
-    const buffer = await response.arrayBuffer();
-
-    // Upload the buffer directly to GCS
-    await file.save(Buffer.from(buffer), {
+    const buffer = await response.buffer();
+    const fileExtension = getFileExtensionFromMimeType(contentType);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `${phoneNumber}/${timestamp}.${fileExtension}`;
+    
+    const bucket = storage.bucket(`${projectId}-image-bucket`);
+    const file = bucket.file(fileName);
+    
+    await file.save(buffer, {
       metadata: {
-        contentType: response.headers.get('content-type'),
+        contentType: contentType,
         metadata: {
-          source: 'user_upload',
-          uploadedAt: new Date().toISOString(),
-          phoneNumber: phoneNumber
+          phoneNumber: phoneNumber,
+          uploadedAt: new Date().toISOString()
         }
       }
     });
 
-    return `gs://${bucket.name}/${filePath}`;
+    console.log(`Media saved to GCS: ${fileName}`);
+    return fileName;
   } catch (error) {
     console.error('Error saving media to GCS:', error);
     throw error;
@@ -386,150 +413,151 @@ async function saveMediaToGCS(mediaUrl, phoneNumber, contentType) {
 
 // Function to delete media from Twilio
 async function deleteMediaFromTwilio(messageSid, mediaSid) {
-  const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
   try {
-    await twilioClient.messages(messageSid).media(mediaSid).remove();
+    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    await client.messages(messageSid).media(mediaSid).remove();
+    console.log(`Deleted media ${mediaSid} from message ${messageSid}`);
   } catch (error) {
     console.error('Error deleting media from Twilio:', error);
-    // Don't throw error as this is not critical
   }
 }
 
 // Helper function to validate and format North American phone numbers
 function formatPhoneNumber(phoneNumber) {
-  // Remove all non-digit characters except leading +
-  let cleaned = phoneNumber.replace(/[^\d+]/g, '');
+  if (!phoneNumber) return null;
   
-  // If it starts with +1, remove it temporarily
-  if (cleaned.startsWith('+1')) {
-    cleaned = cleaned.substring(2);
-  } else if (cleaned.startsWith('1')) {
-    cleaned = cleaned.substring(1);
+  let cleaned = phoneNumber.replace(/\D/g, '');
+  
+  if (cleaned.length === 10) {
+    cleaned = '1' + cleaned;
   }
   
-  // Check if we have exactly 10 digits
-  if (cleaned.length !== 10) {
-    return null;
+  if (cleaned.length === 11 && cleaned.startsWith('1')) {
+    return '+' + cleaned;
   }
   
-  // Return in E.164 format (+1XXXXXXXXXX)
-  return `+1${cleaned}`;
+  return phoneNumber.startsWith('+') ? phoneNumber : '+' + phoneNumber;
 }
 
 // Main function to process incoming SMS
 exports.processSms = async (req, res) => {
+  console.log('SMS processing started');
+  console.log('Request body:', req.body);
+
   try {
-    const body = req.body;
-    const incomingPhoneNumber = body.From;
-    const messageSid = body.MessageSid;
-    const numMedia = parseInt(body.NumMedia) || 0;
-    const userMessage = body.Body || '';
-
-    console.log('Incoming phone number:', incomingPhoneNumber);
-
-    // Format and validate the phone number
-    const formattedPhoneNumber = formatPhoneNumber(incomingPhoneNumber);
+    const { Body: messageBody, From: fromNumber, MediaUrl0, MediaContentType0, MessageSid, NumMedia } = req.body;
     
-    // If the number isn't valid North American format, reject it
-    if (!formattedPhoneNumber) {
-      console.log('Invalid phone number format:', incomingPhoneNumber);
-      const twiml = new twilio.twiml.MessagingResponse();
-      twiml.message("Sorry, this service is only available in North America.");
-      res.set('Content-Type', 'text/xml');
-      return res.send(twiml.toString());
+    if (!messageBody && !MediaUrl0) {
+      console.log('No message body or media found');
+      return res.status(400).send('No message content');
     }
 
-    console.log('Formatted phone number:', formattedPhoneNumber);
+    const normalizedPhoneNumber = formatPhoneNumber(fromNumber);
+    console.log(`Processing message from: ${fromNumber} -> ${normalizedPhoneNumber}`);
 
-    // Get conversation history and user data
-    const [conversationHistory, { data: userData, error: userError }] = await Promise.all([
-      getConversationHistory(formattedPhoneNumber),
-      supabase.from('user_profiles').select('*').eq('phone_number', formattedPhoneNumber).single()
-    ]);
+    // Update the user data fetch to include custom coach information
+    const { data: userData, error: userError } = await supabase
+      .from('user_profiles')
+      .select(`
+        coach, 
+        coach_type, 
+        custom_coach_id, 
+        spice_level, 
+        image_preference,
+        coach_profiles!custom_coach_id(id, name, handle, primary_response_style, secondary_response_style, communication_traits)
+      `)
+      .eq('phone_number', normalizedPhoneNumber)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user data:', userError);
+      return res.status(500).send('Error fetching user data');
+    }
+
+    if (!userData) {
+      console.log('User not found for phone number:', normalizedPhoneNumber);
+      return res.status(404).send('User not found');
+    }
 
     console.log('User data:', userData);
-    if (userError) console.error('Error fetching user:', userError);
 
-    // Only proceed if user exists in database
-    if (!userData) {
-      console.log('User not found in database');
-      const twiml = new twilio.twiml.MessagingResponse();
-      twiml.message("Sorry, I don't recognize this number. Please sign up first!");
-      res.set('Content-Type', 'text/xml');
-      return res.send(twiml.toString());
-    }
-
+    const conversationHistory = await getConversationHistory(normalizedPhoneNumber);
     let responseMessage;
-    let mediaUrl;
 
-    // Handle media if present
-    if (numMedia > 0) {
-      // Only process the first image if multiple are sent
-      const firstMediaUrl = body['MediaUrl0'];
-      const contentType = body['MediaContentType0'];
-      const mediaSid = firstMediaUrl.split('/').pop();
-
-      if (isImageMimeType(contentType)) {
-        mediaUrl = await saveMediaToGCS(firstMediaUrl, formattedPhoneNumber, contentType);
-        await deleteMediaFromTwilio(messageSid, mediaSid);
+    if (MediaUrl0 && isImageMimeType(MediaContentType0)) {
+      console.log('Processing image message');
+      
+      try {
+        const gcsFileName = await saveMediaToGCS(MediaUrl0, normalizedPhoneNumber, MediaContentType0);
+        await deleteMediaFromTwilio(MessageSid, req.body.MediaSid0);
         
-        // Generate a complimentary response about their photo
-        const photoPrompt = `The user just sent a photo of themselves. Generate a brief, encouraging compliment about their appearance in your coaching style. Be genuine and uplifting. Let them know that we'll keep this photo to generate motivational images for them.`;
-        responseMessage = await generateCoachResponse(photoPrompt, userData.spice_level, conversationHistory, userData.coach);
-      } else {
-        responseMessage = "I can only accept image files. Please try sending your photo again!";
+        const photoPrompt = messageBody || "I'm sharing a photo with you!";
+        await storeConversation(normalizedPhoneNumber, `[Photo shared] ${photoPrompt}`);
+        
+        // Pass userData instead of just coach name
+        responseMessage = await generateCoachResponse(photoPrompt, userData.spice_level, conversationHistory, userData);
+        
+      } catch (error) {
+        console.error('Error processing image:', error);
+        responseMessage = "Thanks for sharing! I'm having trouble processing your image right now, but keep up the great work! 💪";
       }
     } else {
-      // Process normal text message
-      try {
-        const aiResponse = await getValidAIResponse(userMessage, userData);
-        responseMessage = aiResponse.customerResponse;
-
-        // Update user preferences if needed
-        if (aiResponse.shouldUpdateSpice || aiResponse.shouldUpdateImagePreference || aiResponse.shouldUpdateCoach) {
-          const updates = {
-            updated_at: new Date().toISOString()
-          };
-          if (aiResponse.shouldUpdateSpice) {
-            updates.spice_level = aiResponse.spiceLevel;
-          }
-          if (aiResponse.shouldUpdateImagePreference) {
-            updates.image_preference = aiResponse.imagePreference;
-          }
-          if (aiResponse.shouldUpdateCoach) {
-            updates.coach = aiResponse.coachType;
-          }
+      console.log('Processing text message');
+      await storeConversation(normalizedPhoneNumber, messageBody);
+      
+      const aiResponse = await getValidAIResponse(messageBody, userData);
+      
+      if (aiResponse.shouldUpdateCoach || aiResponse.shouldUpdateSpice || aiResponse.shouldUpdateImagePreference) {
+        const updateData = {};
+        
+        if (aiResponse.shouldUpdateCoach && aiResponse.coachType) {
+          updateData.coach = aiResponse.coachType;
+          updateData.coach_type = 'predefined'; // AI can only suggest predefined coaches
+          updateData.custom_coach_id = null;
+        }
+        
+        if (aiResponse.shouldUpdateSpice && aiResponse.spiceLevel) {
+          updateData.spice_level = aiResponse.spiceLevel;
+        }
+        
+        if (aiResponse.shouldUpdateImagePreference && aiResponse.imagePreference) {
+          updateData.image_preference = aiResponse.imagePreference;
+        }
+        
+        if (Object.keys(updateData).length > 0) {
           const { error: updateError } = await supabase
             .from('user_profiles')
-            .update(updates)
-            .eq('phone_number', formattedPhoneNumber);
-
+            .update(updateData)
+            .eq('phone_number', normalizedPhoneNumber);
+          
           if (updateError) {
             console.error('Error updating user preferences:', updateError);
+          } else {
+            console.log('Updated user preferences:', updateData);
           }
         }
-      } catch (error) {
-        // If this is a validation error with a coach excuse, use that as the response
-        responseMessage = error.message;
-        console.log('Using coach excuse as response:', responseMessage);
       }
+      
+      responseMessage = aiResponse.customerResponse;
     }
 
-    // Store the conversation
-    await Promise.all([
-      storeConversation(formattedPhoneNumber, userMessage),
-      storeConversation(formattedPhoneNumber, responseMessage, 'assistant')
-    ]);
+    await storeConversation(normalizedPhoneNumber, responseMessage, 'assistant');
 
-    // Send response via Twilio
     const twiml = new twilio.twiml.MessagingResponse();
     twiml.message(responseMessage);
 
-    res.set('Content-Type', 'text/xml');
-    return res.send(twiml.toString());
-
+    res.type('text/xml');
+    res.send(twiml.toString());
+    
+    console.log('SMS processing completed successfully');
+    
   } catch (error) {
-    console.error('Error processing SMS:', error);
-    res.status(500).send('Error processing request');
+    console.error('Error in SMS processing:', error);
+    
+    const twiml = new twilio.twiml.MessagingResponse();
+    twiml.message("I'm having some technical difficulties right now. Please try again later! 💪");
+    
+    res.type('text/xml');
+    res.send(twiml.toString());
   }
 }; 

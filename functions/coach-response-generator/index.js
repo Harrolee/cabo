@@ -317,6 +317,18 @@ Respond to this user message: "${userMessage}"`;
  * Main Cloud Function entry point
  */
 exports.generateCoachResponse = async (req, res) => {
+  // Set CORS headers
+  res.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Max-Age', '3600');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
   try {
     // Validate request
     const requestData = GenerateResponseRequest.parse(req.body);
