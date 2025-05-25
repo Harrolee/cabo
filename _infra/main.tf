@@ -18,6 +18,37 @@ resource "google_storage_bucket" "function_bucket" {
   uniform_bucket_level_access = true
 }
 
+# Create a Cloud Storage bucket for coach content
+resource "google_storage_bucket" "coach_content_bucket" {
+  name          = "${var.project_id}-${var.coach_content_bucket_name}"
+  location      = var.coach_content_bucket_location
+  force_destroy = true
+
+  uniform_bucket_level_access = true
+
+  # CORS configuration for direct uploads from webapp
+  cors {
+    origin          = ["*"]
+    method          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
+    response_header = ["*"]
+    max_age_seconds = 3600
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 730  # Keep coach content for 2 years
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  # Versioning for content safety
+  versioning {
+    enabled = true
+  }
+}
+
 # Cloud Scheduler configuration
 resource "google_cloud_scheduler_job" "daily_motivation" {
   name        = "trigger-daily-motivation"
