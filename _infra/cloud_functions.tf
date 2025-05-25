@@ -23,6 +23,25 @@ resource "google_service_account" "cancel_stripe_subscription" {
   project      = var.project_id
 }
 
+# Coach Builder service accounts
+resource "google_service_account" "coach_content_processor" {
+  account_id   = "coach-content-processor"
+  display_name = "Service Account for Coach Content Processor Function"
+  project      = var.project_id
+}
+
+resource "google_service_account" "coach_response_generator" {
+  account_id   = "coach-response-generator"
+  display_name = "Service Account for Coach Response Generator Function"
+  project      = var.project_id
+}
+
+resource "google_service_account" "coach_file_uploader" {
+  account_id   = "coach-file-uploader"
+  display_name = "Service Account for Coach File Uploader Function"
+  project      = var.project_id
+}
+
 
 # Create conversation storage bucket
 resource "google_storage_bucket" "conversation_storage" {
@@ -77,6 +96,51 @@ resource "google_project_iam_member" "cancel_stripe_subscription_roles" {
   member  = "serviceAccount:${google_service_account.cancel_stripe_subscription.email}"
 }
 
+# Coach Builder service account roles
+resource "google_project_iam_member" "coach_content_processor_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/storage.objectViewer",
+    "roles/storage.objectUser",
+    "roles/logging.logWriter"
+  ])
+  
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.coach_content_processor.email}"
+}
+
+resource "google_project_iam_member" "coach_response_generator_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/logging.logWriter"
+  ])
+  
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.coach_response_generator.email}"
+}
+
+resource "google_project_iam_member" "coach_file_uploader_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/storage.objectUser",
+    "roles/logging.logWriter",
+    "roles/iam.serviceAccountTokenCreator"
+  ])
+  
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.coach_file_uploader.email}"
+}
+
+# Allow the coach file uploader service account to create tokens for itself
+resource "google_service_account_iam_member" "coach_file_uploader_self_token_creator" {
+  service_account_id = google_service_account.coach_file_uploader.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.coach_file_uploader.email}"
+}
+
 # Grant the cloud functions access to the conversation bucket
 resource "google_storage_bucket_iam_member" "process_sms_conversation_access" {
   bucket = google_storage_bucket.conversation_storage.name
@@ -94,6 +158,19 @@ resource "google_storage_bucket_iam_member" "motivational_images_conversation_ac
   bucket = google_storage_bucket.conversation_storage.name
   role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.motivational_images.email}"
+}
+
+# Grant Coach Builder functions access to the coach content bucket
+resource "google_storage_bucket_iam_member" "coach_content_processor_bucket_access" {
+  bucket = google_storage_bucket.coach_content_bucket.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.coach_content_processor.email}"
+}
+
+resource "google_storage_bucket_iam_member" "coach_file_uploader_bucket_access" {
+  bucket = google_storage_bucket.coach_content_bucket.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.coach_file_uploader.email}"
 }
 
 # Grant the motivational images function access to the image bucket
@@ -173,6 +250,28 @@ data "archive_file" "cancel_stripe_subscription_zip" {
   excludes    = ["node_modules"]
 }
 
+# Coach Builder function ZIP archives
+data "archive_file" "coach_content_processor_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/coach-content-processor"
+  output_path = "${path.root}/tmp/coach-content-processor.zip"
+  excludes    = ["node_modules"]
+}
+
+data "archive_file" "coach_response_generator_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/coach-response-generator"
+  output_path = "${path.root}/tmp/coach-response-generator.zip"
+  excludes    = ["node_modules"]
+}
+
+data "archive_file" "coach_file_uploader_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/coach-file-uploader"
+  output_path = "${path.root}/tmp/coach-file-uploader.zip"
+  excludes    = ["node_modules"]
+}
+
 
 # Upload the function sources to Cloud Storage
 resource "google_storage_bucket_object" "motivational_images_source" {
@@ -221,6 +320,25 @@ resource "google_storage_bucket_object" "cancel_stripe_subscription_source" {
   name   = "cancel-stripe-subscription-${data.archive_file.cancel_stripe_subscription_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.cancel_stripe_subscription_zip.output_path
+}
+
+# Coach Builder function sources
+resource "google_storage_bucket_object" "coach_content_processor_source" {
+  name   = "coach-content-processor-${data.archive_file.coach_content_processor_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.coach_content_processor_zip.output_path
+}
+
+resource "google_storage_bucket_object" "coach_response_generator_source" {
+  name   = "coach-response-generator-${data.archive_file.coach_response_generator_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.coach_response_generator_zip.output_path
+}
+
+resource "google_storage_bucket_object" "coach_file_uploader_source" {
+  name   = "coach-file-uploader-${data.archive_file.coach_file_uploader_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.coach_file_uploader_zip.output_path
 }
 
 # Deploy Cloud Functions using the module
@@ -397,6 +515,81 @@ module "cancel_stripe_subscription_function" {
   depends_on = [google_storage_bucket_object.cancel_stripe_subscription_source]
 }
 
+# Coach Builder Cloud Functions
+module "coach_content_processor_function" {
+  source = "./modules/cloud_function"
+  
+  name        = "coach-content-processor"
+  description = "Function to process uploaded coach content files"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.coach_content_processor_source.name
+  entry_point = "processCoachContent"
+  memory      = "1Gi"
+  timeout     = 300
+  service_account_email = google_service_account.coach_content_processor.email
+  
+  environment_variables = {
+    PROJECT_ID               = var.project_id
+    GCP_STORAGE_BUCKET      = google_storage_bucket.coach_content_bucket.name
+    SUPABASE_URL            = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    OPENAI_API_KEY          = var.openai_api_key
+    ALLOWED_ORIGINS         = var.allowed_origins
+  }
+  depends_on = [google_storage_bucket_object.coach_content_processor_source]
+}
+
+module "coach_response_generator_function" {
+  source = "./modules/cloud_function"
+  
+  name        = "coach-response-generator"
+  description = "Function to generate AI coach responses"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.coach_response_generator_source.name
+  entry_point = "generateCoachResponse"
+  memory      = "512M"
+  timeout     = 60
+  service_account_email = google_service_account.coach_response_generator.email
+  
+  environment_variables = {
+    PROJECT_ID               = var.project_id
+    SUPABASE_URL            = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    OPENAI_API_KEY          = var.openai_api_key
+    ALLOWED_ORIGINS         = var.allowed_origins
+  }
+  depends_on = [google_storage_bucket_object.coach_response_generator_source]
+}
+
+module "coach_file_uploader_function" {
+  source = "./modules/cloud_function"
+  
+  name        = "coach-file-uploader"
+  description = "Function to handle coach content file uploads"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.coach_file_uploader_source.name
+  entry_point = "coachFileUploader"
+  memory      = "256M"
+  timeout     = 60
+  service_account_email = google_service_account.coach_file_uploader.email
+  
+  environment_variables = {
+    PROJECT_ID                    = var.project_id
+    GCP_STORAGE_BUCKET           = google_storage_bucket.coach_content_bucket.name
+    SUPABASE_URL                 = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY    = var.supabase_service_role_key
+    COACH_CONTENT_PROCESSOR_URL  = module.coach_content_processor_function.url
+    ALLOWED_ORIGINS              = var.allowed_origins
+  }
+  depends_on = [
+    google_storage_bucket_object.coach_file_uploader_source,
+    module.coach_content_processor_function
+  ]
+}
+
 resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
   location = module.process_sms_function.function.location
   service  = module.process_sms_function.function.name
@@ -435,6 +628,28 @@ resource "google_cloud_run_service_iam_member" "create_setup_intent_invoker" {
 resource "google_cloud_run_service_iam_member" "cancel_stripe_subscription_invoker" {
   location = module.cancel_stripe_subscription_function.function.location
   service  = module.cancel_stripe_subscription_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Coach Builder function invokers
+resource "google_cloud_run_service_iam_member" "coach_content_processor_invoker" {
+  location = module.coach_content_processor_function.function.location
+  service  = module.coach_content_processor_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "coach_response_generator_invoker" {
+  location = module.coach_response_generator_function.function.location
+  service  = module.coach_response_generator_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "coach_file_uploader_invoker" {
+  location = module.coach_file_uploader_function.function.location
+  service  = module.coach_file_uploader_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }

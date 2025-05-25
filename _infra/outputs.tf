@@ -1,5 +1,5 @@
 output "motivation_function_url" {
-  description = "The URL of the motivation Cloud Function"
+  description = "URL of the motivational images function"
   value       = module.motivation_function.url
 }
 
@@ -9,12 +9,12 @@ output "motivation_function_status" {
 }
 
 output "signup_function_url" {
-  description = "The URL of the signup Cloud Function"
+  description = "URL of the signup function"
   value       = module.signup_function.url
 }
 
 output "stripe_webhook_url" {
-  description = "URL of the stripe-webhook function"
+  description = "URL of the Stripe webhook function"
   value       = module.stripe_webhook_function.url
 }
 
@@ -67,6 +67,67 @@ output "call_to_action_image_url" {
 }
 
 output "process_sms_url" {
-  description = "URL of the process-sms function"
+  description = "URL of the SMS processing function"
   value       = module.process_sms_function.url
+}
+
+output "get_user_data_url" {
+  description = "URL of the get user data function"
+  value       = module.get_user_data_function.url
+}
+
+output "create_stripe_subscription_url" {
+  description = "URL of the create Stripe subscription function"
+  value       = module.create_stripe_subscription_function.url
+}
+
+output "create_setup_intent_url" {
+  description = "URL of the create setup intent function"
+  value       = module.create_setup_intent_function.url
+}
+
+output "cancel_stripe_subscription_url" {
+  description = "URL of the cancel Stripe subscription function"
+  value       = module.cancel_stripe_subscription_function.url
+}
+
+output "coach_content_processor_url" {
+  description = "URL of the coach content processor function"
+  value       = module.coach_content_processor_function.url
+}
+
+output "coach_response_generator_url" {
+  description = "URL of the coach response generator function"
+  value       = module.coach_response_generator_function.url
+}
+
+output "coach_file_uploader_url" {
+  description = "URL of the coach file uploader function"
+  value       = module.coach_file_uploader_function.url
+}
+
+output "conversation_bucket_name" {
+  description = "Name of the conversation storage bucket"
+  value       = google_storage_bucket.conversation_storage.name
+}
+
+output "coach_content_bucket_name" {
+  description = "Name of the coach content storage bucket"
+  value       = google_storage_bucket.coach_content_bucket.name
+}
+
+output "function_bucket_name" {
+  description = "Name of the function source storage bucket"
+  value       = google_storage_bucket.function_bucket.name
+}
+
+output "webapp_environment_variables" {
+  description = "Environment variables needed for the webapp"
+  value = {
+    VITE_GCP_FUNCTION_BASE_URL = "https://${var.region}-${var.project_id}.cloudfunctions.net"
+    VITE_COACH_CONTENT_PROCESSOR_URL = module.coach_content_processor_function.url
+    VITE_COACH_RESPONSE_GENERATOR_URL = module.coach_response_generator_function.url
+    VITE_COACH_FILE_UPLOADER_URL = module.coach_file_uploader_function.url
+  }
+  sensitive = false
 }
