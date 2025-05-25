@@ -6,7 +6,14 @@ import ProgressStepper from './components/ProgressStepper';
 
 const CoachSavePrompt = () => {
   const navigate = useNavigate();
-  const { coachData, saveCoach, resetCoachData, prevStep, isProcessing } = useCoachBuilder();
+  const { 
+    coachData, 
+    saveCoach, 
+    resetCoachData, 
+    prevStep,
+    validateCoachData,
+    isProcessing
+  } = useCoachBuilder();
   
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -69,6 +76,13 @@ const CoachSavePrompt = () => {
       return;
     }
 
+    // Validate coach data before attempting to save
+    const validation = validateCoachData();
+    if (!validation.isValid) {
+      setSaveError(`Please complete the following required fields:\n• ${validation.errors.join('\n• ')}`);
+      return;
+    }
+
     try {
       setSaveError('');
       const savedCoach = await saveCoach(userProfile.email);
@@ -98,6 +112,10 @@ const CoachSavePrompt = () => {
   const handleStartOver = () => {
     resetCoachData();
     navigate('/coach-builder');
+  };
+
+  const handleGoToPersonality = () => {
+    navigate('/coach-builder/personality');
   };
 
   if (loading) {
@@ -228,16 +246,21 @@ const CoachSavePrompt = () => {
                 <div className="space-y-3">
                   <div>
                     <span className="text-green-700 font-medium">Name:</span>
-                    <span className="ml-2">{coachData.name}</span>
+                    <span className="ml-2">
+                      {coachData.name || <span className="text-red-500 italic">Not provided</span>}
+                    </span>
                   </div>
                   <div>
                     <span className="text-green-700 font-medium">Handle:</span>
-                    <span className="ml-2">@{coachData.handle}</span>
+                    <span className="ml-2">
+                      @{coachData.handle || <span className="text-red-500 italic">Not provided</span>}
+                    </span>
                   </div>
                   <div>
                     <span className="text-green-700 font-medium">Response Style:</span>
                     <span className="ml-2 capitalize">
-                      {coachData.primary_response_style?.replace('_', ' ')}
+                      {coachData.primary_response_style?.replace('_', ' ') || 
+                       <span className="text-red-500 italic">Not selected - complete personality questionnaire</span>}
                     </span>
                   </div>
                   <div>
@@ -256,30 +279,76 @@ const CoachSavePrompt = () => {
               {/* Error Message */}
               {saveError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                  <p className="text-red-800 text-sm">{saveError}</p>
+                  <div className="flex items-start">
+                    <div className="text-red-400 mr-2">⚠️</div>
+                    <div>
+                      <h3 className="text-red-800 font-medium mb-1">Unable to Save Coach</h3>
+                      <div className="text-red-700 text-sm whitespace-pre-line">{saveError}</div>
+                    </div>
+                  </div>
                 </div>
               )}
 
+              {/* Validation Helper */}
+              {(() => {
+                const validation = validateCoachData();
+                if (!validation.isValid) {
+                  return (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                      <div className="flex items-start">
+                        <div className="text-yellow-400 mr-2">⚠️</div>
+                        <div className="flex-1">
+                          <h3 className="text-yellow-800 font-medium mb-2">Complete Required Fields</h3>
+                          <div className="space-y-2">
+                            {validation.errors.map((error, index) => (
+                              <div key={index} className="text-yellow-700 text-sm">• {error}</div>
+                            ))}
+                          </div>
+                          {!coachData.primary_response_style && (
+                            <button
+                              onClick={handleGoToPersonality}
+                              className="mt-3 text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded hover:bg-yellow-200"
+                            >
+                              Complete Personality Questionnaire →
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {/* Save Button */}
               <div className="space-y-4">
-                <button
-                  onClick={handleSaveCoach}
-                  disabled={isProcessing}
-                  className={`w-full py-3 px-6 rounded-lg font-medium text-lg ${
-                    isProcessing
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
-                >
-                  {isProcessing ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
-                      Saving Coach...
-                    </div>
-                  ) : (
-                    'Save My AI Coach'
-                  )}
-                </button>
+                {(() => {
+                  const validation = validateCoachData();
+                  const isDisabled = isProcessing || !validation.isValid;
+                  
+                  return (
+                    <button
+                      onClick={handleSaveCoach}
+                      disabled={isDisabled}
+                      className={`w-full py-3 px-6 rounded-lg font-medium text-lg ${
+                        isDisabled
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                    >
+                      {isProcessing ? (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
+                          Saving Coach...
+                        </div>
+                      ) : !validation.isValid ? (
+                        'Complete Required Fields First'
+                      ) : (
+                        'Save My AI Coach'
+                      )}
+                    </button>
+                  );
+                })()}
                 
                 <div className="flex justify-center space-x-4">
                   <button
