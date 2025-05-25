@@ -12,6 +12,15 @@ import backgroundImage from '/src/assets/background-image/beach-palm-tree.jpg'
 import SettingsPage from './components/SettingsPage';
 import BillingPage from './components/BillingPage';
 
+// Coach Builder imports
+import { CoachBuilderProvider } from './contexts/CoachBuilderContext';
+import CoachBuilderLanding from './components/CoachBuilder/CoachBuilderLanding';
+import PersonalityQuestionnaire from './components/CoachBuilder/PersonalityQuestionnaire';
+import ContentUpload from './components/CoachBuilder/ContentUpload';
+import CoachPreview from './components/CoachBuilder/CoachPreview';
+import CoachSavePrompt from './components/CoachBuilder/CoachSavePrompt';
+import CoachDashboard from './components/MyCoaches/CoachDashboard';
+
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
 
@@ -177,9 +186,11 @@ const AuthenticatedLayout = ({ session }) => {
       <nav className="bg-gray-800 text-white p-4">
         <ul className="flex space-x-4 items-center">
           <li><Link to="/">Home (Main App)</Link></li>
+          <li><Link to="/coach-builder">Coach Builder</Link></li>
+          <li><Link to="/my-coaches">My Coaches</Link></li>
           <li><Link to="/settings">Settings</Link></li>
           <li><Link to="/billing">Billing</Link></li>
-          <li className="ml-auto">Logged in as: {session.user.email}</li>
+          <li className="ml-auto">Logged in as: {session.user.phone}</li>
           <li>
             <button 
               onClick={() => supabase.auth.signOut()} 
@@ -474,9 +485,23 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       
+      {/* Coach Builder - Unauthenticated Routes */}
+      <Route path="/coach-builder/*" element={
+        <CoachBuilderProvider>
+          <Routes>
+            <Route index element={<CoachBuilderLanding />} />
+            <Route path="personality" element={<PersonalityQuestionnaire />} />
+            <Route path="content" element={<ContentUpload />} />
+            <Route path="preview" element={<CoachPreview />} />
+            <Route path="save" element={<CoachSavePrompt />} />
+          </Routes>
+        </CoachBuilderProvider>
+      } />
+      
       <Route element={<ProtectedRoute session={session}><AuthenticatedLayout session={session} /></ProtectedRoute>}>
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/billing" element={<BillingPage />} />
+        <Route path="/my-coaches" element={<CoachDashboard />} />
       </Route>
 
       <Route path="/*" element={<MainAppContent />} />
