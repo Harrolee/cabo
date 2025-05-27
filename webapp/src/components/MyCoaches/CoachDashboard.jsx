@@ -226,6 +226,37 @@ const CoachDashboard = () => {
     setSelectedCoach(null);
   };
 
+  const togglePublicStatus = async (coach) => {
+    try {
+      const newPublicStatus = !coach.public;
+      
+      const { error } = await supabase
+        .from('coach_profiles')
+        .update({ public: newPublicStatus })
+        .eq('id', coach.id);
+
+      if (error) throw error;
+
+      // Update the local state
+      setCoaches(prevCoaches => 
+        prevCoaches.map(c => 
+          c.id === coach.id 
+            ? { ...c, public: newPublicStatus }
+            : c
+        )
+      );
+
+      toast.success(
+        newPublicStatus 
+          ? `${coach.name} is now public and visible to everyone!` 
+          : `${coach.name} is now private and only visible to you.`
+      );
+    } catch (error) {
+      console.error('Error updating coach public status:', error);
+      toast.error('Failed to update coach visibility');
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center">
@@ -277,12 +308,21 @@ const CoachDashboard = () => {
                   <h3 className="text-lg font-semibold text-gray-900">{coach.name}</h3>
                   <p className="text-sm text-gray-600">@{coach.handle}</p>
                 </div>
-                <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  coach.active 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {coach.active ? 'Active' : 'Inactive'}
+                <div className="flex flex-col gap-1">
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    coach.active 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {coach.active ? 'Active' : 'Inactive'}
+                  </div>
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    coach.public 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-orange-100 text-orange-800'
+                  }`}>
+                    {coach.public ? 'Public' : 'Private'}
+                  </div>
                 </div>
               </div>
 
@@ -311,19 +351,33 @@ const CoachDashboard = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <button 
-                  onClick={() => openChat(coach)}
-                  className="bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 text-sm font-medium"
-                >
-                  💬 Chat
-                </button>
-                <button className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium">
-                  Edit
-                </button>
-                <button className="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 text-sm font-medium">
-                  Analytics
-                </button>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button 
+                    onClick={() => openChat(coach)}
+                    className="bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 text-sm font-medium"
+                  >
+                    💬 Chat
+                  </button>
+                  <button className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium">
+                    ✏️ Edit
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button 
+                    onClick={() => togglePublicStatus(coach)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      coach.public
+                        ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    }`}
+                  >
+                    {coach.public ? '🔒 Make Private' : '🌍 Publish'}
+                  </button>
+                  <button className="bg-purple-100 text-purple-700 px-3 py-2 rounded-lg hover:bg-purple-200 text-sm font-medium">
+                    📊 Analytics
+                  </button>
+                </div>
               </div>
             </div>
           ))}
