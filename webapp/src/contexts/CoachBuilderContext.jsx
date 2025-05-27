@@ -294,13 +294,30 @@ export const CoachBuilderProvider = ({ children }) => {
         throw new Error(`Invalid response style: ${coachData.primary_response_style}. Please complete the personality questionnaire.`);
       }
 
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      // Get current user - handle both regular auth and temporary auth
+      let userId = null;
+      const tempAuthUser = sessionStorage.getItem('tempAuthUser');
+      
+      if (tempAuthUser) {
+        // For temporary auth, use the stored user data
+        try {
+          const userData = JSON.parse(tempAuthUser);
+          userId = userData.id; // Use the user profile ID
+        } catch (error) {
+          console.error('Error parsing temp auth user:', error);
+          throw new Error('Invalid temporary authentication');
+        }
+      } else {
+        // Regular Supabase auth
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        if (!user) throw new Error('User not authenticated');
+        userId = user.id;
+      }
 
       // Prepare data for database (convert empty strings to null for enum fields)
       const dbData = {
-        user_id: user.id,
+        user_id: userId,
         user_email: userEmail,
         name: coachData.name,
         handle: coachData.handle,

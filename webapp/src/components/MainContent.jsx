@@ -192,12 +192,12 @@ export function MainContent({
           <>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
               {paymentStatus === 'success' ? 'Welcome to CaboFit!' :
-               isPaymentFlow ? 'Start Your Subscription' : 'Beta Access! Free for a while'}
+               isPaymentFlow ? 'Start Your Subscription' : 'Free trial! No credit card required'}
             </h2>
             <p className="mt-2 text-center text-sm text-gray-200">
-              This jam is FREE until we go pro. Just tell Lee your opinions
+            Get fit for Cabo with daily motivation texts and progress pics.
             </p>
-              {/* Get fit for Cabo with daily motivation texts and progress pics. */}
+              {/* This jam is FREE until we go pro. Just tell Lee your opinions */}
           </>
         )}
       </div>

@@ -27,6 +27,41 @@ const CoachSavePrompt = () => {
 
   const checkUser = async () => {
     try {
+      // First check for temporary auth session
+      const tempAuthUser = sessionStorage.getItem('tempAuthUser');
+      if (tempAuthUser) {
+        try {
+          const userData = JSON.parse(tempAuthUser);
+          // Create a mock user object for temporary auth
+          const mockUser = {
+            email: userData.email,
+            phone: userData.phone,
+            user_metadata: { name: userData.name }
+          };
+          setUser(mockUser);
+          
+          // Look up user profile by email for temp auth
+          const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('email', userData.email)
+            .single();
+
+          if (profileError) {
+            console.error('Error getting user profile for temp auth:', profileError);
+          } else {
+            setUserProfile(profile);
+          }
+          
+          setLoading(false);
+          return;
+        } catch (error) {
+          console.error('Error parsing temp auth user:', error);
+          sessionStorage.removeItem('tempAuthUser');
+        }
+      }
+
+      // Regular Supabase auth check
       const { data: { user }, error } = await supabase.auth.getUser();
       
       if (error) {
