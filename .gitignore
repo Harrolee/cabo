@@ -1,7 +1,5 @@
 local-dev
 
-dist/
-
 static_assets/
 scripts/
 tmp/

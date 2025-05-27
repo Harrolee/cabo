@@ -72,122 +72,19 @@ const ProtectedRoute = ({ session, children }) => {
 // Simple placeholder for login - to be expanded
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
-  const [identifier, setIdentifier] = useState(''); // Can be phone or email
+  const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [showOtpInput, setShowOtpInput] = useState(false);
-  const [tempBypassOtp, setTempBypassOtp] = useState(true); // TEMPORARY: Bypass OTP
   const location = useLocation();
   const navigate = useNavigate();
   const from = location.state?.from?.pathname || "/settings";
-
-  const isEmail = (value) => {
-    return value.includes('@') && value.includes('.');
-  };
-
-  const isPhoneNumber = (value) => {
-    // Check if it's a phone number format
-    return /^\+?1?[2-9]\d{9}$/.test(value.replace(/\D/g, ''));
-  };
-
-  const normalizePhoneNumber = (phone) => {
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length === 10) {
-      return `+1${cleaned}`;
-    } else if (cleaned.length === 11 && cleaned.startsWith('1')) {
-      return `+${cleaned}`;
-    }
-    return phone.startsWith('+') ? phone : `+${phone}`;
-  };
-
-  const handleDirectLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      let userProfile = null;
-      
-      if (isEmail(identifier)) {
-        // Look up user by email
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('email', identifier)
-          .single();
-          
-        if (profileError || !profile) {
-          throw new Error('No account found with this email address');
-        }
-        userProfile = profile;
-      } else if (isPhoneNumber(identifier)) {
-        // Look up user by phone
-        const normalizedPhone = normalizePhoneNumber(identifier);
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('phone_number', normalizedPhone)
-          .single();
-          
-        if (profileError || !profile) {
-          throw new Error('No account found with this phone number');
-        }
-        userProfile = profile;
-      } else {
-        throw new Error('Please enter a valid email address or phone number');
-      }
-
-      // Try to sign in with magic link using email
-      const { error: magicLinkError } = await supabase.auth.signInWithOtp({
-        email: userProfile.email,
-        options: {
-          shouldCreateUser: false, // Don't create new user, just sign in existing
-          emailRedirectTo: window.location.origin + from
-        }
-      });
-
-      if (magicLinkError) {
-        // If magic link fails, try creating a temporary session
-        console.log('Magic link failed, attempting alternative auth...');
-        
-        // Store user info temporarily and redirect
-        sessionStorage.setItem('tempAuthUser', JSON.stringify({
-          email: userProfile.email,
-          phone: userProfile.phone_number,
-          name: userProfile.full_name,
-          id: userProfile.id
-        }));
-        
-        toast.success('Authentication successful! Redirecting...');
-        
-        // Simulate successful auth by triggering a custom event
-        window.dispatchEvent(new CustomEvent('tempAuthSuccess', {
-          detail: {
-            user: {
-              email: userProfile.email,
-              phone: userProfile.phone_number,
-              user_metadata: { name: userProfile.full_name }
-            }
-          }
-        }));
-        
-        navigate(from, { replace: true });
-        return;
-      }
-
-      toast.success('Check your email for the sign-in link!');
-      
-    } catch (error) {
-      toast.error(error.message || 'Login failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePhoneSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        phone: identifier,
+        phone: phone,
       });
       if (error) throw error;
       setShowOtpInput(true);
@@ -204,7 +101,7 @@ const LoginPage = () => {
     setLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
-        phone: identifier,
+        phone: phone,
         token: otp,
         type: 'sms'
       });
@@ -222,31 +119,18 @@ const LoginPage = () => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="p-8 bg-white shadow-md rounded-lg w-full max-w-md">
         <h2 className="text-2xl font-bold text-center mb-6">Sign In</h2>
-        
-        {tempBypassOtp && (
-          <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 rounded-md">
-            <p className="text-sm text-yellow-800">
-              🚧 <strong>Temporary Mode:</strong> OTP verification is currently disabled. 
-              Enter your email or phone number to sign in directly.
-            </p>
-          </div>
-        )}
-        
         {!showOtpInput ? (
           <>
             <p className="text-center mb-4 text-sm text-gray-600">
-              {tempBypassOtp 
-                ? "Enter your email address or phone number to sign in."
-                : "Enter your phone number to receive a verification code."
-              }
+              Enter your phone number to receive a verification code.
             </p>
-            <form onSubmit={tempBypassOtp ? handleDirectLogin : handlePhoneSubmit}>
+            <form onSubmit={handlePhoneSubmit}>
               <input
-                type="text"
-                placeholder={tempBypassOtp ? "Email or +1XXXXXXXXXX" : "+1XXXXXXXXXX"}
-                value={identifier}
+                type="tel"
+                placeholder="+1XXXXXXXXXX"
+                value={phone}
                 required
-                onChange={(e) => setIdentifier(e.target.value)}
+                onChange={(e) => setPhone(e.target.value)}
                 className="w-full px-4 py-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
@@ -254,25 +138,14 @@ const LoginPage = () => {
                 disabled={loading}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50"
               >
-                {loading ? 'Signing in...' : (tempBypassOtp ? 'Sign In' : 'Send Verification Code')}
+                {loading ? 'Sending...' : 'Send Verification Code'}
               </button>
             </form>
-            
-            {tempBypassOtp && (
-              <div className="mt-4 text-center">
-                <button
-                  onClick={() => setTempBypassOtp(false)}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  Use OTP verification instead
-                </button>
-              </div>
-            )}
           </>
         ) : (
           <>
             <p className="text-center mb-4 text-sm text-gray-600">
-              Enter the verification code sent to {identifier}
+              Enter the verification code sent to {phone}
             </p>
             <form onSubmit={handleOtpSubmit}>
               <input
@@ -309,21 +182,6 @@ const LoginPage = () => {
 
 // Layout for Authenticated parts of the app
 const AuthenticatedLayout = ({ session }) => {
-  const handleSignOut = async () => {
-    // Clear temporary auth if it exists
-    sessionStorage.removeItem('tempAuthUser');
-    
-    // Sign out from Supabase if it's a real session
-    if (session?.access_token !== 'temp-token') {
-      await supabase.auth.signOut();
-    } else {
-      // For temp sessions, just reload the page to clear state
-      window.location.reload();
-    }
-  };
-
-  const isTemporarySession = session?.access_token === 'temp-token';
-
   return (
     <div>
       <nav className="bg-gray-800 text-white p-4">
@@ -334,15 +192,10 @@ const AuthenticatedLayout = ({ session }) => {
           <li><Link to="/settings">Settings</Link></li>
           <li><Link to="/billing">Billing</Link></li>
           <li><Link to="/coaches">Coaches</Link></li>
-          <li className="ml-auto">
-            {isTemporarySession && (
-              <span className="text-yellow-300 text-sm mr-2">🚧 Temp Session</span>
-            )}
-            Logged in as: {session.user.email || session.user.phone}
-          </li>
+          <li className="ml-auto">Logged in as: {session.user.email || session.user.phone}</li>
           <li>
             <button 
-              onClick={handleSignOut}
+              onClick={() => supabase.auth.signOut()} 
               className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm"
             >
               Sign Out
@@ -424,45 +277,7 @@ export function App() {
       setSession(session);
     });
 
-    // Handle temporary authentication for coach-builder
-    const handleTempAuth = (event) => {
-      const tempUser = event.detail.user;
-      // Create a mock session for temporary use
-      const tempSession = {
-        user: tempUser,
-        access_token: 'temp-token',
-        refresh_token: 'temp-refresh'
-      };
-      setSession(tempSession);
-    };
-
-    // Check for existing temp auth on page load
-    const tempAuthUser = sessionStorage.getItem('tempAuthUser');
-    if (tempAuthUser && !session) {
-      try {
-        const userData = JSON.parse(tempAuthUser);
-        const tempSession = {
-          user: {
-            email: userData.email,
-            phone: userData.phone,
-            user_metadata: { name: userData.name }
-          },
-          access_token: 'temp-token',
-          refresh_token: 'temp-refresh'
-        };
-        setSession(tempSession);
-      } catch (error) {
-        console.error('Error parsing temp auth user:', error);
-        sessionStorage.removeItem('tempAuthUser');
-      }
-    }
-
-    window.addEventListener('tempAuthSuccess', handleTempAuth);
-
-    return () => {
-      subscription.unsubscribe();
-      window.removeEventListener('tempAuthSuccess', handleTempAuth);
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
