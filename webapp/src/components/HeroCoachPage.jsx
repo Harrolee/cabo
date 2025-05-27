@@ -25,6 +25,8 @@ const COACH_FOODS = {
   custom_default: ['Personalized Nutrition', 'Custom Meal Plans', 'Healthy Choices'],
 };
 
+
+
 // Chat Modal Component
 const CoachChatModal = ({ coach, isOpen, onClose }) => {
   const [conversation, setConversation] = useState([]);
@@ -35,41 +37,27 @@ const CoachChatModal = ({ coach, isOpen, onClose }) => {
     try {
       setIsGenerating(true);
       
-      // For predefined coaches, use a simple mock response
-      if (coach.type === 'predefined') {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const responses = [
-          `Hey there! As ${coach.name}, I'd say: ${userMessage.toLowerCase().includes('motivation') ? 'You\'ve got this! Keep pushing forward!' : 'That\'s a great question! Let\'s work on that together.'}`,
-          `${coach.name} here! ${userMessage.toLowerCase().includes('help') ? 'I\'m here to help you succeed!' : 'Remember, every step counts towards your goals!'}`,
-          `From your ${coach.name}: ${userMessage.toLowerCase().includes('tired') ? 'Rest is part of the journey, but don\'t give up!' : 'You\'re stronger than you think!'}`
-        ];
-        
-        return responses[Math.floor(Math.random() * responses.length)];
-      } else {
-        // For custom coaches, use the coach response generator
-        const response = await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-response-generator`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            coachId: coach.id,
-            userMessage: userMessage,
-            userContext: {
-              previousMessages: conversation.slice(-5) // Last 5 messages for context
-            }
-          })
-        });
+      // Use the coach response generator for all coaches (both predefined and custom)
+      const response = await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-response-generator`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          coachId: coach.id, // Now using UUID for all coaches
+          userMessage: userMessage,
+          userContext: {
+            previousMessages: conversation.slice(-5) // Last 5 messages for context
+          }
+        })
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to generate response');
-        }
-
-        const data = await response.json();
-        return data.response;
+      if (!response.ok) {
+        throw new Error('Failed to generate response');
       }
+
+      const data = await response.json();
+      return data.response;
     } catch (error) {
       console.error('Error generating response:', error);
       toast.error('Failed to get response from coach');
@@ -214,62 +202,58 @@ export default function HeroCoachPage() {
 
   const fetchAllCoaches = async () => {
     try {
-      // Convert predefined coaches to the expected format
-      const predefinedCoaches = Object.keys(COACH_PERSONAS).map(key => ({
-        id: key,
-        type: 'predefined',
-        name: COACH_PERSONAS[key].name,
-        description: COACH_PERSONAS[key].description,
-        traits: COACH_PERSONAS[key].traits,
-        activities: COACH_PERSONAS[key].activities,
-        image: COACH_IMAGES[key],
-        foods: COACH_FOODS[key],
-        handle: key
-      }));
+      // Fetch all coaches from database (both predefined and custom)
+      const { data: coachData, error } = await supabase
+        .from('coach_profiles')
+        .select('*')
+        .eq('active', true)
+        .eq('public', true) // Only show public coaches
+        .order('created_at', { ascending: true }); // Predefined coaches first (created earlier)
 
-      // Fetch custom coaches from database
-      let customCoaches = [];
-      try {
-        const { data: customCoachData, error } = await supabase
-          .from('coach_profiles')
-          .select('*')
-          .eq('active', true)
-          .eq('public', true) // Only show public custom coaches
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Error fetching custom coaches:', error);
-          toast.error(`Failed to fetch custom coaches: ${error.message}`);
-        } else {
-          customCoaches = (customCoachData || []).map(coach => ({
-            id: coach.id,
-            type: 'custom',
-            name: coach.name,
-            description: coach.description || 'A custom AI coach tailored for personalized guidance',
-            traits: [
-              `Primary style: ${coach.primary_response_style?.replace('_', ' ')}`,
-              coach.secondary_response_style ? `Secondary style: ${coach.secondary_response_style?.replace('_', ' ')}` : null,
-              `Energy level: ${coach.communication_traits?.energy_level || 5}/10`,
-              `Directness: ${coach.communication_traits?.directness || 5}/10`,
-              `Conversations: ${coach.total_conversations || 0}`
-            ].filter(Boolean),
-            activities: ['Custom coaching', 'Personalized motivation', 'AI-powered guidance'],
-            image: COACH_IMAGES.custom_default,
-            foods: COACH_FOODS.custom_default,
-            handle: coach.handle
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching custom coaches:', error);
-        toast.error(`Exception fetching custom coaches: ${error.message}`);
+      if (error) {
+        console.error('Error fetching coaches:', error);
+        toast.error(`Failed to fetch coaches: ${error.message}`);
+        setAllCoaches([]);
+        return;
       }
 
-      // Combine all coaches
-      const combined = [...predefinedCoaches, ...customCoaches];
-      setAllCoaches(combined);
+      // Map all coaches to the display format
+      const allCoaches = (coachData || []).map(coach => {
+        // Check if this is a predefined coach by looking at the handle
+        const isPredefined = ['zen_master', 'gym_bro', 'dance_teacher', 'drill_sergeant', 'frat_bro'].includes(coach.handle);
+        
+        return {
+          id: coach.id, // Now using the UUID from database
+          type: isPredefined ? 'predefined' : 'custom',
+          name: coach.name,
+          description: coach.description || 'A custom AI coach tailored for personalized guidance',
+          traits: [
+            `Primary style: ${coach.primary_response_style?.replace('_', ' ')}`,
+            coach.secondary_response_style ? `Secondary style: ${coach.secondary_response_style?.replace('_', ' ')}` : null,
+            `Energy level: ${coach.communication_traits?.energy_level || 5}/10`,
+            `Directness: ${coach.communication_traits?.directness || 5}/10`,
+            `Conversations: ${coach.total_conversations || 0}`
+          ].filter(Boolean),
+          activities: isPredefined 
+            ? (COACH_PERSONAS[coach.handle]?.activities || ['Fitness coaching', 'Motivation', 'Wellness guidance'])
+            : ['Custom coaching', 'Personalized motivation', 'AI-powered guidance'],
+          image: isPredefined && COACH_IMAGES[coach.handle] 
+            ? COACH_IMAGES[coach.handle] 
+            : COACH_IMAGES.custom_default,
+          foods: isPredefined && COACH_FOODS[coach.handle] 
+            ? COACH_FOODS[coach.handle] 
+            : COACH_FOODS.custom_default,
+          handle: coach.handle,
+          // Include the full coach data for response generation
+          coachData: coach
+        };
+      });
+
+      setAllCoaches(allCoaches);
     } catch (error) {
       console.error('Error fetching coaches:', error);
       toast.error('Failed to load coaches');
+      setAllCoaches([]);
     } finally {
       setLoading(false);
     }
