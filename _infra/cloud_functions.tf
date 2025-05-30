@@ -42,6 +42,11 @@ resource "google_service_account" "coach_file_uploader" {
   project      = var.project_id
 }
 
+resource "google_service_account" "coach_avatar_generator" {
+  account_id   = "coach-avatar-generator"
+  display_name = "Service Account for Coach Avatar Generator Function"
+  project      = var.project_id
+}
 
 # Create conversation storage bucket
 resource "google_storage_bucket" "conversation_storage" {
@@ -134,6 +139,19 @@ resource "google_project_iam_member" "coach_file_uploader_roles" {
   member  = "serviceAccount:${google_service_account.coach_file_uploader.email}"
 }
 
+resource "google_project_iam_member" "coach_avatar_generator_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/storage.objectUser",
+    "roles/logging.logWriter",
+    "roles/iam.serviceAccountTokenCreator"
+  ])
+  
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.coach_avatar_generator.email}"
+}
+
 # Allow the coach file uploader service account to create tokens for itself
 resource "google_service_account_iam_member" "coach_file_uploader_self_token_creator" {
   service_account_id = google_service_account.coach_file_uploader.name
@@ -173,11 +191,24 @@ resource "google_storage_bucket_iam_member" "coach_file_uploader_bucket_access" 
   member = "serviceAccount:${google_service_account.coach_file_uploader.email}"
 }
 
+resource "google_storage_bucket_iam_member" "coach_avatar_generator_content_bucket_access" {
+  bucket = google_storage_bucket.coach_content_bucket.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.coach_avatar_generator.email}"
+}
+
 # Grant the motivational images function access to the image bucket
 resource "google_storage_bucket_iam_member" "motivational_images_bucket_access" {
   bucket = "${var.project_id}-image-bucket"
   role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.motivational_images.email}"
+}
+
+# Grant the avatar generator function access to the image bucket
+resource "google_storage_bucket_iam_member" "coach_avatar_generator_image_bucket_access" {
+  bucket = "${var.project_id}-image-bucket"
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.coach_avatar_generator.email}"
 }
 
 resource "google_project_iam_member" "motivational_images_roles" {
@@ -272,6 +303,12 @@ data "archive_file" "coach_file_uploader_zip" {
   excludes    = ["node_modules"]
 }
 
+data "archive_file" "coach_avatar_generator_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/coach-avatar-generator"
+  output_path = "${path.root}/tmp/coach-avatar-generator.zip"
+  excludes    = ["node_modules"]
+}
 
 # Upload the function sources to Cloud Storage
 resource "google_storage_bucket_object" "motivational_images_source" {
@@ -339,6 +376,12 @@ resource "google_storage_bucket_object" "coach_file_uploader_source" {
   name   = "coach-file-uploader-${data.archive_file.coach_file_uploader_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.coach_file_uploader_zip.output_path
+}
+
+resource "google_storage_bucket_object" "coach_avatar_generator_source" {
+  name   = "coach-avatar-generator-${data.archive_file.coach_avatar_generator_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.coach_avatar_generator_zip.output_path
 }
 
 # Deploy Cloud Functions using the module
@@ -589,6 +632,29 @@ module "coach_file_uploader_function" {
   ]
 }
 
+module "coach_avatar_generator_function" {
+  source = "./modules/cloud_function"
+  
+  name        = "coach-avatar-generator"
+  description = "Function to generate professional avatars from coach selfies"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.coach_avatar_generator_source.name
+  entry_point = "generateCoachAvatar"
+  memory      = "1Gi"
+  timeout     = 540  # 9 minutes for AI image generation
+  service_account_email = google_service_account.coach_avatar_generator.email
+  
+  environment_variables = {
+    PROJECT_ID               = var.project_id
+    SUPABASE_URL            = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    REPLICATE_API_TOKEN     = var.replicate_api_key
+    ALLOWED_ORIGINS         = var.allowed_origins
+  }
+  depends_on = [google_storage_bucket_object.coach_avatar_generator_source]
+}
+
 resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
   location = module.process_sms_function.function.location
   service  = module.process_sms_function.function.name
@@ -649,6 +715,13 @@ resource "google_cloud_run_service_iam_member" "coach_response_generator_invoker
 resource "google_cloud_run_service_iam_member" "coach_file_uploader_invoker" {
   location = module.coach_file_uploader_function.function.location
   service  = module.coach_file_uploader_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "coach_avatar_generator_invoker" {
+  location = module.coach_avatar_generator_function.function.location
+  service  = module.coach_avatar_generator_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }

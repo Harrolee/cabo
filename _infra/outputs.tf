@@ -106,6 +106,11 @@ output "coach_file_uploader_url" {
   value       = module.coach_file_uploader_function.url
 }
 
+output "coach_avatar_generator_url" {
+  description = "URL of the coach avatar generator function"
+  value       = module.coach_avatar_generator_function.url
+}
+
 output "conversation_bucket_name" {
   description = "Name of the conversation storage bucket"
   value       = google_storage_bucket.conversation_storage.name
@@ -125,9 +130,6 @@ output "webapp_environment_variables" {
   description = "Environment variables needed for the webapp"
   value = {
     VITE_GCP_FUNCTION_BASE_URL = "https://${var.region}-${var.project_id}.cloudfunctions.net"
-    VITE_COACH_CONTENT_PROCESSOR_URL = module.coach_content_processor_function.url
-    VITE_COACH_RESPONSE_GENERATOR_URL = module.coach_response_generator_function.url
-    VITE_COACH_FILE_UPLOADER_URL = module.coach_file_uploader_function.url
   }
   sensitive = false
 }
