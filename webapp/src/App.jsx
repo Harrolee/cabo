@@ -18,6 +18,7 @@ import { CoachBuilderProvider } from './contexts/CoachBuilderContext';
 import CoachBuilderLanding from './components/CoachBuilder/CoachBuilderLanding';
 import PersonalityQuestionnaire from './components/CoachBuilder/PersonalityQuestionnaire';
 import ContentUpload from './components/CoachBuilder/ContentUpload';
+import AvatarUpload from './components/CoachBuilder/AvatarUpload';
 import CoachPreview from './components/CoachBuilder/CoachPreview';
 import CoachSavePrompt from './components/CoachBuilder/CoachSavePrompt';
 import CoachDashboard from './components/MyCoaches/CoachDashboard';
@@ -507,6 +508,7 @@ export function App() {
             <Route index element={<CoachBuilderLanding />} />
             <Route path="personality" element={<PersonalityQuestionnaire />} />
             <Route path="content" element={<ContentUpload />} />
+            <Route path="avatar" element={<AvatarUpload />} />
             <Route path="preview" element={<CoachPreview />} />
             <Route path="save" element={<CoachSavePrompt />} />
           </Routes>

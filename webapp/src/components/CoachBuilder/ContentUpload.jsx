@@ -95,7 +95,7 @@ const ContentUpload = () => {
       return;
     }
     nextStep();
-    navigate('/coach-builder/preview');
+    navigate('/coach-builder/avatar');
   };
 
   const handlePrev = () => {
