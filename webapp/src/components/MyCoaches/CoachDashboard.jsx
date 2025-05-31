@@ -13,7 +13,7 @@ const CoachChatModal = ({ coach, isOpen, onClose }) => {
     try {
       setIsGenerating(true);
       
-      const response = await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-response-generator`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/coach-response-generator`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

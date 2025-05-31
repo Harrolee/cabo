@@ -83,7 +83,7 @@ const AvatarUpload = () => {
       formData.append('coachId', coachData.tempCoachId || `temp-${Date.now()}`);
 
       // Call avatar generation function
-      const response = await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-avatar-generator`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/coach-avatar-generator`, {
         method: 'POST',
         body: formData
       });

@@ -125,11 +125,3 @@ output "function_bucket_name" {
   description = "Name of the function source storage bucket"
   value       = google_storage_bucket.function_bucket.name
 }
-
-output "webapp_environment_variables" {
-  description = "Environment variables needed for the webapp"
-  value = {
-    VITE_GCP_FUNCTION_BASE_URL = "https://${var.region}-${var.project_id}.cloudfunctions.net"
-  }
-  sensitive = false
-}

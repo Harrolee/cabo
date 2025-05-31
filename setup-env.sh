@@ -23,7 +23,7 @@ if [ ! -f "terraform.tfstate" ]; then
 fi
 
 # Extract URLs from Terraform output
-FUNCTION_BASE_URL=$(terraform output -raw webapp_environment_variables | grep VITE_GCP_FUNCTION_BASE_URL | cut -d'"' -f4)
+FUNCTION_BASE_URL=$(terraform output -raw webapp_environment_variables | grep VITE_API_URL | cut -d'"' -f4)
 CONTENT_PROCESSOR_URL=$(terraform output -raw coach_content_processor_url)
 RESPONSE_GENERATOR_URL=$(terraform output -raw coach_response_generator_url)
 FILE_UPLOADER_URL=$(terraform output -raw coach_file_uploader_url)
@@ -47,7 +47,6 @@ cat > webapp/.env.local << EOF
 # Generated automatically from Terraform deployment
 
 # GCP Cloud Functions
-VITE_GCP_FUNCTION_BASE_URL=$FUNCTION_BASE_URL
 VITE_COACH_CONTENT_PROCESSOR_URL=$CONTENT_PROCESSOR_URL
 VITE_COACH_RESPONSE_GENERATOR_URL=$RESPONSE_GENERATOR_URL
 VITE_COACH_FILE_UPLOADER_URL=$FILE_UPLOADER_URL

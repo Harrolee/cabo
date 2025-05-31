@@ -83,7 +83,7 @@ export const CoachBuilderProvider = ({ children }) => {
       
       // Step 1: Get signed upload URL
       console.log('Getting signed upload URL...');
-      const uploadUrlResponse = await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-file-uploader`, {
+      const uploadUrlResponse = await fetch(`${import.meta.env.VITE_API_URL}/coach-file-uploader`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -169,7 +169,7 @@ export const CoachBuilderProvider = ({ children }) => {
       // Process each uploaded file
       const processingPromises = uploadedFiles.map(async (fileData) => {
         try {
-          const response = await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-file-uploader/${fileData.id}`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/coach-file-uploader/${fileData.id}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -219,7 +219,7 @@ export const CoachBuilderProvider = ({ children }) => {
       const tempCoachId = sessionStorage.getItem('previewCoachId') || 'preview-coach-' + Date.now();
       sessionStorage.setItem('previewCoachId', tempCoachId);
 
-      const response = await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-response-generator`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/coach-response-generator`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -353,7 +353,7 @@ export const CoachBuilderProvider = ({ children }) => {
       // If avatar was generated, save the selected avatar choice
       if (coachData.avatarData.selectedAvatar && !coachData.avatarData.skipped) {
         try {
-          await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-avatar-generator/save-avatar`, {
+          await fetch(`${import.meta.env.VITE_API_URL}/coach-avatar-generator/save-avatar`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
