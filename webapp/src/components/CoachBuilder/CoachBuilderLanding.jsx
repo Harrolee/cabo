@@ -37,7 +37,7 @@ const CoachBuilderLanding = () => {
 
   const steps = [
     'Define your coaching personality and style',
-    'Upload content to train your AI voice',
+    'Upload content to train your AI voice (optional)',
     'Preview and test your AI coach responses',
     'Launch and start engaging your audience'
   ];

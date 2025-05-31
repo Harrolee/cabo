@@ -190,7 +190,12 @@ const CoachSavePrompt = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-blue-700">Content Files:</span>
-                    <span className="font-medium">{coachData.content?.length || 0}</span>
+                    <span className="font-medium">
+                      {coachData.content?.length || 0}
+                      {(!coachData.content || coachData.content.length === 0) && 
+                        <span className="text-blue-600 text-xs ml-1">(can add later)</span>
+                      }
+                    </span>
                   </div>
                 </div>
               </div>
@@ -265,7 +270,12 @@ const CoachSavePrompt = () => {
                   </div>
                   <div>
                     <span className="text-green-700 font-medium">Content Files:</span>
-                    <span className="ml-2">{coachData.content?.length || 0} uploaded</span>
+                    <span className="ml-2">
+                      {coachData.content?.length || 0} uploaded
+                      {(!coachData.content || coachData.content.length === 0) && 
+                        <span className="text-green-600 text-sm ml-1">(you can add content files later to improve your coach's responses)</span>
+                      }
+                    </span>
                   </div>
                   {coachData.description && (
                     <div>

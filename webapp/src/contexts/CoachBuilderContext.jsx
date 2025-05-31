@@ -45,7 +45,7 @@ export const CoachBuilderProvider = ({ children }) => {
   const steps = [
     { id: 'landing', name: 'Welcome', path: '/coach-builder' },
     { id: 'personality', name: 'Personality', path: '/coach-builder/personality' },
-    { id: 'content', name: 'Content Upload', path: '/coach-builder/content' },
+    { id: 'content', name: 'Content Upload (Optional)', path: '/coach-builder/content' },
     { id: 'avatar', name: 'Avatar Upload', path: '/coach-builder/avatar' },
     { id: 'preview', name: 'Preview & Test', path: '/coach-builder/preview' },
     { id: 'save', name: 'Save Coach', path: '/coach-builder/save' }

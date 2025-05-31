@@ -90,10 +90,7 @@ const ContentUpload = () => {
   };
 
   const handleNext = () => {
-    if (uploadedFiles.length === 0) {
-      alert('Please upload at least one content file to continue');
-      return;
-    }
+    // Content upload is now optional - users can skip and add files later
     nextStep();
     navigate('/coach-builder/avatar');
   };
@@ -126,10 +123,40 @@ const ContentUpload = () => {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Upload Your Content
+              Upload Your Content (Optional)
             </h1>
             <p className="text-lg text-gray-600">
-              Upload your existing content to train your AI coach's voice and style
+              Upload your existing content to train your AI coach's voice and style, or skip this step and add content later
+            </p>
+          </div>
+
+          {/* Info Section */}
+          <div className="bg-blue-50 rounded-lg p-6 mb-8">
+            <h2 className="text-lg font-semibold text-blue-900 mb-3">
+              💡 When to upload content
+            </h2>
+            <div className="grid md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <h3 className="font-medium text-blue-800 mb-2">Upload now if you have:</h3>
+                <ul className="text-blue-700 space-y-1">
+                  <li>• Existing written content ready</li>
+                  <li>• Video/podcast transcripts</li>
+                  <li>• Social media posts to analyze</li>
+                  <li>• Time to upload multiple files</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-medium text-blue-800 mb-2">Skip for now if you:</h3>
+                <ul className="text-blue-700 space-y-1">
+                  <li>• Want to test your coach first</li>
+                  <li>• Need time to gather content</li>
+                  <li>• Prefer to start with basic responses</li>
+                  <li>• Will add content gradually</li>
+                </ul>
+              </div>
+            </div>
+            <p className="text-blue-600 text-sm mt-3 italic">
+              Note: Your coach will work without content, but uploaded content helps it respond more like you.
             </p>
           </div>
 
@@ -292,17 +319,20 @@ const ContentUpload = () => {
               {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''} uploaded
             </div>
 
-            <button
-              onClick={handleNext}
-              disabled={uploadedFiles.length === 0}
-              className={`px-6 py-2 rounded-lg font-medium ${
-                uploadedFiles.length > 0
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              Continue →
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleNext}
+                className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium"
+              >
+                Skip for now
+              </button>
+              <button
+                onClick={handleNext}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Continue →
+              </button>
+            </div>
           </div>
         </div>
       </div>

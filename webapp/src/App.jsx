@@ -22,6 +22,9 @@ import AvatarUpload from './components/CoachBuilder/AvatarUpload';
 import CoachPreview from './components/CoachBuilder/CoachPreview';
 import CoachSavePrompt from './components/CoachBuilder/CoachSavePrompt';
 import CoachDashboard from './components/MyCoaches/CoachDashboard';
+import CoachContentManager from './components/MyCoaches/CoachContentManager';
+import CoachEdit from './components/MyCoaches/CoachEdit';
+import CoachAvatarEdit from './components/MyCoaches/CoachAvatarEdit';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
@@ -519,6 +522,9 @@ export function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/my-coaches" element={<CoachDashboard />} />
+        <Route path="/my-coaches/:coachId/content" element={<CoachContentManager />} />
+        <Route path="/my-coaches/:coachId/edit" element={<CoachEdit />} />
+        <Route path="/my-coaches/:coachId/avatar" element={<CoachAvatarEdit />} />
       </Route>
 
       <Route path="/*" element={<MainAppContent />} />

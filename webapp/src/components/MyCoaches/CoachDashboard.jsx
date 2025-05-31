@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../main';
 import { toast } from 'react-hot-toast';
 
@@ -180,6 +180,7 @@ const CoachDashboard = () => {
   const [user, setUser] = useState(null);
   const [chatModalOpen, setChatModalOpen] = useState(false);
   const [selectedCoach, setSelectedCoach] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchCoaches();
@@ -359,7 +360,10 @@ const CoachDashboard = () => {
                   >
                     💬 Chat
                   </button>
-                  <button className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium">
+                  <button 
+                    onClick={() => navigate(`/my-coaches/${coach.id}/edit`)}
+                    className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium"
+                  >
                     ✏️ Edit
                   </button>
                 </div>
@@ -374,8 +378,11 @@ const CoachDashboard = () => {
                   >
                     {coach.public ? '🔒 Make Private' : '🌍 Publish'}
                   </button>
-                  <button className="bg-purple-100 text-purple-700 px-3 py-2 rounded-lg hover:bg-purple-200 text-sm font-medium">
-                    📊 Analytics
+                  <button 
+                    onClick={() => navigate(`/my-coaches/${coach.id}/content`)}
+                    className="bg-purple-100 text-purple-700 px-3 py-2 rounded-lg hover:bg-purple-200 text-sm font-medium"
+                  >
+                    📁 Content
                   </button>
                 </div>
               </div>
