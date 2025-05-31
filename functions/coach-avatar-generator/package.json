@@ -1,0 +1,19 @@
+{
+  "name": "coach-avatar-generator",
+  "version": "1.0.0",
+  "description": "Generates professional avatars from coach selfies using AI",
+  "main": "index.js",
+  "scripts": {
+    "start": "functions-framework --target=generateCoachAvatar",
+    "deploy": "gcloud functions deploy generateCoachAvatar --runtime nodejs18 --trigger http"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "4.0.0",
+    "@google-cloud/storage": "^7.0.0",
+    "@supabase/supabase-js": "^2.38.0",
+    "replicate": "1.0.1",
+    "uuid": "^9.0.0",
+    "multer": "2.0.0",
+    "sharp": "^0.32.0"
+  }
+} 

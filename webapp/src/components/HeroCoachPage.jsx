@@ -237,9 +237,9 @@ export default function HeroCoachPage() {
           activities: isPredefined 
             ? (COACH_PERSONAS[coach.handle]?.activities || ['Fitness coaching', 'Motivation', 'Wellness guidance'])
             : ['Custom coaching', 'Personalized motivation', 'AI-powered guidance'],
-          image: isPredefined && COACH_IMAGES[coach.handle] 
-            ? COACH_IMAGES[coach.handle] 
-            : COACH_IMAGES.custom_default,
+          // Use avatar_url if available, otherwise fallback to predefined or default image
+          image: coach.avatar_url || 
+                  (isPredefined && COACH_IMAGES[coach.handle] ? COACH_IMAGES[coach.handle] : COACH_IMAGES.custom_default),
           foods: isPredefined && COACH_FOODS[coach.handle] 
             ? COACH_FOODS[coach.handle] 
             : COACH_FOODS.custom_default,

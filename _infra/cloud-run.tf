@@ -9,6 +9,12 @@ resource "google_cloud_run_service" "webapp" {
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.repository_name}/${var.image_name}:latest"
         
+        # Add environment variables for the webapp
+        env {
+          name  = "VITE_GCP_FUNCTION_BASE_URL"
+          value = "https://${var.region}-${var.project_id}.cloudfunctions.net"
+        }
+        
         resources {
           limits = {
             cpu    = "1000m"

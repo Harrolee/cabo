@@ -72,7 +72,7 @@ const CoachPreview = () => {
 
   const handlePrev = () => {
     prevStep();
-    navigate('/coach-builder/content');
+    navigate('/coach-builder/avatar');
   };
 
   const formatTime = (timestamp) => {
@@ -94,6 +94,20 @@ const CoachPreview = () => {
           {/* Coach Summary */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Your AI Coach</h2>
+            
+            {/* Avatar Display */}
+            {coachData.avatarData?.selectedAvatar && (
+              <div className="mb-6 text-center">
+                <img
+                  src={coachData.avatarData.selectedAvatar.url}
+                  alt="Coach Avatar"
+                  className="w-24 h-24 object-cover rounded-full mx-auto border-4 border-blue-500"
+                />
+                <p className="text-sm text-gray-600 mt-2">
+                  {coachData.avatarData.selectedAvatar.style} Style
+                </p>
+              </div>
+            )}
             
             <div className="space-y-4">
               <div>
@@ -130,6 +144,16 @@ const CoachPreview = () => {
               <div>
                 <h3 className="font-semibold text-gray-700">Content Uploaded</h3>
                 <p className="text-gray-900">{coachData.content?.length || 0} files</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-700">Avatar</h3>
+                <p className="text-gray-900">
+                  {coachData.avatarData?.selectedAvatar ? 
+                    `${coachData.avatarData.selectedAvatar.style} style` : 
+                    coachData.avatarData?.skipped ? 'Skipped' : 'Not set'
+                  }
+                </p>
               </div>
 
               {/* Content Processing Status */}

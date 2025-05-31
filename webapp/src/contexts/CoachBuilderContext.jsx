@@ -26,18 +26,27 @@ export const CoachBuilderProvider = ({ children }) => {
     catchphrases: [],
     vocabulary_preferences: {},
     content: [],
-    public: false
+    public: false,
+    // Avatar data
+    avatarData: {
+      generatedAvatars: [],
+      selectedAvatar: null,
+      originalSelfieUrl: null,
+      tempCoachId: null,
+      skipped: false
+    }
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [processingStatus, setProcessingStatus] = useState('idle'); // 'idle', 'uploading', 'processing', 'complete', 'error'
 
-  // Steps in the coach builder flow
+  // Steps in the coach builder flow (now includes avatar upload)
   const steps = [
     { id: 'landing', name: 'Welcome', path: '/coach-builder' },
     { id: 'personality', name: 'Personality', path: '/coach-builder/personality' },
     { id: 'content', name: 'Content Upload', path: '/coach-builder/content' },
+    { id: 'avatar', name: 'Avatar Upload', path: '/coach-builder/avatar' },
     { id: 'preview', name: 'Preview & Test', path: '/coach-builder/preview' },
     { id: 'save', name: 'Save Coach', path: '/coach-builder/save' }
   ];
@@ -47,6 +56,17 @@ export const CoachBuilderProvider = ({ children }) => {
     setCoachData(prev => ({
       ...prev,
       ...personalityData
+    }));
+  };
+
+  // Update avatar data
+  const updateAvatar = (avatarData) => {
+    setCoachData(prev => ({
+      ...prev,
+      avatarData: {
+        ...prev.avatarData,
+        ...avatarData
+      }
     }));
   };
 
@@ -257,7 +277,7 @@ export const CoachBuilderProvider = ({ children }) => {
     return styleResponses[Math.floor(Math.random() * styleResponses.length)];
   };
 
-  // Save coach to database (requires authentication)
+  // Save coach to database (requires authentication) - Updated to include avatar
   const saveCoach = async (userEmail) => {
     try {
       setIsProcessing(true);
@@ -314,7 +334,11 @@ export const CoachBuilderProvider = ({ children }) => {
         vocabulary_preferences: coachData.vocabulary_preferences,
         public: coachData.public,
         content_processed: false,
-        total_content_pieces: uploadedFiles.length
+        total_content_pieces: uploadedFiles.length,
+        // Avatar fields - only include if avatar was created
+        avatar_url: coachData.avatarData.selectedAvatar?.url || null,
+        avatar_style: coachData.avatarData.selectedAvatar?.style || null,
+        original_selfie_url: coachData.avatarData.originalSelfieUrl || null
       };
 
       // Insert coach profile
@@ -325,6 +349,27 @@ export const CoachBuilderProvider = ({ children }) => {
         .single();
 
       if (coachError) throw coachError;
+
+      // If avatar was generated, save the selected avatar choice
+      if (coachData.avatarData.selectedAvatar && !coachData.avatarData.skipped) {
+        try {
+          await fetch(`${import.meta.env.VITE_GCP_FUNCTION_BASE_URL}/coach-avatar-generator/save-avatar`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              coachId: coach.id,
+              selectedAvatarUrl: coachData.avatarData.selectedAvatar.url,
+              avatarStyle: coachData.avatarData.selectedAvatar.style,
+              originalSelfieUrl: coachData.avatarData.originalSelfieUrl
+            })
+          });
+        } catch (avatarError) {
+          console.warn('Failed to save avatar data via cloud function:', avatarError);
+          // Continue with coach creation even if avatar save fails
+        }
+      }
 
       // Process uploaded content files
       if (uploadedFiles.length > 0) {
@@ -363,7 +408,14 @@ export const CoachBuilderProvider = ({ children }) => {
       catchphrases: [],
       vocabulary_preferences: {},
       content: [],
-      public: false
+      public: false,
+      avatarData: {
+        generatedAvatars: [],
+        selectedAvatar: null,
+        originalSelfieUrl: null,
+        tempCoachId: null,
+        skipped: false
+      }
     });
     setUploadedFiles([]);
     setCurrentStep(0);
@@ -448,6 +500,7 @@ export const CoachBuilderProvider = ({ children }) => {
     
     // Actions
     updatePersonality,
+    updateAvatar,
     addContent,
     removeContent,
     processContent,
