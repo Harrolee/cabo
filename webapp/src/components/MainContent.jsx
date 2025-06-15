@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Elements } from '@stripe/react-stripe-js';
 import { useSwipeable } from 'react-swipeable';
 import { SignUpForm } from './SignUpForm';
@@ -11,7 +11,7 @@ import { toast } from 'react-hot-toast';
 import { PaymentFlow } from './PaymentFlow';
 import { OnboardingFlow } from './OnboardingFlow';
 
-export function MainContent({ 
+const MainContentComponent = memo(function MainContent({ 
   showInitialScreen, 
   handleInitialSubscribe, 
   showSignupForm,
@@ -23,13 +23,16 @@ export function MainContent({
   setShowPrivacy,
   isMobile,
   isPaymentFlow,
+  isContentLoading,
+  hasContentLoaded,
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [previewImages, setPreviewImages] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState(null); // 'success' | 'error' | null
   const [showSwipeHint, setShowSwipeHint] = useState(true);
-  const [isContentLoading, setIsContentLoading] = useState(true);
   const [clientSecret, setClientSecret] = useState(null);
+  
+  // Use props instead of internal state for loading
   
   useEffect(() => {
     if (isMobile) {
@@ -51,7 +54,7 @@ export function MainContent({
           alt: `Preview ${path.split('/').pop().split('.')[0]}`
         }));
 
-      console.log('Loaded mobile images:', sortedMobileImages); // Debug log
+
       setPreviewImages(sortedMobileImages);
     } else {
       // For desktop, maintain existing behavior
@@ -135,14 +138,7 @@ export function MainContent({
     }
   }, [showSignupForm, userData?.email, clientSecret]);
 
-  // Update the useEffect for loading state
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsContentLoading(false);
-    }, isPaymentFlow ? 0 : 1000); // No artificial delay for payment flow
-
-    return () => clearTimeout(timer);
-  }, [isPaymentFlow]);
+  // Loading state is now managed by parent App component - no need for local loading logic
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => 
@@ -215,10 +211,7 @@ export function MainContent({
             />
           ) : (
             <OnboardingFlow 
-              handleInitialSubscribe={() => {
-                console.log('handleInitialSubscribe called from MainContent');
-                handleInitialSubscribe();
-              }}
+              handleInitialSubscribe={handleInitialSubscribe}
               onSubscribe={handleSubscribe}
               isMobile={isMobile}
               showSignupForm={!showInitialScreen && showSignupForm}
@@ -231,4 +224,6 @@ export function MainContent({
       {!showInitialScreen && <FooterLinks {...{ setShowInfo, setShowTerms, setShowPrivacy }} />}
     </div>
   );
-} 
+});
+
+export const MainContent = MainContentComponent;

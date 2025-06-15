@@ -373,11 +373,6 @@ export default function HeroCoachPage() {
           <h1 className="text-5xl md:text-6xl font-extrabold text-white drop-shadow-lg text-center bg-black bg-opacity-40 px-6 py-2 rounded-lg">
             {currentCoach.name}
           </h1>
-          {currentCoach.type === 'custom' && (
-            <span className="ml-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-              Custom
-            </span>
-          )}
         </div>
         <p className="text-lg md:text-xl text-white text-center bg-black bg-opacity-30 px-4 py-2 rounded-lg max-w-2xl">
           {currentCoach.description}
