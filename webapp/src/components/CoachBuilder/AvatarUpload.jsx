@@ -34,6 +34,25 @@ const AvatarUpload = () => {
     'Lowpoly',
   ];
 
+  // Lightweight tooltip (CSS-only via group hover)
+  const InfoTooltip = ({ text }) => (
+    <span className="relative inline-block group align-middle">
+      <span
+        className="ml-2 text-gray-500 cursor-help select-none"
+        aria-label={text}
+        tabIndex={0}
+      >
+        ⓘ
+      </span>
+      <span
+        className="pointer-events-none absolute left-1/2 z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+        role="tooltip"
+      >
+        {text}
+      </span>
+    </span>
+  );
+
   const handleDragOver = (e) => {
     e.preventDefault();
     setDragOver(true);
@@ -194,6 +213,23 @@ const AvatarUpload = () => {
     });
   };
 
+  const useOriginalPhoto = () => {
+    if (!selectedFile || !previewUrl) return;
+    const fallbackAvatar = {
+      style: 'Original Photo',
+      url: previewUrl,
+      filename: selectedFile.name
+    };
+    setGeneratedAvatars([fallbackAvatar]);
+    setSelectedAvatar(fallbackAvatar);
+    updateAvatar({
+      generatedAvatars: [fallbackAvatar],
+      selectedAvatar: fallbackAvatar,
+      originalSelfieUrl: previewUrl,
+      tempCoachId: coachData.tempCoachId || `temp-${Date.now()}`
+    });
+  };
+
   const handleNext = () => {
     if (!selectedAvatar) {
       alert('Please select an avatar to continue');
@@ -283,14 +319,9 @@ const AvatarUpload = () => {
 
                 {/* Prompt input */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                     Avatar prompt
-                    <span
-                      className="ml-2 text-gray-500 cursor-help"
-                      title="Use the keyword 'img' to tell the AI where your uploaded selfie should appear in the prompt."
-                    >
-                      ⓘ
-                    </span>
+                    <InfoTooltip text="Use the keyword 'img' to tell the AI where your uploaded selfie should appear in the prompt." />
                   </label>
                   <input
                     type="text"
@@ -352,14 +383,9 @@ const AvatarUpload = () => {
                     ))}
                   </div>
                   <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                       Avatar prompt
-                      <span
-                        className="ml-2 text-gray-500 cursor-help"
-                        title="Use the keyword 'img' to tell the AI where your uploaded selfie should appear in the prompt."
-                      >
-                        ⓘ
-                      </span>
+                      <InfoTooltip text="Use the keyword 'img' to tell the AI where your uploaded selfie should appear in the prompt." />
                     </label>
                     <input
                       type="text"
@@ -376,6 +402,13 @@ const AvatarUpload = () => {
                       className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isGenerating ? 'Generating...' : 'Generate Avatars'}
+                    </button>
+                    <button
+                      onClick={useOriginalPhoto}
+                      disabled={isGenerating}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Use Original Photo
                     </button>
                     <button
                       onClick={() => {
