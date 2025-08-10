@@ -580,10 +580,10 @@ exports.processSms = async (req, res) => {
       // Provide AI a full list of available coaches (predefined + custom public)
       const publicCoaches = await listPublicCoaches(100);
       const aiResponse = await getValidAIResponse(messageBody, { ...userData, publicCoaches });
-      
+
+      // Collect preference updates based on parsed intent
+      let updateData = {};
       if (aiResponse.shouldUpdateCoach || aiResponse.shouldUpdateSpice || aiResponse.shouldUpdateImagePreference) {
-        const updateData = {};
-        
         if (aiResponse.shouldUpdateCoach) {
           if (aiResponse.customCoachId || aiResponse.customCoachHandle) {
             let customId = aiResponse.customCoachId;
@@ -610,21 +610,21 @@ exports.processSms = async (req, res) => {
             updateData.custom_coach_id = null;
           }
         }
-        
+
         if (aiResponse.shouldUpdateSpice && aiResponse.spiceLevel) {
           updateData.spice_level = aiResponse.spiceLevel;
         }
-        
+
         if (aiResponse.shouldUpdateImagePreference && aiResponse.imagePreference) {
           updateData.image_preference = aiResponse.imagePreference;
         }
-        
+
         if (Object.keys(updateData).length > 0) {
           const { error: updateError } = await supabase
             .from('user_profiles')
             .update(updateData)
             .eq('phone_number', normalizedPhoneNumber);
-          
+
           if (updateError) {
             console.error('Error updating user preferences:', updateError);
           } else {
@@ -632,8 +632,25 @@ exports.processSms = async (req, res) => {
           }
         }
       }
-      
-      responseMessage = aiResponse.customerResponse;
+
+      // Unify voice: for custom coaches, generate reply via coach-response-generator path
+      const effectiveUserData = { ...userData, ...updateData };
+      if (effectiveUserData.coach_type === 'custom' && effectiveUserData.custom_coach_id) {
+        try {
+          responseMessage = await generateCoachResponse(
+            messageBody,
+            effectiveUserData.spice_level,
+            conversationHistory,
+            effectiveUserData
+          );
+        } catch (error) {
+          console.error('Custom coach generation failed, falling back to parsed response:', error);
+          responseMessage = aiResponse.customerResponse;
+        }
+      } else {
+        // Predefined coaches keep existing path
+        responseMessage = aiResponse.customerResponse;
+      }
     }
 
     await storeConversation(normalizedPhoneNumber, responseMessage, 'assistant');
