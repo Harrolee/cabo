@@ -407,12 +407,15 @@ export default function HeroCoachPage() {
         </div>
       </div>
 
-      {/* Chat Modal */}
-      <CoachChatModal
-        coach={currentCoach}
-        isOpen={chatModalOpen}
-        onClose={closeChat}
-      />
+      {/* Chat Modal - mount only when open to reset state on close */}
+      {chatModalOpen && (
+        <CoachChatModal
+          key={currentCoach.id}
+          coach={currentCoach}
+          isOpen={true}
+          onClose={closeChat}
+        />
+      )}
     </div>
   );
 } 
