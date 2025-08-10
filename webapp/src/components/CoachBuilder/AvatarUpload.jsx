@@ -17,7 +17,7 @@ const AvatarUpload = () => {
   const [selectedAvatar, setSelectedAvatar] = useState(null);
   const [generationError, setGenerationError] = useState('');
   const [style, setStyle] = useState('Realistic');
-  const [prompt, setPrompt] = useState('professional fitness coach portrait, confident expression, clean background');
+  const [prompt, setPrompt] = useState('portrait, professional fitness coach img, confident expression, clean background');
 
   // Full list of PhotoMaker styles we support
   const PHOTO_MAKER_STYLES = [
@@ -283,15 +283,23 @@ const AvatarUpload = () => {
 
                 {/* Prompt input */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Avatar prompt</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Avatar prompt
+                    <span
+                      className="ml-2 text-gray-500 cursor-help"
+                      title="Use the keyword 'img' to tell the AI where your uploaded selfie should appear in the prompt."
+                    >
+                      ⓘ
+                    </span>
+                  </label>
                   <input
                     type="text"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Describe details to include in your avatar (e.g., attire, vibe)"
+                    placeholder="Start with 'img,' then describe details to include (e.g., attire, vibe)"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">We’ll combine this with a safe, professional headshot template.</p>
+                  <p className="text-xs text-gray-500 mt-1">We’ll combine this with a safe, professional headshot template. Tip: include <code>img</code> to reference your selfie.</p>
                 </div>
 
                 <input
@@ -344,12 +352,20 @@ const AvatarUpload = () => {
                     ))}
                   </div>
                   <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Avatar prompt</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Avatar prompt
+                      <span
+                        className="ml-2 text-gray-500 cursor-help"
+                        title="Use the keyword 'img' to tell the AI where your uploaded selfie should appear in the prompt."
+                      >
+                        ⓘ
+                      </span>
+                    </label>
                     <input
                       type="text"
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="Describe details to include in your avatar (e.g., attire, vibe)"
+                      placeholder="Start with 'img,' then describe details to include (e.g., attire, vibe)"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>

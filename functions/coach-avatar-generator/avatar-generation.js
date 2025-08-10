@@ -202,9 +202,30 @@ async function generateCoachAvatars(coachId, imageBuffer, mimeType, options = {}
       stylesToGenerate.map(async (style) => {
         try {
           const basePrompt = DEFAULT_PROMPTS[style] || DEFAULT_PROMPTS['Realistic'];
-          const prompt = (options.prompt && options.prompt.trim().length > 0)
-            ? `${options.prompt}, ${basePrompt}`
-            : basePrompt;
+          let userPrompt = (options.prompt && options.prompt.trim().length > 0)
+            ? options.prompt.trim()
+            : '';
+
+          // Ensure trigger word 'img' exists; if missing, decide placement
+          if (!/\bimg\b/i.test(userPrompt)) {
+            try {
+              // Heuristic: prefer prefix to clearly associate with subject
+              const suggested = await (async () => {
+                const lower = basePrompt.toLowerCase();
+                if (lower.startsWith('professional') || lower.startsWith('portrait')) {
+                  return `img, ${userPrompt || basePrompt}`;
+                }
+                return `${userPrompt || ''} img`.trim();
+              })();
+              userPrompt = suggested;
+            } catch (_) {
+              userPrompt = `img, ${userPrompt || basePrompt}`;
+            }
+          }
+
+          const prompt = userPrompt
+            ? `${userPrompt}, ${basePrompt}`
+            : `img, ${basePrompt}`;
           const model = style === 'Realistic' ? AVATAR_MODELS.REALISTIC : AVATAR_MODELS.STYLE;
           
           // Generate avatar
