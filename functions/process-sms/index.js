@@ -20,47 +20,29 @@ const projectId = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 
 const responseSchema = z.object({
   shouldUpdateCoach: z.boolean(),
-  coachType: z.enum(['zen_master', 'gym_bro', 'dance_teacher', 'drill_sergeant', 'frat_bro'])
-    .nullable()
-    .optional()
-    .superRefine((val, ctx) => {
-      if (ctx.parent?.shouldUpdateCoach && (!val || val === '')) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Coach type is required when updating coach preference",
-        });
-      }
-    }),
+  // Predefined coach (legacy)
+  coachType: z.enum(['zen_master', 'gym_bro', 'dance_teacher', 'drill_sergeant', 'frat_bro']).nullable().optional(),
+  // Custom coach support
+  customCoachId: z.string().uuid().nullable().optional(),
+  customCoachHandle: z.string().nullable().optional(),
   shouldUpdateSpice: z.boolean(),
   spiceLevel: z.number()
     .nullable()
     .optional()
     .superRefine((val, ctx) => {
       if (ctx.parent?.shouldUpdateSpice && !val) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Spice level must be between 1 and 5 when updating spice preference",
-        });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Spice level must be between 1 and 5 when updating spice preference" });
       }
       if (ctx.parent?.shouldUpdateSpice && val && (val < 1 || val > 5)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Spice level must be between 1 and 5 when updating spice preference",
-        });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Spice level must be between 1 and 5 when updating spice preference" });
       }
     }),
   shouldUpdateImagePreference: z.boolean(),
-  imagePreference: z.string()
-    .nullable()
-    .optional()
-    .superRefine((val, ctx) => {
-      if (ctx.parent?.shouldUpdateImagePreference && !val) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Image preference must not be empty when updating image preference",
-        });
-      }
-    }),
+  imagePreference: z.string().nullable().optional().superRefine((val, ctx) => {
+    if (ctx.parent?.shouldUpdateImagePreference && !val) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Image preference must not be empty when updating image preference" });
+    }
+  }),
   customerResponse: z.string()
 });
 
@@ -295,33 +277,36 @@ async function getValidAIResponse(userMessage, userData, previousError = null, a
   try {
     const coachInfo = await getCoachData(userData);
     
-    const systemPrompt = `You are an AI assistant helping to analyze user messages for a fitness coaching app. The user currently has:
-Coach: ${coachInfo.data.name}
+    const publicCoaches = userData.publicCoaches || [];
+    const publicCoachList = publicCoaches.map(c => `- ${c.name}${c.handle ? ` (@${c.handle})` : ''} [${c.id}]`).join('\n');
+
+    const systemPrompt = `You are an AI assistant for a fitness coaching app.
+User's current coach: ${coachInfo.data.name}
 Spice Level: ${userData.spice_level}/5
-${coachInfo.data.traits.map(trait => `- ${trait}`).join('\n')}
+Traits:\n${coachInfo.data.traits.map(trait => `- ${trait}`).join('\n')}
 
-Analyze the user's message and determine:
-1. If they want to change their coach (shouldUpdateCoach)
-2. If they want to change their spice level (shouldUpdateSpice) 
-3. If they want to change their image preference (shouldUpdateImagePreference)
-4. Generate an appropriate response (customerResponse)
+Your tasks:
+1) Detect if the user wants to change their coach (natural language like "switch to @handle" or a coach name)
+2) Detect if they want to change spice level
+3) Detect if they want to change image preference
+4) Generate a short friendly SMS reply
 
-IMPORTANT RULES:
-- If shouldUpdateCoach is true, you MUST provide a valid coachType from the available options
-- If shouldUpdateCoach is false, set coachType to null
-- If shouldUpdateSpice is true, you MUST provide a spiceLevel between 1-5
-- If shouldUpdateSpice is false, set spiceLevel to null
-- If shouldUpdateImagePreference is true, you MUST provide a non-empty imagePreference string
-- If shouldUpdateImagePreference is false, set imagePreference to null
+Available predefined coach types: "zen_master", "gym_bro", "dance_teacher", "drill_sergeant", "frat_bro"
+Available public custom coaches:\n${publicCoachList || '(none)'}
 
-Available coach types: "zen_master", "gym_bro", "dance_teacher", "drill_sergeant", "frat_bro"
+IMPORTANT:
+- If switching to a custom coach, you MUST return either customCoachId (preferred) or customCoachHandle (like "actualrobot" without the @).
+- If switching to a predefined coach, set coachType to one of the predefined values.
+- When not switching, set coachType, customCoachId, and customCoachHandle to null.
 
 ${previousError ? `Previous attempt failed with error: ${previousError}. Please fix the issue.` : ''}
 
-Respond with valid JSON matching this exact schema:
+Return JSON exactly in this schema:
 {
   "shouldUpdateCoach": boolean,
   "coachType": "zen_master" | "gym_bro" | "dance_teacher" | "drill_sergeant" | "frat_bro" | null,
+  "customCoachId": string | null,
+  "customCoachHandle": string | null,
   "shouldUpdateSpice": boolean,
   "spiceLevel": number (1-5) | null,
   "shouldUpdateImagePreference": boolean,
@@ -439,6 +424,59 @@ function formatPhoneNumber(phoneNumber) {
   return phoneNumber.startsWith('+') ? phoneNumber : '+' + phoneNumber;
 }
 
+/**
+ * Try to find a public coach by @handle or by name
+ */
+async function findPublicCoachByQuery(rawQuery) {
+  if (!rawQuery) return null;
+  const query = String(rawQuery).trim();
+
+  // Prefer handle if present
+  const handleMatch = query.match(/@([a-z0-9_]+)/i);
+  if (handleMatch) {
+    const handle = handleMatch[1].toLowerCase();
+    const { data: coachByHandle, error: handleError } = await supabase
+      .from('coach_profiles')
+      .select('id, name, handle, public')
+      .ilike('handle', handle)
+      .eq('public', true)
+      .limit(1)
+      .maybeSingle();
+    if (!handleError && coachByHandle) return coachByHandle;
+  }
+
+  // Fallback: fuzzy name match
+  const namePhrase = query.replace(/coach/gi, '').trim();
+  if (namePhrase.length > 0) {
+    const { data: coachByName, error: nameError } = await supabase
+      .from('coach_profiles')
+      .select('id, name, handle, public')
+      .ilike('name', `%${namePhrase}%`)
+      .eq('public', true)
+      .order('name', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!nameError && coachByName) return coachByName;
+  }
+
+  return null;
+}
+
+async function listPublicCoaches(limit = 50) {
+  const { data, error } = await supabase
+    .from('coach_profiles')
+    .select('id, name, handle, public, active')
+    .eq('public', true)
+    .eq('active', true)
+    .order('name', { ascending: true })
+    .limit(limit);
+  if (error) {
+    console.warn('Failed to list public coaches:', error);
+    return [];
+  }
+  return data || [];
+}
+
 // Main function to process incoming SMS
 exports.processSms = async (req, res) => {
   console.log('SMS processing started');
@@ -504,16 +542,39 @@ exports.processSms = async (req, res) => {
     } else {
       console.log('Processing text message');
       await storeConversation(normalizedPhoneNumber, messageBody);
-      
-      const aiResponse = await getValidAIResponse(messageBody, userData);
+
+      // Provide AI a full list of available coaches (predefined + custom public)
+      const publicCoaches = await listPublicCoaches(100);
+      const aiResponse = await getValidAIResponse(messageBody, { ...userData, publicCoaches });
       
       if (aiResponse.shouldUpdateCoach || aiResponse.shouldUpdateSpice || aiResponse.shouldUpdateImagePreference) {
         const updateData = {};
         
-        if (aiResponse.shouldUpdateCoach && aiResponse.coachType) {
-          updateData.coach = aiResponse.coachType;
-          updateData.coach_type = 'predefined'; // AI can only suggest predefined coaches
-          updateData.custom_coach_id = null;
+        if (aiResponse.shouldUpdateCoach) {
+          if (aiResponse.customCoachId || aiResponse.customCoachHandle) {
+            let customId = aiResponse.customCoachId;
+            if (!customId && aiResponse.customCoachHandle) {
+              const handle = aiResponse.customCoachHandle.replace(/^@/, '');
+              const { data: match, error: hErr } = await supabase
+                .from('coach_profiles')
+                .select('id')
+                .ilike('handle', handle)
+                .eq('public', true)
+                .eq('active', true)
+                .limit(1)
+                .maybeSingle();
+              if (!hErr && match) customId = match.id;
+            }
+            if (customId) {
+              updateData.coach_type = 'custom';
+              updateData.custom_coach_id = customId;
+              updateData.coach = null;
+            }
+          } else if (aiResponse.coachType) {
+            updateData.coach = aiResponse.coachType;
+            updateData.coach_type = 'predefined';
+            updateData.custom_coach_id = null;
+          }
         }
         
         if (aiResponse.shouldUpdateSpice && aiResponse.spiceLevel) {
