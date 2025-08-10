@@ -49,6 +49,7 @@ const CoachEdit = () => {
   const navigate = useNavigate();
   const { coachId } = useParams();
   const [coach, setCoach] = useState(null);
+  const [canPublish, setCanPublish] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -98,6 +99,22 @@ const CoachEdit = () => {
       fetchCoach();
     }
   }, [coachId]);
+
+  useEffect(() => {
+    const checkPublishPermission = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.email) return setCanPublish(false);
+        const { data, error } = await supabase.rpc('can_publish_coaches', { user_email: user.email });
+        if (error) throw error;
+        setCanPublish(!!data);
+      } catch (e) {
+        console.warn('Publish permission check failed:', e);
+        setCanPublish(false);
+      }
+    };
+    checkPublishPermission();
+  }, []);
 
   const fetchCoach = async () => {
     try {
@@ -472,13 +489,49 @@ const CoachEdit = () => {
                     {coach.active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   <span className="text-gray-500">Visibility:</span>
-                  <span className={`ml-2 font-medium ${
-                    coach.public ? 'text-blue-600' : 'text-orange-600'
-                  }`}>
+                  <span className={`font-medium ${coach.public ? 'text-blue-600' : 'text-orange-600'}`}>
                     {coach.public ? 'Public' : 'Private'}
                   </span>
+                  {!coach.public && canPublish === false && (
+                    <button
+                      onClick={() => toast((t) => (
+                        <div className="text-sm">
+                          <p className="font-semibold mb-1">Publish your coach</p>
+                          <p className="mb-2">Publishing makes your coach discoverable. This requires an active Coach Publisher plan.</p>
+                          <div className="flex gap-2">
+                            <a href="/billing" className="bg-blue-600 text-white px-3 py-1 rounded">Upgrade</a>
+                            <button onClick={() => toast.dismiss(t.id)} className="px-3 py-1 border rounded">Close</button>
+                          </div>
+                        </div>
+                      ), { duration: 8000 })}
+                      className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100"
+                    >
+                      Make Public
+                    </button>
+                  )}
+                  {!coach.public && canPublish === true && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { error } = await supabase
+                            .from('coach_profiles')
+                            .update({ public: true, updated_at: new Date().toISOString() })
+                            .eq('id', coachId);
+                          if (error) throw error;
+                          setCoach((c) => ({ ...c, public: true }));
+                          toast.success('Coach is now public');
+                        } catch (e) {
+                          console.error('Publish failed:', e);
+                          toast.error('Unable to publish. Please ensure your subscription is active.');
+                        }
+                      }}
+                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                    >
+                      Make Public
+                    </button>
+                  )}
                 </div>
                 <div>
                   <span className="text-gray-500">Conversations:</span>

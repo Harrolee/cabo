@@ -9,6 +9,10 @@
 -- This migration should run AFTER the sync migration
 -- Get the synced user profile for phone number +12533800282
 
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.user_profiles WHERE phone_number = '+12533800282') THEN
+
 -- Insert Zen Master coach
 INSERT INTO public.coach_profiles (
   id,
@@ -266,3 +270,8 @@ INSERT INTO public.coach_profiles (
 
 -- Add helpful comments
 COMMENT ON COLUMN public.coach_profiles.id IS 'Predefined coaches use fixed UUIDs: zen_master=11111111-1111-1111-1111-111111111111, gym_bro=22222222-2222-2222-2222-222222222222, etc.'; 
+
+  ELSE
+    RAISE NOTICE 'Skipping predefined coach seed: required user +12533800282 not found.';
+  END IF;
+END $$;

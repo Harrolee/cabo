@@ -11,6 +11,9 @@
 -- Drop the existing "Users can view public coaches" policy
 DROP POLICY IF EXISTS "Users can view public coaches" ON public.coach_profiles;
 
+-- Drop if the new policy already exists, to make idempotent
+DROP POLICY IF EXISTS "Anyone can view public coaches" ON public.coach_profiles;
+
 -- Create a new policy that allows anyone (including unauthenticated users) to view public coaches
 CREATE POLICY "Anyone can view public coaches"
     ON public.coach_profiles FOR SELECT

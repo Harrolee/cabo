@@ -16,8 +16,15 @@
 -- Enable vector extension for embeddings (if not already enabled)
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- Create coach response style enum
-CREATE TYPE coach_response_style AS ENUM (
+-- Create coach response style enum (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'coach_response_style'
+  ) THEN
+    CREATE TYPE coach_response_style AS ENUM (
     'tough_love',
     'empathetic_mirror', 
     'reframe_master',
@@ -25,20 +32,31 @@ CREATE TYPE coach_response_style AS ENUM (
     'story_teller',
     'cheerleader',
     'wise_mentor'
-);
+    );
+  END IF;
+END $$;
 
--- Create coach content type enum  
-CREATE TYPE coach_content_type AS ENUM (
+-- Create coach content type enum (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'coach_content_type'
+  ) THEN
+    CREATE TYPE coach_content_type AS ENUM (
     'instagram_post',
     'video_transcript',
     'podcast_transcript', 
     'written_content',
     'social_media_comment',
     'blog_post'
-);
+    );
+  END IF;
+END $$;
 
 -- Create coach_profiles table
-CREATE TABLE public.coach_profiles (
+CREATE TABLE IF NOT EXISTS public.coach_profiles (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -83,7 +101,7 @@ CREATE TABLE public.coach_profiles (
 );
 
 -- Create coach_content_chunks table
-CREATE TABLE public.coach_content_chunks (
+CREATE TABLE IF NOT EXISTS public.coach_content_chunks (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -126,7 +144,7 @@ CREATE TABLE public.coach_content_chunks (
 );
 
 -- Create coach_test_messages table for validation
-CREATE TABLE public.coach_test_messages (
+CREATE TABLE IF NOT EXISTS public.coach_test_messages (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -154,22 +172,22 @@ CREATE TABLE public.coach_test_messages (
 );
 
 -- Create indexes for performance
-CREATE INDEX coach_profiles_user_email_idx ON public.coach_profiles(user_email);
-CREATE INDEX coach_profiles_handle_idx ON public.coach_profiles(handle);
-CREATE INDEX coach_profiles_active_idx ON public.coach_profiles(active);
-CREATE INDEX coach_profiles_public_idx ON public.coach_profiles(public);
-CREATE INDEX coach_profiles_primary_style_idx ON public.coach_profiles(primary_response_style);
+CREATE INDEX IF NOT EXISTS coach_profiles_user_email_idx ON public.coach_profiles(user_email);
+CREATE INDEX IF NOT EXISTS coach_profiles_handle_idx ON public.coach_profiles(handle);
+CREATE INDEX IF NOT EXISTS coach_profiles_active_idx ON public.coach_profiles(active);
+CREATE INDEX IF NOT EXISTS coach_profiles_public_idx ON public.coach_profiles(public);
+CREATE INDEX IF NOT EXISTS coach_profiles_primary_style_idx ON public.coach_profiles(primary_response_style);
 
-CREATE INDEX coach_content_chunks_coach_id_idx ON public.coach_content_chunks(coach_id);
-CREATE INDEX coach_content_chunks_type_idx ON public.coach_content_chunks(content_type);
-CREATE INDEX coach_content_chunks_processed_idx ON public.coach_content_chunks(processed);
-CREATE INDEX coach_content_chunks_voice_sample_idx ON public.coach_content_chunks(voice_sample);
+CREATE INDEX IF NOT EXISTS coach_content_chunks_coach_id_idx ON public.coach_content_chunks(coach_id);
+CREATE INDEX IF NOT EXISTS coach_content_chunks_type_idx ON public.coach_content_chunks(content_type);
+CREATE INDEX IF NOT EXISTS coach_content_chunks_processed_idx ON public.coach_content_chunks(processed);
+CREATE INDEX IF NOT EXISTS coach_content_chunks_voice_sample_idx ON public.coach_content_chunks(voice_sample);
 
-CREATE INDEX coach_test_messages_coach_id_idx ON public.coach_test_messages(coach_id);
-CREATE INDEX coach_test_messages_rating_idx ON public.coach_test_messages(human_rating);
+CREATE INDEX IF NOT EXISTS coach_test_messages_coach_id_idx ON public.coach_test_messages(coach_id);
+CREATE INDEX IF NOT EXISTS coach_test_messages_rating_idx ON public.coach_test_messages(human_rating);
 
 -- Vector similarity search index
-CREATE INDEX coach_content_chunks_embedding_idx ON public.coach_content_chunks 
+CREATE INDEX IF NOT EXISTS coach_content_chunks_embedding_idx ON public.coach_content_chunks 
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- Enable Row Level Security
@@ -178,6 +196,7 @@ ALTER TABLE public.coach_content_chunks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coach_test_messages ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for coach_profiles
+DROP POLICY IF EXISTS "Users can view their own coaches" ON public.coach_profiles;
 CREATE POLICY "Users can view their own coaches"
     ON public.coach_profiles FOR SELECT
     USING (
@@ -185,10 +204,12 @@ CREATE POLICY "Users can view their own coaches"
         (('+' || (auth.jwt() ->> 'phone')) = (SELECT phone_number FROM user_profiles WHERE email = user_email))
     );
 
+DROP POLICY IF EXISTS "Users can view public coaches" ON public.coach_profiles;
 CREATE POLICY "Users can view public coaches"
     ON public.coach_profiles FOR SELECT
     USING (public = true);
 
+DROP POLICY IF EXISTS "Users can create coaches" ON public.coach_profiles;
 CREATE POLICY "Users can create coaches"
     ON public.coach_profiles FOR INSERT
     WITH CHECK (
@@ -196,6 +217,7 @@ CREATE POLICY "Users can create coaches"
         (('+' || (auth.jwt() ->> 'phone')) = (SELECT phone_number FROM user_profiles WHERE email = user_email))
     );
 
+DROP POLICY IF EXISTS "Users can update their own coaches" ON public.coach_profiles;
 CREATE POLICY "Users can update their own coaches"
     ON public.coach_profiles FOR UPDATE
     USING (
@@ -207,6 +229,7 @@ CREATE POLICY "Users can update their own coaches"
         (('+' || (auth.jwt() ->> 'phone')) = (SELECT phone_number FROM user_profiles WHERE email = user_email))
     );
 
+DROP POLICY IF EXISTS "Users can delete their own coaches" ON public.coach_profiles;
 CREATE POLICY "Users can delete their own coaches"
     ON public.coach_profiles FOR DELETE
     USING (
@@ -215,6 +238,7 @@ CREATE POLICY "Users can delete their own coaches"
     );
 
 -- Create RLS policies for coach_content_chunks
+DROP POLICY IF EXISTS "Users can view content for their own coaches" ON public.coach_content_chunks;
 CREATE POLICY "Users can view content for their own coaches"
     ON public.coach_content_chunks FOR SELECT
     USING (
@@ -225,6 +249,7 @@ CREATE POLICY "Users can view content for their own coaches"
         )
     );
 
+DROP POLICY IF EXISTS "Users can insert content for their own coaches" ON public.coach_content_chunks;
 CREATE POLICY "Users can insert content for their own coaches"
     ON public.coach_content_chunks FOR INSERT
     WITH CHECK (
@@ -235,6 +260,7 @@ CREATE POLICY "Users can insert content for their own coaches"
         )
     );
 
+DROP POLICY IF EXISTS "Users can update content for their own coaches" ON public.coach_content_chunks;
 CREATE POLICY "Users can update content for their own coaches"
     ON public.coach_content_chunks FOR UPDATE
     USING (
@@ -252,6 +278,7 @@ CREATE POLICY "Users can update content for their own coaches"
         )
     );
 
+DROP POLICY IF EXISTS "Users can delete content for their own coaches" ON public.coach_content_chunks;
 CREATE POLICY "Users can delete content for their own coaches"
     ON public.coach_content_chunks FOR DELETE
     USING (
@@ -263,6 +290,7 @@ CREATE POLICY "Users can delete content for their own coaches"
     );
 
 -- Similar policies for coach_test_messages
+DROP POLICY IF EXISTS "Users can view test messages for their own coaches" ON public.coach_test_messages;
 CREATE POLICY "Users can view test messages for their own coaches"
     ON public.coach_test_messages FOR SELECT
     USING (
@@ -273,6 +301,7 @@ CREATE POLICY "Users can view test messages for their own coaches"
         )
     );
 
+DROP POLICY IF EXISTS "Users can insert test messages for their own coaches" ON public.coach_test_messages;
 CREATE POLICY "Users can insert test messages for their own coaches"
     ON public.coach_test_messages FOR INSERT
     WITH CHECK (
@@ -283,6 +312,7 @@ CREATE POLICY "Users can insert test messages for their own coaches"
         )
     );
 
+DROP POLICY IF EXISTS "Users can update test messages for their own coaches" ON public.coach_test_messages;
 CREATE POLICY "Users can update test messages for their own coaches"
     ON public.coach_test_messages FOR UPDATE
     USING (
@@ -301,16 +331,19 @@ CREATE POLICY "Users can update test messages for their own coaches"
     );
 
 -- Add updated_at triggers for new tables
+DROP TRIGGER IF EXISTS handle_coach_profiles_updated_at ON public.coach_profiles;
 CREATE TRIGGER handle_coach_profiles_updated_at
     BEFORE UPDATE ON public.coach_profiles
     FOR EACH ROW
     EXECUTE PROCEDURE public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS handle_coach_content_chunks_updated_at ON public.coach_content_chunks;
 CREATE TRIGGER handle_coach_content_chunks_updated_at
     BEFORE UPDATE ON public.coach_content_chunks
     FOR EACH ROW
     EXECUTE PROCEDURE public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS handle_coach_test_messages_updated_at ON public.coach_test_messages;
 CREATE TRIGGER handle_coach_test_messages_updated_at
     BEFORE UPDATE ON public.coach_test_messages
     FOR EACH ROW

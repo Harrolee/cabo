@@ -12,20 +12,40 @@
     - Signup procedure
 */
 
--- Create subscription status enum
-CREATE TYPE subscription_status AS ENUM ('trial', 'active', 'expired', 'cancelled');
+-- Create subscription status enum (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'subscription_status'
+  ) THEN
+    CREATE TYPE subscription_status AS ENUM ('trial', 'active', 'expired', 'cancelled');
+  END IF;
+END $$;
 
--- Create coach type enum
-CREATE TYPE coach_type AS ENUM (
+-- Create coach type enum (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'coach_type'
+  ) THEN
+    CREATE TYPE coach_type AS ENUM (
     'zen_master',
     'gym_bro',
     'dance_teacher',
     'drill_sergeant',
     'frat_bro'
-);
+    );
+  END IF;
+END $$;
 
 -- Create user_profiles table
-CREATE TABLE public.user_profiles (
+CREATE TABLE IF NOT EXISTS public.user_profiles (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -44,7 +64,7 @@ CREATE TABLE public.user_profiles (
 );
 
 -- Create subscriptions table
-CREATE TABLE public.subscriptions (
+CREATE TABLE IF NOT EXISTS public.subscriptions (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -59,32 +79,36 @@ CREATE TABLE public.subscriptions (
     UNIQUE(user_phone)
 );
 
--- Create indexes
-CREATE INDEX user_profiles_email_idx ON public.user_profiles(email);
-CREATE INDEX user_profiles_phone_number_idx ON public.user_profiles(phone_number);
-CREATE INDEX user_profiles_active_idx ON public.user_profiles(active);
-CREATE INDEX user_profiles_spice_level_idx ON public.user_profiles(spice_level);
-CREATE INDEX subscriptions_user_phone_idx ON public.subscriptions(user_phone);
-CREATE INDEX subscriptions_status_idx ON public.subscriptions(status);
-CREATE INDEX subscriptions_trial_start_idx ON public.subscriptions(trial_start_timestamp);
+-- Create indexes (idempotent)
+CREATE INDEX IF NOT EXISTS user_profiles_email_idx ON public.user_profiles(email);
+CREATE INDEX IF NOT EXISTS user_profiles_phone_number_idx ON public.user_profiles(phone_number);
+CREATE INDEX IF NOT EXISTS user_profiles_active_idx ON public.user_profiles(active);
+CREATE INDEX IF NOT EXISTS user_profiles_spice_level_idx ON public.user_profiles(spice_level);
+CREATE INDEX IF NOT EXISTS subscriptions_user_phone_idx ON public.subscriptions(user_phone);
+CREATE INDEX IF NOT EXISTS subscriptions_status_idx ON public.subscriptions(status);
+CREATE INDEX IF NOT EXISTS subscriptions_trial_start_idx ON public.subscriptions(trial_start_timestamp);
 
 -- Enable Row Level Security
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies
+-- Create RLS policies (idempotent)
+DROP POLICY IF EXISTS "Users can view own profile" ON public.user_profiles;
 CREATE POLICY "Users can view own profile"
     ON public.user_profiles FOR SELECT
     USING (auth.jwt() ->> 'email' = email);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.user_profiles;
 CREATE POLICY "Users can update own profile"
     ON public.user_profiles FOR UPDATE
     USING (auth.jwt() ->> 'email' = email);
 
+DROP POLICY IF EXISTS "Allow public profile creation" ON public.user_profiles;
 CREATE POLICY "Allow public profile creation"
     ON public.user_profiles FOR INSERT
     WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Users can view own subscription" ON public.subscriptions;
 CREATE POLICY "Users can view own subscription"
     ON public.subscriptions FOR SELECT
     USING (auth.jwt() ->> 'email' = (
@@ -101,11 +125,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Add updated_at triggers
+DROP TRIGGER IF EXISTS handle_user_profiles_updated_at ON public.user_profiles;
 CREATE TRIGGER handle_user_profiles_updated_at
     BEFORE UPDATE ON public.user_profiles
     FOR EACH ROW
     EXECUTE PROCEDURE public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS handle_subscriptions_updated_at ON public.subscriptions;
 CREATE TRIGGER handle_subscriptions_updated_at
     BEFORE UPDATE ON public.subscriptions
     FOR EACH ROW
