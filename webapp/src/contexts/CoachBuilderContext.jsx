@@ -40,9 +40,11 @@ export const CoachBuilderProvider = ({ children }) => {
   const [previewMode, setPreviewMode] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [processingStatus, setProcessingStatus] = useState('idle'); // 'idle', 'uploading', 'processing', 'complete', 'error'
+  const [liveResponsesEnabled, setLiveResponsesEnabled] = useState(false);
+  const [previewCoachId, setPreviewCoachId] = useState(null);
 
   // Steps in the coach builder flow (now includes avatar upload)
-  const steps = [
+  const fullSteps = [
     { id: 'landing', name: 'Welcome', path: '/coach-builder' },
     { id: 'personality', name: 'Personality', path: '/coach-builder/personality' },
     { id: 'content', name: 'Content Upload (Optional)', path: '/coach-builder/content' },
@@ -50,6 +52,15 @@ export const CoachBuilderProvider = ({ children }) => {
     { id: 'preview', name: 'Preview & Test', path: '/coach-builder/preview' },
     { id: 'save', name: 'Save Coach', path: '/coach-builder/save' }
   ];
+
+  // In Quick Start mode, simplify the steps to reduce perceived effort
+  const quickSteps = [
+    { id: 'landing', name: 'Welcome', path: '/coach-builder' },
+    { id: 'preview', name: 'Preview & Test', path: '/coach-builder/preview' },
+    { id: 'save', name: 'Save Coach', path: '/coach-builder/save' }
+  ];
+
+  const steps = previewMode ? quickSteps : fullSteps;
 
   // Update personality data from questionnaire
   const updatePersonality = (personalityData) => {
@@ -68,6 +79,36 @@ export const CoachBuilderProvider = ({ children }) => {
         ...avatarData
       }
     }));
+  };
+
+  // Start a minimal flow with sensible defaults and skip to preview
+  const startQuickStart = (presetStyle = 'empathetic_mirror') => {
+    setPreviewMode(true);
+    const randomSuffix = Math.random().toString(36).slice(2, 8);
+    setCoachData(prev => ({
+      ...prev,
+      name: prev.name && prev.name.trim() ? prev.name : 'Sample Coach',
+      handle: prev.handle && prev.handle.trim() ? prev.handle : `coach-${randomSuffix}`,
+      description: prev.description || '',
+      primary_response_style: presetStyle,
+      communication_traits: {
+        energy_level: 5,
+        directness: 5,
+        formality: 3,
+        emotion_focus: 5,
+        ...(prev.communication_traits || {})
+      },
+      avatarData: {
+        generatedAvatars: [],
+        selectedAvatar: null,
+        originalSelfieUrl: null,
+        tempCoachId: null,
+        skipped: true
+      },
+      content: []
+    }));
+    // Move step index to the Preview position for quick flow
+    setCurrentStep(1);
   };
 
   // Add content file to the coach
@@ -215,22 +256,53 @@ export const CoachBuilderProvider = ({ children }) => {
   // Generate AI response for preview
   const generatePreviewResponse = async (userMessage, conversationHistory = []) => {
     try {
-      // Create a temporary coach ID for preview (use a consistent one for session)
-      const tempCoachId = sessionStorage.getItem('previewCoachId') || 'preview-coach-' + Date.now();
-      sessionStorage.setItem('previewCoachId', tempCoachId);
+      // Try to use a real coach if available; otherwise send snapshot for unauth preview
+      let usingSnapshot = false;
+      let coachIdToUse = previewCoachId;
+      if (!liveResponsesEnabled || !coachIdToUse) {
+        usingSnapshot = true;
+      }
+
+      // Map conversation history to expected schema
+      const mappedHistory = (conversationHistory || []).slice(-4).map((msg) => ({
+        role: msg.type === 'user' ? 'user' : 'assistant',
+        content: msg.content,
+        timestamp: (msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp) || new Date().toISOString()
+      }));
+
+      const body = usingSnapshot
+        ? {
+            coachSnapshot: {
+              name: coachData.name || 'Sample Coach',
+              handle: coachData.handle || undefined,
+              description: coachData.description || undefined,
+              primary_response_style: coachData.primary_response_style || 'empathetic_mirror',
+              secondary_response_style: coachData.secondary_response_style || undefined,
+              emotional_response_map: coachData.emotional_response_map || {},
+              communication_traits: coachData.communication_traits || {
+                energy_level: 5, directness: 5, formality: 3, emotion_focus: 5
+              },
+              voice_patterns: coachData.voice_patterns || {},
+              catchphrases: coachData.catchphrases || [],
+              vocabulary_preferences: coachData.vocabulary_preferences || {},
+              avatar_url: coachData.avatarData?.selectedAvatar?.url || undefined,
+              avatar_style: coachData.avatarData?.selectedAvatar?.style || undefined
+            },
+            userMessage,
+            userContext: { previousMessages: mappedHistory }
+          }
+        : {
+            coachId: coachIdToUse,
+            userMessage,
+            userContext: { previousMessages: mappedHistory }
+          };
 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/coach-response-generator`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          coachId: tempCoachId,
-          userMessage: userMessage,
-          userContext: {
-            previousMessages: conversationHistory.slice(-4) // Last 4 messages for context
-          }
-        })
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
@@ -245,6 +317,77 @@ export const CoachBuilderProvider = ({ children }) => {
       console.error('Error generating AI response:', error);
       // Fallback to mock response
       return generateMockResponse(userMessage, coachData);
+    }
+  };
+
+  // Enable live responses by creating (or reusing) a draft coach profile tied to the logged-in user
+  const enableLiveResponses = async () => {
+    try {
+      if (liveResponsesEnabled && previewCoachId) {
+        return previewCoachId;
+      }
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('You must be logged in to enable live responses');
+      }
+
+      // Insert minimal coach profile as draft if none exists yet
+      if (!previewCoachId) {
+        const dbData = {
+          user_id: user.id,
+          user_email: user.email,
+          name: coachData.name || 'Sample Coach',
+          handle: coachData.handle || `coach-${Math.random().toString(36).slice(2,8)}`,
+          description: coachData.description || null,
+          primary_response_style: coachData.primary_response_style || 'empathetic_mirror',
+          secondary_response_style: coachData.secondary_response_style || null,
+          emotional_response_map: coachData.emotional_response_map || {},
+          communication_traits: coachData.communication_traits || { energy_level: 5, directness: 5, formality: 3, emotion_focus: 5 },
+          voice_patterns: coachData.voice_patterns || {},
+          catchphrases: coachData.catchphrases || [],
+          vocabulary_preferences: coachData.vocabulary_preferences || {},
+          public: false,
+          content_processed: false,
+          total_content_pieces: uploadedFiles.length || 0,
+          avatar_url: coachData.avatarData?.selectedAvatar?.url || null,
+          avatar_style: coachData.avatarData?.selectedAvatar?.style || null,
+          original_selfie_url: coachData.avatarData?.originalSelfieUrl || null,
+          active: true
+        };
+
+        const { data: coach, error: coachError } = await supabase
+          .from('coach_profiles')
+          .insert(dbData)
+          .select()
+          .single();
+
+        if (coachError) throw coachError;
+
+        setPreviewCoachId(coach.id);
+      }
+
+      setLiveResponsesEnabled(true);
+      toast.success('Live responses enabled');
+      return previewCoachId;
+    } catch (error) {
+      console.error('Failed to enable live responses:', error);
+      toast.error(error.message || 'Failed to enable live responses');
+      throw error;
+    }
+  };
+
+  // Update persisted coach fields while in live mode (e.g., when sliders change)
+  const updatePreviewCoach = async (partialUpdate) => {
+    try {
+      if (!liveResponsesEnabled || !previewCoachId) return;
+      const { error } = await supabase
+        .from('coach_profiles')
+        .update(partialUpdate)
+        .eq('id', previewCoachId);
+      if (error) throw error;
+    } catch (error) {
+      console.warn('Failed to update preview coach:', error);
     }
   };
 
@@ -421,6 +564,9 @@ export const CoachBuilderProvider = ({ children }) => {
     setCurrentStep(0);
     setProcessingStatus('idle');
     sessionStorage.removeItem('previewCoachId');
+    setPreviewMode(false);
+    setLiveResponsesEnabled(false);
+    setPreviewCoachId(null);
   };
 
   // Navigate to specific step
@@ -497,6 +643,11 @@ export const CoachBuilderProvider = ({ children }) => {
     setCurrentStep,
     setCoachData,
     setPreviewMode,
+    startQuickStart,
+    liveResponsesEnabled,
+    previewCoachId,
+    enableLiveResponses,
+    updatePreviewCoach,
     
     // Actions
     updatePersonality,

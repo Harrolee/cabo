@@ -4,12 +4,18 @@ import { useCoachBuilder } from '../../contexts/CoachBuilderContext';
 
 const CoachBuilderLanding = () => {
   const navigate = useNavigate();
-  const { resetCoachData, nextStep } = useCoachBuilder();
+  const { resetCoachData, nextStep, startQuickStart } = useCoachBuilder();
 
   const handleGetStarted = () => {
     resetCoachData();
     nextStep();
     navigate('/coach-builder/personality');
+  };
+
+  const handleQuickStart = () => {
+    resetCoachData();
+    startQuickStart();
+    navigate('/coach-builder/preview');
   };
 
   const features = [
@@ -79,12 +85,18 @@ const CoachBuilderLanding = () => {
           <p className="mt-6 max-w-2xl mx-auto text-xl text-gray-600">
             Create a personalized AI coach that captures your unique training style and motivates your audience through SMS messages.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex flex-col items-center gap-3">
             <button
               onClick={handleGetStarted}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-lg transition duration-200 transform hover:scale-105"
             >
               Get Started Free
+            </button>
+            <button
+              onClick={handleQuickStart}
+              className="text-blue-700 hover:text-blue-800 font-medium"
+            >
+              Quick Start (1 min): Try a sample coach →
             </button>
             <p className="mt-2 text-sm text-gray-500">
               No account required to start building

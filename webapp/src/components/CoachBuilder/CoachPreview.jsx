@@ -1,15 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCoachBuilder } from '../../contexts/CoachBuilderContext';
 import ProgressStepper from './components/ProgressStepper';
 
 const CoachPreview = () => {
   const navigate = useNavigate();
-  const { coachData, generatePreviewResponse, nextStep, prevStep } = useCoachBuilder();
+  const { coachData, generatePreviewResponse, nextStep, prevStep, previewMode, liveResponsesEnabled, updatePreviewCoach, setCoachData } = useCoachBuilder();
   
   const [testMessage, setTestMessage] = useState('');
   const [conversation, setConversation] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [sliders, setSliders] = useState({
+    energy_level: coachData.communication_traits?.energy_level ?? 5,
+    directness: coachData.communication_traits?.directness ?? 5,
+    formality: coachData.communication_traits?.formality ?? 3,
+    emotion_focus: coachData.communication_traits?.emotion_focus ?? 5,
+  });
+
+  // Keep local sliders and context in sync with global coach data
+  useEffect(() => {
+    setSliders({
+      energy_level: coachData.communication_traits?.energy_level ?? 5,
+      directness: coachData.communication_traits?.directness ?? 5,
+      formality: coachData.communication_traits?.formality ?? 3,
+      emotion_focus: coachData.communication_traits?.emotion_focus ?? 5,
+    });
+  }, [coachData.communication_traits]);
 
   const sampleMessages = [
     "I'm feeling unmotivated to work out today",
@@ -37,7 +53,7 @@ const CoachPreview = () => {
 
     try {
       // Generate AI response using the real function
-      const response = await generatePreviewResponse(message, conversation);
+      const response = await generatePreviewResponse(message, [...conversation, userMessage]);
       
       const aiMessage = {
         id: Date.now() + 1,
@@ -59,6 +75,24 @@ const CoachPreview = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const onSliderChange = async (field, value) => {
+    const numeric = parseInt(value);
+    setSliders(prev => ({ ...prev, [field]: numeric }));
+    // Update global state immediately for prompt building/fallbacks
+    setCoachData(prev => ({
+      ...prev,
+      communication_traits: {
+        ...(prev.communication_traits || {}),
+        [field]: numeric,
+      }
+    }));
+    // If live mode, persist to preview coach so backend uses these values
+    await updatePreviewCoach({ communication_traits: {
+      ...coachData.communication_traits,
+      [field]: numeric
+    }});
   };
 
   const clearConversation = () => {
@@ -93,7 +127,8 @@ const CoachPreview = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Coach Summary */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Your AI Coach</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">Your AI Coach</h2>
+            <p className="text-sm text-gray-500 mb-4">Click any field to edit. Use sliders to tune voice, then test in chat.</p>
             
             {/* Avatar Display */}
             {coachData.avatarData?.selectedAvatar && (
@@ -112,30 +147,70 @@ const CoachPreview = () => {
             <div className="space-y-4">
               <div>
                 <h3 className="font-semibold text-gray-700">Name</h3>
-                <p className="text-gray-900">{coachData.name || 'Unnamed Coach'}</p>
+                <input
+                  type="text"
+                  value={coachData.name || ''}
+                  onChange={(e) => setCoachData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Your coach name"
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
               
               <div>
                 <h3 className="font-semibold text-gray-700">Handle</h3>
-                <p className="text-gray-900">@{coachData.handle || 'unknown'}</p>
+                <div className="flex mt-1">
+                  <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500">@</span>
+                  <input
+                    type="text"
+                    value={coachData.handle || ''}
+                    onChange={(e) => setCoachData(prev => ({ ...prev, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') }))}
+                    placeholder="my-coach"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
               </div>
               
               <div>
                 <h3 className="font-semibold text-gray-700">Response Style</h3>
-                <p className="text-gray-900 capitalize">
-                  {coachData.primary_response_style?.replace('_', ' ') || 'Not selected'}
-                </p>
+                <select
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 capitalize"
+                  value={coachData.primary_response_style || ''}
+                  onChange={(e) => setCoachData(prev => ({ ...prev, primary_response_style: e.target.value }))}
+                >
+                  <option value="">Select a style</option>
+                  {['tough_love','empathetic_mirror','reframe_master','data_driven','story_teller','cheerleader','wise_mentor'].map(v => (
+                    <option key={v} value={v}>{v.replace('_',' ')}</option>
+                  ))}
+                </select>
               </div>
               
               <div>
                 <h3 className="font-semibold text-gray-700">Communication Traits</h3>
-                <div className="space-y-2">
-                  {coachData.communication_traits && Object.entries(coachData.communication_traits).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="text-sm text-gray-600 capitalize">
-                        {key.replace('_', ' ')}:
-                      </span>
-                      <span className="text-sm font-medium">{value}/10</span>
+                {/* Live-adjust sliders */}
+                <div className="space-y-5 mt-3">
+                  {[
+                    { field: 'energy_level', label: 'Energy Level', low: 'Calm', high: 'High Energy', min: 1, max: 10 },
+                    { field: 'directness', label: 'Directness', low: 'Gentle', high: 'Blunt', min: 1, max: 10 },
+                    { field: 'formality', label: 'Formality', low: 'Casual', high: 'Formal', min: 1, max: 10 },
+                    { field: 'emotion_focus', label: 'Approach', low: 'Logic', high: 'Emotion', min: 1, max: 10 }
+                  ].map(cfg => (
+                    <div key={cfg.field}>
+                      <div className="flex justify-between mb-1">
+                        <label className="text-sm font-medium text-gray-700">{cfg.label}</label>
+                        <span className="text-sm font-semibold text-blue-600">{sliders[cfg.field]}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={cfg.min}
+                        max={cfg.max}
+                        value={sliders[cfg.field]}
+                        onChange={(e) => onSliderChange(cfg.field, e.target.value)}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>{cfg.low}</span>
+                        <span>{cfg.high}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -143,17 +218,27 @@ const CoachPreview = () => {
               
               <div>
                 <h3 className="font-semibold text-gray-700">Content Uploaded</h3>
-                <p className="text-gray-900">{coachData.content?.length || 0} files</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-900">{coachData.content?.length || 0} files {previewMode && '(optional later)'}</p>
+                  <button
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                    onClick={() => navigate('/coach-builder/content')}
+                  >
+                    Manage Content
+                  </button>
+                </div>
               </div>
 
               <div>
                 <h3 className="font-semibold text-gray-700">Avatar</h3>
-                <p className="text-gray-900">
-                  {coachData.avatarData?.selectedAvatar ? 
-                    `${coachData.avatarData.selectedAvatar.style} style` : 
-                    coachData.avatarData?.skipped ? 'Skipped' : 'Not set'
-                  }
-                </p>
+                <div className="mt-1">
+                  <button
+                    onClick={() => navigate('/coach-builder/avatar')}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    {coachData.avatarData?.selectedAvatar ? 'Change Avatar' : 'Add Avatar'}
+                  </button>
+                </div>
               </div>
 
               {/* Content Processing Status */}

@@ -11,8 +11,7 @@ const supabase = createClient(
 );
 
 // Validation schemas
-const GenerateResponseRequest = z.object({
-  coachId: z.string().uuid(),
+const BaseRequest = z.object({
   userMessage: z.string().min(1).max(1000),
   userContext: z.object({
     emotionalNeed: z.enum(['encouragement', 'commiseration', 'pity', 'celebration', 'advice', 'accountability', 'check_in']).optional(),
@@ -24,6 +23,30 @@ const GenerateResponseRequest = z.object({
     })).optional()
   }).optional()
 });
+
+const CoachIdVariant = BaseRequest.extend({
+  coachId: z.string().uuid()
+});
+
+// Allow a snapshot coach definition for unauthenticated preview (no DB row yet)
+const CoachSnapshotVariant = BaseRequest.extend({
+  coachSnapshot: z.object({
+    name: z.string().default('Sample Coach'),
+    handle: z.string().optional(),
+    description: z.string().optional(),
+    primary_response_style: z.string().optional(),
+    secondary_response_style: z.string().optional(),
+    emotional_response_map: z.record(z.any()).optional(),
+    communication_traits: z.record(z.any()).optional(),
+    voice_patterns: z.record(z.any()).optional(),
+    catchphrases: z.array(z.string()).optional(),
+    vocabulary_preferences: z.record(z.any()).optional(),
+    avatar_url: z.string().optional(),
+    avatar_style: z.string().optional(),
+  }).passthrough()
+});
+
+const GenerateResponseRequest = z.union([CoachIdVariant, CoachSnapshotVariant]);
 
 /**
  * Response style patterns mapped to coaching styles
@@ -317,6 +340,7 @@ Respond to this user message: "${userMessage}"`;
  * Main Cloud Function entry point
  */
 exports.generateCoachResponse = async (req, res) => {
+  const startTime = Date.now();
   // Set CORS headers
   res.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -332,45 +356,59 @@ exports.generateCoachResponse = async (req, res) => {
   try {
     // Validate request
     const requestData = GenerateResponseRequest.parse(req.body);
-    const { coachId, userMessage, userContext = {} } = requestData;
-    
-    console.log(`Generating response for coach ${coachId}: "${userMessage}"`);
-    
-    // Get coach data
-    const { data: coach, error: coachError } = await supabase
-      .from('coach_profiles')
-      .select('*')
-      .eq('id', coachId)
-      .eq('active', true)
-      .single();
-    
-    if (coachError || !coach) {
-      return res.status(404).json({ error: 'Coach not found or inactive' });
+    const { userMessage, userContext = {} } = requestData;
+    let coach;
+    let coachIdForLog = null;
+
+    if ('coachId' in requestData) {
+      const coachId = requestData.coachId;
+      console.log(`Generating response for coach ${coachId}: "${userMessage}"`);
+      // Get coach data from DB
+      const { data: dbCoach, error: coachError } = await supabase
+        .from('coach_profiles')
+        .select('*')
+        .eq('id', coachId)
+        .eq('active', true)
+        .single();
+      if (coachError || !dbCoach) {
+        return res.status(404).json({ error: 'Coach not found or inactive' });
+      }
+      coach = dbCoach;
+      coachIdForLog = coachId;
+    } else {
+      // Use snapshot directly
+      coach = requestData.coachSnapshot;
+      console.log(`Generating response for snapshot coach: "${userMessage}"`);
     }
-    
-    // Find relevant content using vector search
-    console.log('Finding relevant content...');
-    const relevantContent = await findRelevantContent(coachId, userMessage);
+
+    // Find relevant content using vector search only for persisted coaches
+    let relevantContent = [];
+    if (coachIdForLog) {
+      console.log('Finding relevant content...');
+      relevantContent = await findRelevantContent(coachIdForLog, userMessage);
+    }
     
     // Generate response
     console.log('Generating AI response...');
     const response = await generateCoachResponse(coach, userMessage, userContext, relevantContent);
     
     // Log the interaction (optional - for analytics)
-    try {
-      await supabase.from('coach_test_messages').insert({
-        coach_id: coachId,
-        user_message: userMessage,
-        coach_response: response,
-        user_context: userContext,
-        emotional_need: userContext.emotionalNeed || detectEmotionalNeed(userMessage),
-        situation: userContext.situation || detectSituation(userMessage),
-        relevant_content_ids: relevantContent.map(c => c.id),
-        response_time_ms: Date.now() - req.startTime
-      });
-    } catch (logError) {
-      console.warn('Failed to log interaction:', logError);
-      // Don't fail the request if logging fails
+    if (coachIdForLog) {
+      try {
+        await supabase.from('coach_test_messages').insert({
+          coach_id: coachIdForLog,
+          user_message: userMessage,
+          coach_response: response,
+          user_context: userContext,
+          emotional_need: userContext.emotionalNeed || detectEmotionalNeed(userMessage),
+          situation: userContext.situation || detectSituation(userMessage),
+          relevant_content_ids: relevantContent.map(c => c.id),
+          response_time_ms: Date.now() - startTime
+        });
+      } catch (logError) {
+        console.warn('Failed to log interaction:', logError);
+        // Don't fail the request if logging fails
+      }
     }
     
     console.log(`Generated response: "${response}"`);
