@@ -266,11 +266,13 @@ async function generateCoachResponse(coach, userMessage, userContext = {}, relev
   const energyLevel = communicationTraits.energy_level || 5;
   const directness = communicationTraits.directness || 5;
   const emotionFocus = communicationTraits.emotion_focus || 5;
+  const formality = communicationTraits.formality ?? 3;
   
   const voiceDescription = `
 Energy Level: ${energyLevel}/10 (${energyLevel > 7 ? 'high energy' : energyLevel > 4 ? 'moderate energy' : 'calm'})
 Directness: ${directness}/10 (${directness > 7 ? 'very direct' : directness > 4 ? 'moderately direct' : 'gentle'})
 Approach: ${emotionFocus > 6 ? 'emotion-focused' : emotionFocus < 4 ? 'logic-focused' : 'balanced'}
+Formality: ${formality}/10 (${formality > 6 ? 'formal, polished grammar' : formality < 4 ? 'casual, conversational' : 'neutral'})
 Sentence Structure: ${voicePatterns.sentence_structure || 'mixed_varied'}
 Vocabulary: ${voicePatterns.vocabulary_level || 'professional'}
 `;
@@ -306,11 +308,11 @@ CONTEXT:
 INSTRUCTIONS:
 1. Respond as ${coach.name} in your authentic voice and style
 2. Address the user's ${emotionalNeed} need appropriately
-3. Keep responses conversational and under 160 characters for SMS
-4. Match your energy level (${energyLevel}/10) and directness (${directness}/10)
-5. Use your typical response patterns when appropriate
-6. Be helpful while staying true to your personality
-${catchphrases ? '7. Naturally incorporate your catchphrases when fitting' : ''}
+  3. Keep responses conversational and under 160 characters for SMS
+  4. Match your energy level (${energyLevel}/10), directness (${directness}/10), and formality (${formality}/10)
+  5. Use your typical response patterns when appropriate
+  6. Be helpful while staying true to your personality
+  ${catchphrases ? '7. Naturally incorporate your catchphrases when fitting' : ''}
 
 ${conversationContext}
 

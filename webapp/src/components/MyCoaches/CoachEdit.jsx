@@ -76,13 +76,12 @@ const CoachEdit = () => {
     { value: 'tough_love', label: 'Tough Love' }
   ];
 
+  // Standardized across app: energy_level, directness, formality, emotion_focus
   const communicationTraits = [
-    { key: 'enthusiasm', label: 'Enthusiasm', description: 'How energetic and excited' },
-    { key: 'empathy', label: 'Empathy', description: 'How understanding and compassionate' },
-    { key: 'directness', label: 'Directness', description: 'How straightforward and blunt' },
-    { key: 'humor', label: 'Humor', description: 'How funny and lighthearted' },
-    { key: 'technical_depth', label: 'Technical Depth', description: 'How detailed and scientific' },
-    { key: 'personal_sharing', label: 'Personal Sharing', description: 'How much personal stories are shared' }
+    { key: 'energy_level', label: 'Energy Level', description: 'Calm ↔ High Energy' },
+    { key: 'directness', label: 'Directness', description: 'Gentle ↔ Blunt' },
+    { key: 'formality', label: 'Formality', description: 'Casual ↔ Formal' },
+    { key: 'emotion_focus', label: 'Approach', description: 'Logic ↔ Emotion' }
   ];
 
   const sampleMessages = [
@@ -111,12 +110,16 @@ const CoachEdit = () => {
       if (error) throw error;
       
       setCoach(coachData);
+      const defaultTraits = { energy_level: 5, directness: 5, formality: 3, emotion_focus: 5 };
       setEditedCoach({
         name: coachData.name || '',
         handle: coachData.handle || '',
         description: coachData.description || '',
         primary_response_style: coachData.primary_response_style || '',
-        communication_traits: coachData.communication_traits || {}
+        communication_traits: {
+          ...defaultTraits,
+          ...(coachData.communication_traits || {})
+        }
       });
     } catch (error) {
       console.error('Error fetching coach:', error);
@@ -184,21 +187,32 @@ const CoachEdit = () => {
     try {
       setIsGenerating(true);
       
+      // Use standardized traits directly
+      const mappedTraits = {
+        energy_level: editedCoach.communication_traits?.energy_level ?? 5,
+        directness: editedCoach.communication_traits?.directness ?? 5,
+        formality: editedCoach.communication_traits?.formality ?? 3,
+        emotion_focus: editedCoach.communication_traits?.emotion_focus ?? 5,
+      };
+
       const response = await fetch(`${import.meta.env.VITE_API_URL}/coach-response-generator`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          coachId: coachId,
+          // Send a snapshot so unsaved slider changes affect the prompt immediately
+          coachSnapshot: {
+            name: editedCoach.name || coach?.name || 'Sample Coach',
+            handle: editedCoach.handle || coach?.handle || undefined,
+            description: editedCoach.description || coach?.description || undefined,
+            primary_response_style: editedCoach.primary_response_style || coach?.primary_response_style || 'empathetic_mirror',
+            communication_traits: mappedTraits,
+            // Optionally extend: voice_patterns/catchphrases when those are editable here
+          },
           userMessage: userMessage,
           userContext: {
             previousMessages: conversation.slice(-5) // Last 5 messages for context
-          },
-          // Use current edited settings for response generation
-          overrideSettings: {
-            primary_response_style: editedCoach.primary_response_style,
-            communication_traits: editedCoach.communication_traits
           }
         })
       });
