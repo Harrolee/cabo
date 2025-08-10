@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../../main';
 import { useNavigate } from 'react-router-dom';
 import { useCoachBuilder } from '../../contexts/CoachBuilderContext';
 import ProgressStepper from './components/ProgressStepper';
@@ -96,22 +97,34 @@ const AvatarUpload = () => {
 
     try {
       // Create form data
-      const formData = new FormData();
-      // Include filename to help multipart parsers (Busboy/Multer) on Cloud Run
-      formData.append('selfie', selectedFile, selectedFile.name);
-      formData.append('style', style);
-      formData.append('prompt', prompt || '');
-      formData.append('coachId', coachData.tempCoachId || `temp-${Date.now()}`);
+      // 1) Upload selfie to Supabase public bucket to obtain a stable URL
+      const fileExt = selectedFile.name.split('.').pop();
+      const safeName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `temp-avatars/${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('coach-avatars')
+        .upload(storagePath, selectedFile, { upsert: true, contentType: selectedFile.type });
+      if (uploadError) throw uploadError;
 
-      // Resolve function URL (prefer dedicated var if set)
+      const { data: publicData } = supabase.storage
+        .from('coach-avatars')
+        .getPublicUrl(storagePath);
+      const selfieUrl = publicData.publicUrl;
+
+      // 2) Call avatar generation via JSON (robust path)
       const generatorUrl =
         import.meta.env.VITE_COACH_AVATAR_GENERATOR_URL ||
         `${import.meta.env.VITE_API_URL}/coach-avatar-generator`;
 
-      // Call avatar generation function
       const response = await fetch(generatorUrl, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coachId: coachData.tempCoachId || `temp-${Date.now()}`,
+          selfie_url: selfieUrl,
+          style,
+          prompt
+        })
       });
 
       if (!response.ok) {
@@ -140,8 +153,8 @@ const AvatarUpload = () => {
         updateAvatar({
           generatedAvatars: result.avatars,
           selectedAvatar: result.avatars[0],
-          originalSelfieUrl: result.selfieStoragePath,
-          tempCoachId: formData.get('coachId')
+          originalSelfieUrl: selfieUrl,
+          tempCoachId: coachData.tempCoachId || `temp-${Date.now()}`
         });
 
         if (result.failedStyles && result.failedStyles.length > 0) {

@@ -52,11 +52,51 @@ exports.generateCoachAvatar = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Ensure content-type is multipart/form-data
-  const contentType = req.get('content-type') || req.get('Content-Type') || '';
-  if (!contentType.toLowerCase().includes('multipart/form-data')) {
+  const contentType = (req.get('content-type') || req.get('Content-Type') || '').toLowerCase();
+
+  // JSON fallback path: accept base64 or remote URL
+  if (contentType.includes('application/json')) {
+    try {
+      const { coachId, selfie_base64, selfie_mime = 'image/jpeg', selfie_url, style, prompt } = req.body || {};
+      if (!coachId) {
+        return res.status(400).json({ error: 'coachId is required' });
+      }
+      let imageBuffer = null;
+      let mimeType = selfie_mime;
+      if (selfie_base64) {
+        const base64 = selfie_base64.replace(/^data:[^;]+;base64,/, '');
+        imageBuffer = Buffer.from(base64, 'base64');
+      } else if (selfie_url) {
+        const fetchResp = await fetch(selfie_url);
+        if (!fetchResp.ok) {
+          return res.status(400).json({ error: `Failed to fetch selfie_url: ${fetchResp.status}` });
+        }
+        const arr = await fetchResp.arrayBuffer();
+        imageBuffer = Buffer.from(arr);
+        mimeType = fetchResp.headers.get('content-type') || mimeType;
+      } else {
+        return res.status(400).json({ error: 'Provide selfie_base64 or selfie_url' });
+      }
+
+      const result = await generateCoachAvatars(coachId, imageBuffer, mimeType, { style, prompt });
+      return res.status(200).json({
+        success: true,
+        coachId,
+        avatars: result.avatars,
+        selfieStoragePath: result.selfieUrl,
+        failedStyles: result.failedStyles,
+        message: `Generated ${result.avatars.length} avatar options`
+      });
+    } catch (error) {
+      console.error('Avatar generation (JSON) error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to generate avatars' });
+    }
+  }
+
+  // Ensure content-type is multipart/form-data for the upload path
+  if (!contentType.includes('multipart/form-data')) {
     console.warn('Invalid content-type for upload:', contentType);
-    return res.status(400).json({ error: 'Content-Type must be multipart/form-data' });
+    return res.status(400).json({ error: 'Content-Type must be multipart/form-data or application/json' });
   }
 
   // Handle file upload
