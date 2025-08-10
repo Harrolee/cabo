@@ -15,6 +15,23 @@ const AvatarUpload = () => {
   const [generatedAvatars, setGeneratedAvatars] = useState([]);
   const [selectedAvatar, setSelectedAvatar] = useState(null);
   const [generationError, setGenerationError] = useState('');
+  const [style, setStyle] = useState('Realistic');
+  const [prompt, setPrompt] = useState('professional fitness coach portrait, confident expression, clean background');
+
+  // Full list of PhotoMaker styles we support
+  const PHOTO_MAKER_STYLES = [
+    'Realistic',
+    'Cinematic',
+    'Disney Charactor',
+    'Fantasy art',
+    'Enhance',
+    'Comic book',
+    'Line art',
+    'Digital Art',
+    'Neonpunk',
+    'Photographic',
+    'Lowpoly',
+  ];
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -82,6 +99,8 @@ const AvatarUpload = () => {
       const formData = new FormData();
       // Include filename to help multipart parsers (Busboy/Multer) on Cloud Run
       formData.append('selfie', selectedFile, selectedFile.name);
+      formData.append('style', style);
+      formData.append('prompt', prompt || '');
       formData.append('coachId', coachData.tempCoachId || `temp-${Date.now()}`);
 
       // Resolve function URL (prefer dedicated var if set)
@@ -236,6 +255,36 @@ const AvatarUpload = () => {
                 <p className="text-gray-600 mb-4">
                   JPG, PNG up to 10MB
                 </p>
+
+                {/* Style selection */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-left mb-4">
+                  {PHOTO_MAKER_STYLES.map((s) => (
+                    <label key={s} className={`flex items-center gap-2 p-2 rounded border ${style === s ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                      <input
+                        type="radio"
+                        name="avatar-style"
+                        value={s}
+                        checked={style === s}
+                        onChange={() => setStyle(s)}
+                      />
+                      <span className="text-sm text-gray-800">{s}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Prompt input */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Avatar prompt</label>
+                  <input
+                    type="text"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Describe details to include in your avatar (e.g., attire, vibe)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">We’ll combine this with a safe, professional headshot template.</p>
+                </div>
+
                 <input
                   type="file"
                   accept="image/*"
@@ -270,6 +319,31 @@ const AvatarUpload = () => {
                   <p className="text-gray-600 text-sm">
                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
+                  {/* Controls still visible after selecting a file */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-left mt-4">
+                    {PHOTO_MAKER_STYLES.map((s) => (
+                      <label key={s} className={`flex items-center gap-2 p-2 rounded border ${style === s ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                        <input
+                          type="radio"
+                          name="avatar-style-selected"
+                          value={s}
+                          checked={style === s}
+                          onChange={() => setStyle(s)}
+                        />
+                        <span className="text-sm text-gray-800">{s}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Avatar prompt</label>
+                    <input
+                      type="text"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      placeholder="Describe details to include in your avatar (e.g., attire, vibe)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
                   <div className="mt-4 flex gap-3">
                     <button
                       onClick={handleGenerateAvatars}

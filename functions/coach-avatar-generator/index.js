@@ -70,6 +70,8 @@ exports.generateCoachAvatar = async (req, res) => {
 
     try {
       const { coachId } = req.body;
+      const selectedStyle = req.body.style;
+      const userPrompt = req.body.prompt;
       const file = req.file;
 
       if (!coachId) {
@@ -83,8 +85,11 @@ exports.generateCoachAvatar = async (req, res) => {
       console.log(`Processing avatar generation for coach ${coachId}`);
       console.log(`File info: ${file.originalname}, ${file.mimetype}, ${file.size} bytes`);
 
-      // Generate avatars
-      const result = await generateCoachAvatars(coachId, file.buffer, file.mimetype);
+      // Generate avatars (pass style/prompt for customization)
+      const result = await generateCoachAvatars(coachId, file.buffer, file.mimetype, {
+        style: selectedStyle,
+        prompt: userPrompt,
+      });
 
       res.status(200).json({
         success: true,

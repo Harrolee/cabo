@@ -6,11 +6,19 @@ const projectId = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 const bucketName = `${projectId}-image-bucket`;
 const contentBucketName = `${projectId}-coach-content`;
 
-// Avatar styles (from motivational-images styles)
+// Full set of PhotoMaker styles we want to expose
 const AVATAR_STYLES = [
+  'Realistic',
+  'Cinematic',
+  'Disney Charactor',
+  'Fantasy art',
+  'Enhance',
+  'Comic book',
+  'Line art',
   'Digital Art',
-  'Comic book', 
-  'Disney Charactor', // Note: keeping original spelling from existing code
+  'Neonpunk',
+  'Photographic',
+  'Lowpoly',
 ];
 
 const AVATAR_MODELS = {
@@ -42,10 +50,18 @@ const AVATAR_MODELS = {
   }
 };
 
-const AVATAR_PROMPTS = {
-  'Digital Art': 'professional fitness coach portrait, digital art style, confident expression, business casual attire',
+const DEFAULT_PROMPTS = {
+  'Realistic': 'professional fitness coach portrait, realistic style, confident expression, business casual attire',
+  'Cinematic': 'professional fitness coach portrait, cinematic lighting, dramatic depth of field, confident expression',
+  'Disney Charactor': 'professional fitness coach portrait, Disney animation style, friendly expression, professional attire',
+  'Fantasy art': 'professional fitness coach portrait, fantasy art style, heroic pose, confident expression',
+  'Enhance': 'professional fitness coach portrait, enhanced clarity, studio lighting, confident expression',
   'Comic book': 'professional fitness coach portrait, comic book art style, heroic pose, confident expression',
-  'Disney Charactor': 'professional fitness coach portrait, Disney animation style, friendly expression, professional attire'
+  'Line art': 'professional fitness coach portrait, line art style, clean lines, confident expression',
+  'Digital Art': 'professional fitness coach portrait, digital art style, confident expression, business casual attire',
+  'Neonpunk': 'professional fitness coach portrait, neonpunk style, vibrant neon accents, confident expression',
+  'Photographic': 'professional fitness coach portrait, photographic style, studio lighting, confident expression',
+  'Lowpoly': 'professional fitness coach portrait, lowpoly geometric style, confident expression'
 };
 
 async function saveImageToBucket(imageUrl, filename) {
@@ -168,7 +184,7 @@ async function generateAvatar(replicate, model, prompt, userPhotoUrl, style = nu
   }
 }
 
-async function generateCoachAvatars(coachId, imageBuffer, mimeType) {
+async function generateCoachAvatars(coachId, imageBuffer, mimeType, options = {}) {
   const replicate = new Replicate({
     auth: process.env.REPLICATE_API_TOKEN,
   });
@@ -178,13 +194,18 @@ async function generateCoachAvatars(coachId, imageBuffer, mimeType) {
     console.log(`Storing selfie for coach ${coachId}`);
     const selfieResult = await storeSelfie(coachId, imageBuffer, mimeType);
     
-    // Generate avatars in each style
-    console.log(`Generating avatars for coach ${coachId} in ${AVATAR_STYLES.length} styles`);
+    const styleFromClient = options.style && AVATAR_STYLES.includes(options.style) ? options.style : null;
+    const stylesToGenerate = styleFromClient ? [styleFromClient] : AVATAR_STYLES;
+    // Generate avatars in the selected styles
+    console.log(`Generating avatars for coach ${coachId} in ${stylesToGenerate.length} styles`);
     const avatarResults = await Promise.allSettled(
-      AVATAR_STYLES.map(async (style) => {
+      stylesToGenerate.map(async (style) => {
         try {
-          const prompt = AVATAR_PROMPTS[style];
-          const model = AVATAR_MODELS.STYLE;
+          const basePrompt = DEFAULT_PROMPTS[style] || DEFAULT_PROMPTS['Realistic'];
+          const prompt = (options.prompt && options.prompt.trim().length > 0)
+            ? `${options.prompt}, ${basePrompt}`
+            : basePrompt;
+          const model = style === 'Realistic' ? AVATAR_MODELS.REALISTIC : AVATAR_MODELS.STYLE;
           
           // Generate avatar
           const imageUrl = await generateAvatar(replicate, model, prompt, selfieResult.signedUrl, style);
@@ -213,8 +234,8 @@ async function generateCoachAvatars(coachId, imageBuffer, mimeType) {
       if (result.status === 'fulfilled') {
         successfulAvatars.push(result.value);
       } else {
-        failedStyles.push(AVATAR_STYLES[index]);
-        console.error(`Failed to generate ${AVATAR_STYLES[index]} avatar:`, result.reason);
+        failedStyles.push(stylesToGenerate[index]);
+        console.error(`Failed to generate ${stylesToGenerate[index]} avatar:`, result.reason);
       }
     });
 
