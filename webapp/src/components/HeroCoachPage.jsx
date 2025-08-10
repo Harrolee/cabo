@@ -5,12 +5,19 @@ import { COACH_PERSONAS } from './coach-personas.js';
 import { toast } from 'react-hot-toast';
 // You may need to adjust the import path depending on your build setup
 
+// Local coach images bundled with the app
+import zenMasterImg from '../assets/coach_pics/zen_master.png';
+import gymBroImg from '../assets/coach_pics/gym_bro.png';
+import danceTeacherImg from '../assets/coach_pics/dance_teacher.png';
+import drillSergeantImg from '../assets/coach_pics/drill_sergeant.png';
+import fratBroImg from '../assets/coach_pics/frat_bro.png';
+
 const COACH_IMAGES = {
-  zen_master: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-  gym_bro: 'https://images.unsplash.com/photo-1517960413843-0aee8e2d471c?auto=format&fit=crop&w=800&q=80',
-  dance_teacher: 'https://images.unsplash.com/photo-1519864600265-abb23847ef2c?auto=format&fit=crop&w=800&q=80',
-  drill_sergeant: 'https://images.unsplash.com/photo-1503676382389-4809596d5290?auto=format&fit=crop&w=800&q=80',
-  frat_bro: 'https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=800&q=80',
+  zen_master: zenMasterImg,
+  gym_bro: gymBroImg,
+  dance_teacher: danceTeacherImg,
+  drill_sergeant: drillSergeantImg,
+  frat_bro: fratBroImg,
   // Default image for custom coaches
   custom_default: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
 };
@@ -237,9 +244,11 @@ export default function HeroCoachPage() {
           activities: isPredefined 
             ? (COACH_PERSONAS[coach.handle]?.activities || ['Fitness coaching', 'Motivation', 'Wellness guidance'])
             : ['Custom coaching', 'Personalized motivation', 'AI-powered guidance'],
-          // Use avatar_url if available, otherwise fallback to predefined or default image
-          image: coach.avatar_url || 
-                  (isPredefined && COACH_IMAGES[coach.handle] ? COACH_IMAGES[coach.handle] : COACH_IMAGES.custom_default),
+          // For predefined coaches, always use bundled local images.
+          // For custom coaches, use avatar_url if present, otherwise fallback to default.
+          image: isPredefined
+            ? (COACH_IMAGES[coach.handle] || COACH_IMAGES.custom_default)
+            : (coach.avatar_url || COACH_IMAGES.custom_default),
           foods: isPredefined && COACH_FOODS[coach.handle] 
             ? COACH_FOODS[coach.handle] 
             : COACH_FOODS.custom_default,
