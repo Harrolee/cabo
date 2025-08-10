@@ -80,18 +80,33 @@ const AvatarUpload = () => {
     try {
       // Create form data
       const formData = new FormData();
-      formData.append('selfie', selectedFile);
+      // Include filename to help multipart parsers (Busboy/Multer) on Cloud Run
+      formData.append('selfie', selectedFile, selectedFile.name);
       formData.append('coachId', coachData.tempCoachId || `temp-${Date.now()}`);
 
+      // Resolve function URL (prefer dedicated var if set)
+      const generatorUrl =
+        import.meta.env.VITE_COACH_AVATAR_GENERATOR_URL ||
+        `${import.meta.env.VITE_API_URL}/coach-avatar-generator`;
+
       // Call avatar generation function
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/coach-avatar-generator`, {
+      const response = await fetch(generatorUrl, {
         method: 'POST',
         body: formData
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate avatars');
+        let message = 'Failed to generate avatars';
+        try {
+          const maybeJson = await response.json();
+          message = maybeJson?.error || message;
+        } catch (e) {
+          try {
+            const text = await response.text();
+            if (text) message = text;
+          } catch (_) {}
+        }
+        throw new Error(message);
       }
 
       const result = await response.json();

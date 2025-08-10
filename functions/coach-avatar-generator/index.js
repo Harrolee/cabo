@@ -47,6 +47,18 @@ exports.generateCoachAvatar = async (req, res) => {
     return;
   }
 
+  // Only allow POST for uploads
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Ensure content-type is multipart/form-data
+  const contentType = req.get('content-type') || req.get('Content-Type') || '';
+  if (!contentType.toLowerCase().includes('multipart/form-data')) {
+    console.warn('Invalid content-type for upload:', contentType);
+    return res.status(400).json({ error: 'Content-Type must be multipart/form-data' });
+  }
+
   // Handle file upload
   upload.single('selfie')(req, res, async (err) => {
     if (err) {
