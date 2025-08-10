@@ -1,0 +1,12 @@
+{
+  "name": "engagement-orchestrator",
+  "version": "0.1.0",
+  "main": "index.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "node-fetch": "3.3.2",
+    "zod": "^3.24.1"
+  }
+}
+
+

@@ -173,19 +173,38 @@ async function generateCoachResponse(userMessage, spiceLevel, conversationHistor
     let systemPrompt;
     
     if (coachInfo.type === 'custom') {
-      // Use the coach-response-generator for custom coaches
+      // Use orchestrator first; fallback to direct generator
+      try {
+        const orchestratorUrl = `${process.env.GCP_FUNCTION_BASE_URL}/engagement-orchestrator`;
+        const oResp = await fetch(orchestratorUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: userData.phone_number,
+            coachId: coachInfo.id,
+            userMessage,
+            plan_key: 'chat_text_only'
+          })
+        });
+        if (oResp.ok) {
+          const oJson = await oResp.json();
+          return oJson.content?.text || "I'm having trouble responding right now. Please try again!";
+        }
+        console.error('Orchestrator call failed, falling back:', await oResp.text());
+      } catch (orchestratorError) {
+        console.error('Error calling orchestrator:', orchestratorError);
+      }
+
       try {
         const response = await fetch(`${process.env.GCP_FUNCTION_BASE_URL}/coach-response-generator`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             coachId: coachInfo.id,
             userMessage: userMessage,
             userContext: {
-              emotionalNeed: 'encouragement', // Could be enhanced to detect this
-              situation: 'general', // Could be enhanced to detect this
+              emotionalNeed: 'encouragement',
+              situation: 'general',
               previousMessages: conversationHistory.slice(-5).map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'assistant',
                 content: msg.content,
@@ -200,11 +219,9 @@ async function generateCoachResponse(userMessage, spiceLevel, conversationHistor
           return data.response;
         } else {
           console.error('Custom coach response failed, falling back to predefined');
-          // Fall through to predefined coach logic
         }
       } catch (error) {
         console.error('Error calling custom coach generator:', error);
-        // Fall through to predefined coach logic
       }
     }
     
@@ -327,9 +344,26 @@ Return JSON exactly in this schema:
     const responseText = completion.choices[0].message.content.trim();
     console.log("Raw AI response:", responseText);
 
+    // Robust JSON parsing: strip code fences and extract JSON object
+    function parseJsonLoose(text) {
+      try {
+        return JSON.parse(text);
+      } catch (_) {
+        // Strip triple backticks and optional language hint
+        let cleaned = text.replace(/^```[a-zA-Z]*\n?/m, '').replace(/```$/m, '').trim();
+        try { return JSON.parse(cleaned); } catch (_) {}
+        // Extract the first {...} block
+        const match = cleaned.match(/\{[\s\S]*\}/);
+        if (match) {
+          return JSON.parse(match[0]);
+        }
+        throw new Error('Could not parse JSON');
+      }
+    }
+
     let parsedResponse;
     try {
-      parsedResponse = JSON.parse(responseText);
+      parsedResponse = parseJsonLoose(responseText);
     } catch (parseError) {
       console.error("JSON parse error:", parseError);
       throw new Error(`Invalid JSON response: ${responseText}`);

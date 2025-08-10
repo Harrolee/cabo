@@ -6,7 +6,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { Logging } from '@google-cloud/logging';
 import { z } from 'zod';
 
-// Initialize Google Cloud Logging client
+// Initialize Google Cloud Logging client (project can be overridden per request)
 const logging = new Logging();
 
 // Define the available cloud functions based on your terraform config
@@ -30,7 +30,9 @@ const GetLogsSchema = z.object({
   severity: z.enum(['DEFAULT', 'DEBUG', 'INFO', 'NOTICE', 'WARNING', 'ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY']).optional().describe('Minimum log severity level'),
   hours: z.number().min(1).max(168).default(1).describe('Number of hours to look back (max 168 = 7 days)'),
   limit: z.number().min(1).max(1000).default(100).describe('Maximum number of log entries to return'),
-  filter: z.string().optional().describe('Additional filter query in Cloud Logging filter syntax')
+  filter: z.string().optional().describe('Additional filter query in Cloud Logging filter syntax'),
+  projectId: z.string().optional().describe('GCP Project ID to query. Defaults to env project.'),
+  region: z.string().optional().describe('Region/location to filter logs by (e.g., us-central1). Optional.')
 });
 
 const ListFunctionsSchema = z.object({});
@@ -101,6 +103,14 @@ class CloudLogsServer {
                 filter: {
                   type: 'string',
                   description: 'Additional filter query in Cloud Logging filter syntax (optional)'
+                },
+                projectId: {
+                  type: 'string',
+                  description: 'GCP Project ID to query. Defaults to env project.'
+                },
+                region: {
+                  type: 'string',
+                  description: 'Region/location to filter logs by (e.g., us-central1). Optional.'
                 }
               }
             }
@@ -137,6 +147,14 @@ class CloudLogsServer {
                   minimum: 1,
                   maximum: 500,
                   default: 50
+                },
+                projectId: {
+                  type: 'string',
+                  description: 'GCP Project ID to query. Defaults to env project.'
+                },
+                region: {
+                  type: 'string',
+                  description: 'Region/location to filter logs by (e.g., us-central1). Optional.'
                 }
               },
               required: ['functionName']
@@ -175,30 +193,40 @@ class CloudLogsServer {
 
   async getFunctionLogs(args) {
     const params = GetLogsSchema.parse(args);
-    
-    // Build the filter query
-    let filter = `resource.type="cloud_function"`;
-    
+
+    // Allow per-call project override
+    const inferredProjectId = params.projectId || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+    const loggingClient = inferredProjectId ? new Logging({ projectId: inferredProjectId }) : logging;
+
+    // Build resource-aware filter that works for CFv2 (Cloud Run) and CFv1
+    const hoursAgo = new Date(Date.now() - params.hours * 60 * 60 * 1000).toISOString();
+    const runLogNames = 'logName:("run.googleapis.com%2Frequests" OR "run.googleapis.com%2Fstderr" OR "run.googleapis.com%2Fstdout")';
+
+    const regionClauseRun = params.region ? ` AND resource.labels.location="${params.region}"` : '';
+    const regionClauseCF1 = params.region ? ` AND resource.labels.region="${params.region}"` : '';
+
+    let resourceClause;
     if (params.functionName) {
-      filter += ` AND resource.labels.function_name="${params.functionName}"`;
+      const cloudRunFilter = `resource.type="cloud_run_revision" AND resource.labels.service_name="${params.functionName}"${regionClauseRun} AND ${runLogNames}`;
+      const cloudFunctionV1Filter = `resource.type="cloud_function" AND resource.labels.function_name="${params.functionName}"${regionClauseCF1}`;
+      resourceClause = `(${cloudRunFilter}) OR (${cloudFunctionV1Filter})`;
+    } else {
+      const cloudRunAny = `resource.type="cloud_run_revision" AND labels."goog-managed-by"="cloudfunctions"${regionClauseRun} AND ${runLogNames}`;
+      const cloudFunctionAny = `resource.type="cloud_function"${regionClauseCF1}`;
+      resourceClause = `(${cloudRunAny}) OR (${cloudFunctionAny})`;
     }
-    
+
+    let filter = `${resourceClause} AND timestamp>="${hoursAgo}"`;
     if (params.severity) {
       filter += ` AND severity>="${params.severity}"`;
     }
-    
-    // Add time filter
-    const hoursAgo = new Date(Date.now() - params.hours * 60 * 60 * 1000);
-    filter += ` AND timestamp>="${hoursAgo.toISOString()}"`;
-    
-    // Add custom filter if provided
     if (params.filter) {
       filter += ` AND (${params.filter})`;
     }
 
     try {
-      const [entries] = await logging.getEntries({
-        filter: filter,
+      const [entries] = await loggingClient.getEntries({
+        filter,
         pageSize: params.limit,
         orderBy: 'timestamp desc'
       });
@@ -206,7 +234,8 @@ class CloudLogsServer {
       const logs = entries.map(entry => ({
         timestamp: entry.metadata.timestamp,
         severity: entry.metadata.severity,
-        functionName: entry.metadata.resource?.labels?.function_name || 'unknown',
+        functionName: entry.metadata.resource?.labels?.service_name || entry.metadata.resource?.labels?.function_name || 'unknown',
+        logName: entry.metadata.logName,
         message: typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data),
         labels: entry.metadata.labels,
         sourceLocation: entry.metadata.sourceLocation
@@ -216,9 +245,9 @@ class CloudLogsServer {
         content: [
           {
             type: 'text',
-            text: `Found ${logs.length} log entries:\n\n${logs.map(log => 
-              `[${log.timestamp}] ${log.severity} - ${log.functionName}\n${log.message}\n---`
-            ).join('\n')}`
+            text: `Found ${logs.length} log entries${inferredProjectId ? ` in project ${inferredProjectId}` : ''}:
+
+${logs.map(log => `[` + log.timestamp + `] ` + log.severity + ` - ` + log.functionName + `\n` + (log.logName ? `(log: ${log.logName.split('/logs/')[1] || log.logName})\n` : '') + log.message + `\n---`).join('\n')}`
           }
         ]
       };
@@ -244,20 +273,34 @@ class CloudLogsServer {
     const params = z.object({
       functionName: z.string(),
       hours: z.number().min(1).max(168).default(24),
-      limit: z.number().min(1).max(500).default(50)
+      limit: z.number().min(1).max(500).default(50),
+      projectId: z.string().optional(),
+      region: z.string().optional()
     }).parse(args);
 
-    // Build filter for errors only
-    let filter = `resource.type="cloud_function"`;
-    filter += ` AND resource.labels.function_name="${params.functionName}"`;
-    filter += ` AND (severity>="ERROR" OR jsonPayload.error IS NOT NULL OR textPayload=~".*[Ee]rror.*")`;
-    
-    const hoursAgo = new Date(Date.now() - params.hours * 60 * 60 * 1000);
-    filter += ` AND timestamp>="${hoursAgo.toISOString()}"`;
+    const inferredProjectId = params.projectId || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+    const loggingClient = inferredProjectId ? new Logging({ projectId: inferredProjectId }) : logging;
+
+    const hoursAgoIso = new Date(Date.now() - params.hours * 60 * 60 * 1000).toISOString();
+    const runLogNames = 'logName:("run.googleapis.com%2Frequests" OR "run.googleapis.com%2Fstderr" OR "run.googleapis.com%2Fstdout")';
+    const regionClauseRun = params.region ? ` AND resource.labels.location="${params.region}"` : '';
+    const regionClauseCF1 = params.region ? ` AND resource.labels.region="${params.region}"` : '';
+
+    // Include WARNING+ for requests (many CFv2 failures show as WARNING) and match error terms in payloads
+    const cloudRunErrorPredicate = `(severity>="WARNING" OR jsonPayload.message=~"(?i)(error|exception)" OR textPayload=~"(?i)(error|exception)")`;
+    const cloudFunctionV1ErrorPredicate = `(severity>="ERROR" OR jsonPayload.error IS NOT NULL OR jsonPayload.message=~"(?i)(error|exception)" OR textPayload=~"(?i)(error|exception)")`;
+
+    const cloudRunFilter = `resource.type="cloud_run_revision" AND resource.labels.service_name="${params.functionName}"${regionClauseRun} AND ${runLogNames} AND ${cloudRunErrorPredicate}`;
+    const cloudFunctionV1Filter = `resource.type="cloud_function" AND resource.labels.function_name="${params.functionName}"${regionClauseCF1} AND ${cloudFunctionV1ErrorPredicate}`;
+
+    let filter = `(${cloudRunFilter}) OR (${cloudFunctionV1Filter}) AND timestamp>="${hoursAgoIso}"`;
+    // Ensure timestamp applies to both branches
+    filter = `(${cloudRunFilter}) OR (${cloudFunctionV1Filter}) AND timestamp>="${hoursAgoIso}"`;
+    filter = `(((${cloudRunFilter})) OR ((${cloudFunctionV1Filter}))) AND timestamp>="${hoursAgoIso}"`;
 
     try {
-      const [entries] = await logging.getEntries({
-        filter: filter,
+      const [entries] = await loggingClient.getEntries({
+        filter,
         pageSize: params.limit,
         orderBy: 'timestamp desc'
       });
@@ -265,6 +308,8 @@ class CloudLogsServer {
       const errors = entries.map(entry => ({
         timestamp: entry.metadata.timestamp,
         severity: entry.metadata.severity,
+        functionName: entry.metadata.resource?.labels?.service_name || entry.metadata.resource?.labels?.function_name || 'unknown',
+        logName: entry.metadata.logName,
         message: typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data),
         sourceLocation: entry.metadata.sourceLocation,
         labels: entry.metadata.labels
@@ -274,9 +319,9 @@ class CloudLogsServer {
         content: [
           {
             type: 'text',
-            text: `Found ${errors.length} error entries for ${params.functionName}:\n\n${errors.map(error => 
-              `[${error.timestamp}] ${error.severity}\n${error.message}\n${error.sourceLocation ? `Location: ${JSON.stringify(error.sourceLocation)}` : ''}\n---`
-            ).join('\n')}`
+            text: `Found ${errors.length} error entries for ${params.functionName}${inferredProjectId ? ` in project ${inferredProjectId}` : ''}:
+
+${errors.map(error => `[` + error.timestamp + `] ` + error.severity + ` - ` + error.functionName + `\n` + (error.logName ? `(log: ${error.logName.split('/logs/')[1] || error.logName})\n` : '') + error.message + `\n---`).join('\n')}`
           }
         ]
       };

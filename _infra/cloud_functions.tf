@@ -310,6 +310,14 @@ data "archive_file" "coach_avatar_generator_zip" {
   excludes    = ["node_modules"]
 }
 
+# Engagement orchestrator package
+data "archive_file" "engagement_orchestrator_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/engagement-orchestrator"
+  output_path = "${path.root}/tmp/engagement-orchestrator.zip"
+  excludes    = ["node_modules"]
+}
+
 # Upload the function sources to Cloud Storage
 resource "google_storage_bucket_object" "motivational_images_source" {
   name   = "motivational-images-${data.archive_file.motivational_images_zip.output_md5}.zip"
@@ -382,6 +390,12 @@ resource "google_storage_bucket_object" "coach_avatar_generator_source" {
   name   = "coach-avatar-generator-${data.archive_file.coach_avatar_generator_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.coach_avatar_generator_zip.output_path
+}
+
+resource "google_storage_bucket_object" "engagement_orchestrator_source" {
+  name   = "engagement-orchestrator-${data.archive_file.engagement_orchestrator_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.engagement_orchestrator_zip.output_path
 }
 
 # Deploy Cloud Functions using the module
@@ -653,6 +667,33 @@ module "coach_avatar_generator_function" {
     ALLOWED_ORIGINS         = var.allowed_origins
   }
   depends_on = [google_storage_bucket_object.coach_avatar_generator_source]
+}
+
+module "engagement_orchestrator_function" {
+  source = "./modules/cloud_function"
+  name        = "engagement-orchestrator"
+  description = "Orchestrates text/image content generation for engagements"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.engagement_orchestrator_source.name
+  entry_point = "orchestrateEngagement"
+  memory      = "512M"
+  timeout     = 120
+  service_account_email = google_service_account.coach_avatar_generator.email
+  environment_variables = {
+    SUPABASE_URL              = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    GCP_FUNCTION_BASE_URL     = module.coach_response_generator_function.url
+    ALLOWED_ORIGINS           = var.allowed_origins
+  }
+  depends_on = [google_storage_bucket_object.engagement_orchestrator_source, module.coach_response_generator_function]
+}
+
+resource "google_cloud_run_service_iam_member" "engagement_orchestrator_invoker" {
+  location = module.engagement_orchestrator_function.function.location
+  service  = module.engagement_orchestrator_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 resource "google_cloud_run_service_iam_member" "process_sms_invoker" {
