@@ -54,10 +54,11 @@ export const CoachBuilderProvider = ({ children }) => {
   ];
 
   // In Quick Start mode, simplify the steps to reduce perceived effort
+  // For streamlined flow, keep the UI minimal; optionally only show current step text
   const quickSteps = [
     { id: 'landing', name: 'Welcome', path: '/coach-builder' },
-    { id: 'preview', name: 'Preview & Test', path: '/coach-builder/preview' },
-    { id: 'save', name: 'Save Coach', path: '/coach-builder/save' }
+    { id: 'preview', name: 'Preview', path: '/coach-builder/preview' },
+    { id: 'save', name: 'Save', path: '/coach-builder/save' }
   ];
 
   const steps = previewMode ? quickSteps : fullSteps;

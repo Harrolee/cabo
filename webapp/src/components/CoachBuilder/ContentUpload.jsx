@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCoachBuilder } from '../../contexts/CoachBuilderContext';
 import ProgressStepper from './components/ProgressStepper';
+import Background from './components/Background';
 
 const ContentUpload = () => {
   const navigate = useNavigate();
@@ -109,9 +110,9 @@ const ContentUpload = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <Background>
       {/* Header */}
-      <div className="bg-white shadow-sm">
+      <div className="bg-white/80 backdrop-blur shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <ProgressStepper />
         </div>
@@ -119,7 +120,7 @@ const ContentUpload = () => {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-sm p-8">
+        <div className="bg-white/90 backdrop-blur rounded-lg shadow-sm p-8">
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -336,7 +337,7 @@ const ContentUpload = () => {
           </div>
         </div>
       </div>
-    </div>
+    </Background>
   );
 };
 

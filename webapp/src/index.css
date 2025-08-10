@@ -1,3 +1,34 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* High-contrast slider styling for all builders */
+input[type="range"].cb-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: #d1d5db; /* gray-300 */
+}
+input[type="range"].cb-slider:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.25); /* blue-500 ring */
+}
+input[type="range"].cb-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: #2563eb; /* blue-600 */
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+input[type="range"].cb-slider::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: #2563eb;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #2563eb;
+}

@@ -2,14 +2,15 @@ import React from 'react';
 import { useCoachBuilder } from '../../../contexts/CoachBuilderContext';
 
 const ProgressStepper = ({ className = '' }) => {
-  const { currentStep, steps } = useCoachBuilder();
+  const { currentStep, steps, previewMode } = useCoachBuilder();
+
+  if (previewMode) return null;
 
   return (
     <div className={`w-full ${className}`}>
       <div className="flex items-center justify-between">
         {steps.map((step, index) => (
           <div key={step.id} className="flex items-center">
-            {/* Step Circle */}
             <div className="flex items-center">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -30,8 +31,6 @@ const ProgressStepper = ({ className = '' }) => {
                   index + 1
                 )}
               </div>
-              
-              {/* Step Label */}
               <div className="ml-2 hidden sm:block">
                 <p
                   className={`text-sm font-medium ${
@@ -42,8 +41,6 @@ const ProgressStepper = ({ className = '' }) => {
                 </p>
               </div>
             </div>
-
-            {/* Connector Line */}
             {index < steps.length - 1 && (
               <div
                 className={`w-8 h-0.5 mx-2 ${
@@ -53,13 +50,6 @@ const ProgressStepper = ({ className = '' }) => {
             )}
           </div>
         ))}
-      </div>
-
-      {/* Mobile Step Labels */}
-      <div className="sm:hidden mt-4 text-center">
-        <p className="text-sm font-medium text-gray-900">
-          Step {currentStep + 1} of {steps.length}: {steps[currentStep]?.name}
-        </p>
       </div>
     </div>
   );

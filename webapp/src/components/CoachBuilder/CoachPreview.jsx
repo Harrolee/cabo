@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCoachBuilder } from '../../contexts/CoachBuilderContext';
 import ProgressStepper from './components/ProgressStepper';
+import Background from './components/Background';
 
 const CoachPreview = () => {
   const navigate = useNavigate();
@@ -106,7 +107,11 @@ const CoachPreview = () => {
 
   const handlePrev = () => {
     prevStep();
-    navigate('/coach-builder/avatar');
+    if (previewMode) {
+      navigate('/coach-builder');
+    } else {
+      navigate('/coach-builder/avatar');
+    }
   };
 
   const formatTime = (timestamp) => {
@@ -114,19 +119,21 @@ const CoachPreview = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <ProgressStepper />
+    <Background>
+      {/* Header: hide in quick mode */}
+      {!previewMode && (
+        <div className="bg-white/80 backdrop-blur shadow-sm">
+          <div className="max-w-4xl mx-auto px-4 py-6">
+            <ProgressStepper />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Coach Summary */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="bg-white/90 rounded-lg shadow-xl p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Your AI Coach</h2>
             <p className="text-sm text-gray-500 mb-4">Click any field to edit. Use sliders to tune voice, then test in chat.</p>
             
@@ -197,17 +204,17 @@ const CoachPreview = () => {
                     <div key={cfg.field}>
                       <div className="flex justify-between mb-1">
                         <label className="text-sm font-medium text-gray-700">{cfg.label}</label>
-                        <span className="text-sm font-semibold text-blue-600">{sliders[cfg.field]}</span>
+                        <span className="text-sm font-semibold text-blue-700">{sliders[cfg.field]}</span>
                       </div>
-                      <input
+                       <input
                         type="range"
                         min={cfg.min}
                         max={cfg.max}
                         value={sliders[cfg.field]}
                         onChange={(e) => onSliderChange(cfg.field, e.target.value)}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                         className="cb-slider w-full appearance-none cursor-pointer"
                       />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                       <div className="flex justify-between text-xs text-gray-600 mt-1">
                         <span>{cfg.low}</span>
                         <span>{cfg.high}</span>
                       </div>
@@ -254,7 +261,7 @@ const CoachPreview = () => {
           </div>
 
           {/* Chat Interface */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="bg-white/90 rounded-lg shadow-xl p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-900">Test Your Coach</h2>
               {conversation.length > 0 && (
@@ -359,7 +366,7 @@ const CoachPreview = () => {
         </div>
 
         {/* Navigation */}
-        <div className="flex justify-between items-center mt-8 bg-white rounded-lg shadow-sm p-6">
+        <div className="flex justify-between items-center mt-8 bg-white/90 rounded-lg shadow-xl p-6">
           <button
             onClick={handlePrev}
             className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium"
@@ -381,7 +388,7 @@ const CoachPreview = () => {
           </button>
         </div>
       </div>
-    </div>
+    </Background>
   );
 };
 

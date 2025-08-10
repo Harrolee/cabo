@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../main';
 import { useCoachBuilder } from '../../contexts/CoachBuilderContext';
 import ProgressStepper from './components/ProgressStepper';
+import Background from './components/Background';
 
 const CoachSavePrompt = () => {
   const navigate = useNavigate();
@@ -146,9 +147,9 @@ const CoachSavePrompt = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <Background>
       {/* Header */}
-      <div className="bg-white shadow-sm">
+      <div className="bg-white/80 backdrop-blur shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <ProgressStepper />
         </div>
@@ -156,7 +157,7 @@ const CoachSavePrompt = () => {
 
       {/* Content */}
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-sm p-8">
+        <div className="bg-white/90 backdrop-blur rounded-lg shadow-sm p-8">
           {!user ? (
             // Not logged in
             <>
@@ -374,7 +375,7 @@ const CoachSavePrompt = () => {
           )}
         </div>
       </div>
-    </div>
+    </Background>
   );
 };
 
