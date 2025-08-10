@@ -195,15 +195,16 @@ class CloudLogsServer {
     const params = GetLogsSchema.parse(args);
 
     // Allow per-call project override
-    const inferredProjectId = params.projectId || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+    const inferredProjectId = params.projectId || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'cabo-446722';
     const loggingClient = inferredProjectId ? new Logging({ projectId: inferredProjectId }) : logging;
+    const inferredRegion = params.region || process.env.GOOGLE_CLOUD_REGION || process.env.CLOUD_RUN_REGION || process.env.FUNCTION_REGION || process.env.REGION || process.env.GCLOUD_REGION || 'us-central1';
 
     // Build resource-aware filter that works for CFv2 (Cloud Run) and CFv1
     const hoursAgo = new Date(Date.now() - params.hours * 60 * 60 * 1000).toISOString();
     const runLogNames = 'logName:("run.googleapis.com%2Frequests" OR "run.googleapis.com%2Fstderr" OR "run.googleapis.com%2Fstdout")';
 
-    const regionClauseRun = params.region ? ` AND resource.labels.location="${params.region}"` : '';
-    const regionClauseCF1 = params.region ? ` AND resource.labels.region="${params.region}"` : '';
+    const regionClauseRun = inferredRegion ? ` AND resource.labels.location="${inferredRegion}"` : '';
+    const regionClauseCF1 = inferredRegion ? ` AND resource.labels.region="${inferredRegion}"` : '';
 
     let resourceClause;
     if (params.functionName) {
@@ -245,7 +246,7 @@ class CloudLogsServer {
         content: [
           {
             type: 'text',
-            text: `Found ${logs.length} log entries${inferredProjectId ? ` in project ${inferredProjectId}` : ''}:
+            text: `Found ${logs.length} log entries${inferredProjectId ? ` in project ${inferredProjectId}` : ''}${inferredRegion ? ` (region ${inferredRegion})` : ''}:
 
 ${logs.map(log => `[` + log.timestamp + `] ` + log.severity + ` - ` + log.functionName + `\n` + (log.logName ? `(log: ${log.logName.split('/logs/')[1] || log.logName})\n` : '') + log.message + `\n---`).join('\n')}`
           }
@@ -278,13 +279,14 @@ ${logs.map(log => `[` + log.timestamp + `] ` + log.severity + ` - ` + log.functi
       region: z.string().optional()
     }).parse(args);
 
-    const inferredProjectId = params.projectId || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+    const inferredProjectId = params.projectId || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'cabo-446722';
     const loggingClient = inferredProjectId ? new Logging({ projectId: inferredProjectId }) : logging;
+    const inferredRegion = params.region || process.env.GOOGLE_CLOUD_REGION || process.env.CLOUD_RUN_REGION || process.env.FUNCTION_REGION || process.env.REGION || process.env.GCLOUD_REGION || 'us-central1';
 
     const hoursAgoIso = new Date(Date.now() - params.hours * 60 * 60 * 1000).toISOString();
     const runLogNames = 'logName:("run.googleapis.com%2Frequests" OR "run.googleapis.com%2Fstderr" OR "run.googleapis.com%2Fstdout")';
-    const regionClauseRun = params.region ? ` AND resource.labels.location="${params.region}"` : '';
-    const regionClauseCF1 = params.region ? ` AND resource.labels.region="${params.region}"` : '';
+    const regionClauseRun = inferredRegion ? ` AND resource.labels.location="${inferredRegion}"` : '';
+    const regionClauseCF1 = inferredRegion ? ` AND resource.labels.region="${inferredRegion}"` : '';
 
     // Include WARNING+ for requests (many CFv2 failures show as WARNING) and match error terms in payloads
     const cloudRunErrorPredicate = `(severity>="WARNING" OR jsonPayload.message=~"(?i)(error|exception)" OR textPayload=~"(?i)(error|exception)")`;
@@ -319,7 +321,7 @@ ${logs.map(log => `[` + log.timestamp + `] ` + log.severity + ` - ` + log.functi
         content: [
           {
             type: 'text',
-            text: `Found ${errors.length} error entries for ${params.functionName}${inferredProjectId ? ` in project ${inferredProjectId}` : ''}:
+            text: `Found ${errors.length} error entries for ${params.functionName}${inferredProjectId ? ` in project ${inferredProjectId}` : ''}${inferredRegion ? ` (region ${inferredRegion})` : ''}:
 
 ${errors.map(error => `[` + error.timestamp + `] ` + error.severity + ` - ` + error.functionName + `\n` + (error.logName ? `(log: ${error.logName.split('/logs/')[1] || error.logName})\n` : '') + error.message + `\n---`).join('\n')}`
           }
