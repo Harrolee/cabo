@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../main';
+// No storage dependency; we send base64 directly to the generator
 import { useNavigate } from 'react-router-dom';
 import { useCoachBuilder } from '../../contexts/CoachBuilderContext';
 import ProgressStepper from './components/ProgressStepper';
@@ -97,21 +97,16 @@ const AvatarUpload = () => {
 
     try {
       // Create form data
-      // 1) Upload selfie to Supabase public bucket to obtain a stable URL
-      const fileExt = selectedFile.name.split('.').pop();
-      const safeName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storagePath = `temp-avatars/${Date.now()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage
-        .from('coach-avatars')
-        .upload(storagePath, selectedFile, { upsert: true, contentType: selectedFile.type });
-      if (uploadError) throw uploadError;
+      // 1) Read file as base64 (robust JSON-only path)
+      const toBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const selfieBase64 = await toBase64(selectedFile);
 
-      const { data: publicData } = supabase.storage
-        .from('coach-avatars')
-        .getPublicUrl(storagePath);
-      const selfieUrl = publicData.publicUrl;
-
-      // 2) Call avatar generation via JSON (robust path)
+      // 2) Call avatar generation via JSON
       const generatorUrl =
         import.meta.env.VITE_COACH_AVATAR_GENERATOR_URL ||
         `${import.meta.env.VITE_API_URL}/coach-avatar-generator`;
@@ -121,7 +116,8 @@ const AvatarUpload = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           coachId: coachData.tempCoachId || `temp-${Date.now()}`,
-          selfie_url: selfieUrl,
+          selfie_base64: selfieBase64,
+          selfie_mime: selectedFile.type,
           style,
           prompt
         })
@@ -153,7 +149,7 @@ const AvatarUpload = () => {
         updateAvatar({
           generatedAvatars: result.avatars,
           selectedAvatar: result.avatars[0],
-          originalSelfieUrl: selfieUrl,
+          originalSelfieUrl: selfieBase64,
           tempCoachId: coachData.tempCoachId || `temp-${Date.now()}`
         });
 
