@@ -72,6 +72,18 @@ variable "allowed_origins" {
   default     = "http://localhost:5173"
 }
 
+variable "admin_emails" {
+  description = "Comma-separated list of admin email addresses allowed to use the admin dashboard"
+  type        = string
+  default     = ""
+}
+
+variable "admin_phones" {
+  description = "Comma-separated list of admin phone numbers (E.164) allowed to use the admin dashboard"
+  type        = string
+  default     = ""
+}
+
 variable "openai_api_key" {
   description = "API key for OpenAI"
   type        = string
