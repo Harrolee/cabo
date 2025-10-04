@@ -4,6 +4,12 @@ import { supabase } from '../../main';
 
 function isAdminUser(session) {
   if (!session || !session.user) return false;
+  // Prefer DB flag via JWT claim if available
+  const jwt = session.user;
+  const isAdminClaim = (jwt.user_metadata && jwt.user_metadata.is_admin) || (jwt.app_metadata && jwt.app_metadata.is_admin);
+  if (isAdminClaim === true) return true;
+
+  // Fallback to env allowlist (emails/phones) if DB flag not available
   const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || '')
     .split(',')
     .map((s) => s.trim().toLowerCase())
