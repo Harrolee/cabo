@@ -33,6 +33,10 @@ stripe_price_id       = "price_your-stripe-price-id"
 # CORS Configuration
 allowed_origins = "http://localhost:5173,https://your-domain.com"
 
+# Admin Dashboard Configuration
+admin_emails = "admin@example.com"
+admin_phones = "+15551234567"
+
 # Storage Configuration
 conversation_bucket_name     = "user-conversations"
 conversation_bucket_location = "US"

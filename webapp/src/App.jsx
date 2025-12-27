@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
-import { toast } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { supabase } from './main';
 import { LoginPage } from './components/auth/LoginPage';
 import { AuthenticatedLayout } from './components/layout/AuthenticatedLayout';
@@ -24,6 +24,8 @@ import CoachDashboard from './components/MyCoaches/CoachDashboard';
 import CoachContentManager from './components/MyCoaches/CoachContentManager';
 import CoachEdit from './components/MyCoaches/CoachEdit';
 import CoachAvatarEdit from './components/MyCoaches/CoachAvatarEdit';
+import AdminDashboard from './components/AdminDashboard';
+import { AdminProtectedRoute } from './components/AdminProtectedRoute';
 
 const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
 
@@ -89,6 +91,8 @@ export function App() {
   }, [urlParams]);
 
   return (
+    <>
+    <Toaster position="top-center" />
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/coaches" element={<HeroCoachPage />} />
@@ -114,6 +118,7 @@ export function App() {
         <Route path="/my-coaches/:coachId/content" element={<CoachContentManager />} />
         <Route path="/my-coaches/:coachId/edit" element={<CoachEdit />} />
         <Route path="/my-coaches/:coachId/avatar" element={<CoachAvatarEdit />} />
+        <Route path="/admin" element={<AdminProtectedRoute session={session}><AdminDashboard /></AdminProtectedRoute>} />
       </Route>
 
       <Route path="/*" element={
@@ -135,5 +140,6 @@ export function App() {
         />
       } />
     </Routes>
+    </>
   );
 }

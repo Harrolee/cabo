@@ -281,6 +281,13 @@ data "archive_file" "cancel_stripe_subscription_zip" {
   excludes    = ["node_modules"]
 }
 
+data "archive_file" "admin_api_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/admin-api"
+  output_path = "${path.root}/tmp/admin-api.zip"
+  excludes    = ["node_modules"]
+}
+
 # Coach Builder function ZIP archives
 data "archive_file" "coach_content_processor_zip" {
   type        = "zip"
@@ -365,6 +372,12 @@ resource "google_storage_bucket_object" "cancel_stripe_subscription_source" {
   name   = "cancel-stripe-subscription-${data.archive_file.cancel_stripe_subscription_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.cancel_stripe_subscription_zip.output_path
+}
+
+resource "google_storage_bucket_object" "admin_api_source" {
+  name   = "admin-api-${data.archive_file.admin_api_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.admin_api_zip.output_path
 }
 
 # Coach Builder function sources
@@ -571,6 +584,29 @@ module "cancel_stripe_subscription_function" {
   depends_on = [google_storage_bucket_object.cancel_stripe_subscription_source]
 }
 
+module "admin_api_function" {
+  source = "./modules/cloud_function"
+
+  name        = "admin-api"
+  description = "Admin API for user management and chat logs"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.admin_api_source.name
+  entry_point = "adminApi"
+
+  environment_variables = {
+    PROJECT_ID                = var.project_id
+    SUPABASE_URL              = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    CONVERSATION_BUCKET_NAME  = var.conversation_bucket_name
+    ADMIN_EMAILS              = var.admin_emails
+    ADMIN_PHONES              = var.admin_phones
+    ALLOWED_ORIGINS           = var.allowed_origins
+  }
+
+  depends_on = [google_storage_bucket_object.admin_api_source]
+}
+
 # Coach Builder Cloud Functions
 module "coach_content_processor_function" {
   source = "./modules/cloud_function"
@@ -734,6 +770,13 @@ resource "google_cloud_run_service_iam_member" "create_setup_intent_invoker" {
 resource "google_cloud_run_service_iam_member" "cancel_stripe_subscription_invoker" {
   location = module.cancel_stripe_subscription_function.function.location
   service  = module.cancel_stripe_subscription_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "admin_api_invoker" {
+  location = module.admin_api_function.function.location
+  service  = module.admin_api_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
