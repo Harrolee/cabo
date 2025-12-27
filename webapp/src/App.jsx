@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
-import { toast } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { supabase } from './main';
 import { LoginPage } from './components/auth/LoginPage';
 import { AuthenticatedLayout } from './components/layout/AuthenticatedLayout';
@@ -91,6 +91,8 @@ export function App() {
   }, [urlParams]);
 
   return (
+    <>
+    <Toaster position="top-center" />
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/coaches" element={<HeroCoachPage />} />
@@ -138,5 +140,6 @@ export function App() {
         />
       } />
     </Routes>
+    </>
   );
 }

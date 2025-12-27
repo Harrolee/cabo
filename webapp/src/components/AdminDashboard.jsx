@@ -105,18 +105,11 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
-    loadUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, page, pageSize]);
-
-  // Ensure listing shows all users by default and when search is cleared
-  useEffect(() => {
-    if (token && search === '') {
-      setPage(1);
+    if (token) {
       loadUsers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, search]);
+  }, [token, page, pageSize]);
 
   async function openUser(u) {
     setSelectedUser(u);
