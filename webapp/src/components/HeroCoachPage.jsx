@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../main';
 import { COACH_PERSONAS } from './coach-personas.js';
 import { toast } from 'react-hot-toast';
+import { isMobile } from '../constants';
 // You may need to adjust the import path depending on your build setup
 
 // Local coach images bundled with the app
@@ -201,6 +202,7 @@ export default function HeroCoachPage() {
   const [allCoaches, setAllCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [showMobileInfo, setShowMobileInfo] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -323,86 +325,132 @@ export default function HeroCoachPage() {
       />
       
       {/* Back button in top-right */}
-      <div className="absolute top-8 right-8 z-30">
+      <div className={`absolute z-30 ${isMobile ? 'top-4 right-4' : 'top-8 right-8'}`}>
         <button
           onClick={() => navigate(-1)}
-          className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold py-3 px-6 rounded-full shadow-lg text-lg hover:scale-105 transition-transform duration-200 border-4 border-white/30 backdrop-blur-md"
+          className={`bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold rounded-full shadow-lg hover:scale-105 transition-transform duration-200 border-4 border-white/30 backdrop-blur-md ${isMobile ? 'py-2 px-4 text-sm' : 'py-3 px-6 text-lg'}`}
           style={{ boxShadow: '0 4px 32px 0 rgba(80, 0, 120, 0.25)' }}
         >
-          ← Back
+          {isMobile ? 'Back' : '← Back'}
         </button>
       </div>
 
       {/* Chat button in top-left */}
-      <div className="absolute top-8 left-8 z-30">
+      <div className={`absolute z-30 ${isMobile ? 'top-4 left-4' : 'top-8 left-8'}`}>
         <button
           onClick={openChat}
-          className="bg-gradient-to-r from-green-500 to-blue-500 text-white font-bold py-3 px-6 rounded-full shadow-lg text-lg hover:scale-105 transition-transform duration-200 border-4 border-white/30 backdrop-blur-md"
+          className={`bg-gradient-to-r from-green-500 to-blue-500 text-white font-bold rounded-full shadow-lg hover:scale-105 transition-transform duration-200 border-4 border-white/30 backdrop-blur-md ${isMobile ? 'py-2 px-4 text-sm' : 'py-3 px-6 text-lg'}`}
           style={{ boxShadow: '0 4px 32px 0 rgba(0, 120, 80, 0.25)' }}
         >
-          💬 Chat
+          Chat
         </button>
       </div>
 
-      {/* Left edge info box */}
-      <div className="absolute top-1/2 left-0 transform -translate-y-1/2 ml-2 md:ml-8 z-10 max-w-xs w-[90vw] md:w-80">
-        <div className="bg-gray-900 bg-opacity-80 rounded-lg shadow-lg p-4 text-white mb-4">
-          <h2 className="font-semibold text-xl mb-2">Characteristics</h2>
-          <ul className="list-disc list-inside text-base">
-            {currentCoach.traits.map((trait, i) => (
-              <li key={i}>{trait}</li>
-            ))}
-          </ul>
+      {/* Desktop: Left edge info box */}
+      {!isMobile && (
+        <div className="absolute top-1/2 left-0 transform -translate-y-1/2 ml-8 z-10 max-w-xs w-80">
+          <div className="bg-gray-900 bg-opacity-80 rounded-lg shadow-lg p-4 text-white mb-4">
+            <h2 className="font-semibold text-xl mb-2">Characteristics</h2>
+            <ul className="list-disc list-inside text-base">
+              {currentCoach.traits.map((trait, i) => (
+                <li key={i}>{trait}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="bg-gray-900 bg-opacity-80 rounded-lg shadow-lg p-4 text-white">
+            <h2 className="font-semibold text-xl mb-2">Favorite Foods</h2>
+            <ul className="list-disc list-inside text-base">
+              {currentCoach.foods.map((food, i) => (
+                <li key={i}>{food}</li>
+              ))}
+            </ul>
+          </div>
         </div>
-        <div className="bg-gray-900 bg-opacity-80 rounded-lg shadow-lg p-4 text-white">
-          <h2 className="font-semibold text-xl mb-2">Favorite Foods</h2>
-          <ul className="list-disc list-inside text-base">
-            {currentCoach.foods.map((food, i) => (
-              <li key={i}>{food}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      )}
 
-      {/* Right edge info box */}
-      <div className="absolute top-1/2 right-0 transform -translate-y-1/2 mr-2 md:mr-8 z-10 max-w-xs w-[90vw] md:w-80">
-        <div className="bg-gray-900 bg-opacity-80 rounded-lg shadow-lg p-4 text-white">
-          <h2 className="font-semibold text-xl mb-2">Pursuits</h2>
-          <ul className="list-disc list-inside text-base">
-            {currentCoach.activities.map((activity, i) => (
-              <li key={i}>{activity}</li>
-            ))}
-          </ul>
+      {/* Desktop: Right edge info box */}
+      {!isMobile && (
+        <div className="absolute top-1/2 right-0 transform -translate-y-1/2 mr-8 z-10 max-w-xs w-80">
+          <div className="bg-gray-900 bg-opacity-80 rounded-lg shadow-lg p-4 text-white">
+            <h2 className="font-semibold text-xl mb-2">Pursuits</h2>
+            <ul className="list-disc list-inside text-base">
+              {currentCoach.activities.map((activity, i) => (
+                <li key={i}>{activity}</li>
+              ))}
+            </ul>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Mobile: Info toggle button */}
+      {isMobile && (
+        <button
+          onClick={() => setShowMobileInfo(!showMobileInfo)}
+          className="absolute top-20 left-1/2 transform -translate-x-1/2 z-30 bg-gray-900 bg-opacity-70 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"
+        >
+          {showMobileInfo ? 'Hide Info' : 'Show Info'}
+        </button>
+      )}
+
+      {/* Mobile: Collapsible info panel at bottom */}
+      {isMobile && showMobileInfo && (
+        <div className="absolute bottom-44 left-0 right-0 z-25 px-4 max-h-[40vh] overflow-y-auto">
+          <div className="bg-gray-900 bg-opacity-90 rounded-lg shadow-lg p-3 text-white space-y-3">
+            <div>
+              <h3 className="font-semibold text-sm mb-1">Characteristics</h3>
+              <ul className="list-disc list-inside text-xs space-y-0.5">
+                {currentCoach.traits.map((trait, i) => (
+                  <li key={i}>{trait}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm mb-1">Favorite Foods</h3>
+              <ul className="list-disc list-inside text-xs space-y-0.5">
+                {currentCoach.foods.map((food, i) => (
+                  <li key={i}>{food}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm mb-1">Pursuits</h3>
+              <ul className="list-disc list-inside text-xs space-y-0.5">
+                {currentCoach.activities.map((activity, i) => (
+                  <li key={i}>{activity}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Coach name and description at the bottom */}
-      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full z-20 flex flex-col items-center pb-8">
+      <div className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full z-20 flex flex-col items-center ${isMobile ? 'pb-4 px-2' : 'pb-8'}`}>
         <div className="flex items-center mb-2">
-          <h1 className="text-5xl md:text-6xl font-extrabold text-white drop-shadow-lg text-center bg-black bg-opacity-40 px-6 py-2 rounded-lg">
+          <h1 className={`font-extrabold text-white drop-shadow-lg text-center bg-black bg-opacity-40 rounded-lg ${isMobile ? 'text-3xl px-4 py-1' : 'text-5xl md:text-6xl px-6 py-2'}`}>
             {currentCoach.name}
           </h1>
         </div>
-        <p className="text-lg md:text-xl text-white text-center bg-black bg-opacity-30 px-4 py-2 rounded-lg max-w-2xl">
+        <p className={`text-white text-center bg-black bg-opacity-30 rounded-lg max-w-2xl ${isMobile ? 'text-sm px-3 py-1' : 'text-lg md:text-xl px-4 py-2'}`}>
           {currentCoach.description}
         </p>
-        <div className="flex justify-between w-full max-w-2xl mt-6 px-4">
+        <div className={`flex justify-between w-full max-w-2xl px-4 ${isMobile ? 'mt-3' : 'mt-6'}`}>
           <button
             onClick={handlePrev}
-            className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+            className={`bg-gray-800 hover:bg-gray-700 text-white font-bold rounded ${isMobile ? 'py-1.5 px-3 text-sm' : 'py-2 px-4'}`}
           >
-            ← Prev
+            {isMobile ? 'Prev' : '← Prev'}
           </button>
           <div className="flex items-center space-x-2">
-            <span className="text-white text-sm">
+            <span className={`text-white ${isMobile ? 'text-xs' : 'text-sm'}`}>
               {currentIndex + 1} of {allCoaches.length}
             </span>
           </div>
           <button
             onClick={handleNext}
-            className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+            className={`bg-gray-800 hover:bg-gray-700 text-white font-bold rounded ${isMobile ? 'py-1.5 px-3 text-sm' : 'py-2 px-4'}`}
           >
-            Next →
+            {isMobile ? 'Next' : 'Next →'}
           </button>
         </div>
       </div>
