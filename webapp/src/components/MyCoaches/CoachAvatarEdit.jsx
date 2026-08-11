@@ -16,13 +16,19 @@ const CoachAvatarEdit = () => {
   const [generating, setGenerating] = useState(false);
   const [generatedAvatars, setGeneratedAvatars] = useState([]);
   const [selectedAvatar, setSelectedAvatar] = useState(null);
+  const [selfieFile, setSelfieFile] = useState(null);
+  const [avatarStyle, setAvatarStyle] = useState('');
+  const [failedStyles, setFailedStyles] = useState([]);
 
+  /*
+    Mirrors AVATAR_STYLES in functions/coach-avatar-generator/avatar-generation.js.
+    The generator ignores anything not in that list and silently falls back to
+    every style, so these strings have to match it exactly — including
+    "Disney Charactor", which is misspelled in the PhotoMaker model itself.
+  */
   const avatarStyles = [
-    { value: 'realistic', label: 'Realistic Photo' },
-    { value: 'professional', label: 'Professional Headshot' },
-    { value: 'cartoon', label: 'Cartoon Style' },
-    { value: 'fitness', label: 'Fitness Coach' },
-    { value: 'athletic', label: 'Athletic Portrait' }
+    'Realistic', 'Cinematic', 'Disney Charactor', 'Fantasy art', 'Enhance',
+    'Comic book', 'Line art', 'Digital Art', 'Neonpunk', 'Photographic', 'Lowpoly',
   ];
 
   useEffect(() => {
@@ -41,9 +47,11 @@ const CoachAvatarEdit = () => {
 
       if (error) throw error;
       setCoach(coachData);
-      
-      // Set up default prompt based on coach data
-      setAvatarPrompt(`A ${coachData.primary_response_style || 'motivational'} fitness coach`);
+      /*
+        No default prompt. It is optional steering on top of the style's own
+        prompt now, and the old default ("A ... fitness coach") both assumed the
+        fitness-era product and overrode the style the creator had picked.
+      */
     } catch (error) {
       console.error('Error fetching coach:', error);
       toast.error('Failed to load coach data');
@@ -106,37 +114,70 @@ const CoachAvatarEdit = () => {
     }
   };
 
+  /** Reads a File into the bare base64 the generator's JSON path expects. */
+  const readAsBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).replace(/^data:[^;]+;base64,/, ''));
+      reader.onerror = () => reject(reader.error ?? new Error('Could not read the image'));
+      reader.readAsDataURL(file);
+    });
+
+  /*
+    Generation is PhotoMaker, which builds a likeness from a photo — it cannot
+    invent a face from a description alone. So a selfie is required, and the
+    prompt only steers the result. This used to POST {prompt, style, count} to
+    `/motivational-images` and expect {images: []}; that endpoint is a Cloud
+    Scheduler background job with no HTTP contract at all, so the button could
+    never have worked. See #22.
+  */
   const generateAvatars = async () => {
-    if (!avatarPrompt.trim()) {
-      toast.error('Please enter a description for your avatar');
+    if (!selfieFile) {
+      toast.error('Choose a photo to generate from');
       return;
     }
 
     try {
       setGenerating(true);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/motivational-images`, {
+      setFailedStyles([]);
+
+      // Same override the coach-builder flow honours; without it this component
+      // would break in any deploy that points the generator at its own URL.
+      const generatorUrl =
+        import.meta.env.VITE_COACH_AVATAR_GENERATOR_URL ||
+        `${import.meta.env.VITE_API_URL}/coach-avatar-generator`;
+
+      const response = await fetch(generatorUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: avatarPrompt,
-          style: 'portrait',
-          count: 4 // Generate 4 options
-        })
+          coachId,
+          selfie_base64: await readAsBase64(selfieFile),
+          selfie_mime: selfieFile.type || 'image/jpeg',
+          // Omitted means "every style", which is what the generator does.
+          ...(avatarStyle ? { style: avatarStyle } : {}),
+          ...(avatarPrompt.trim() ? { prompt: avatarPrompt.trim() } : {}),
+        }),
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        throw new Error('Failed to generate avatars');
+        // The generator explains itself; passing that through beats a generic toast.
+        throw new Error(data.error || `Avatar generation failed (${response.status})`);
       }
 
-      const data = await response.json();
-      setGeneratedAvatars(data.images || []);
-      toast.success('Avatars generated successfully!');
+      setGeneratedAvatars(data.avatars || []);
+      setFailedStyles(data.failedStyles || []);
+
+      if ((data.avatars || []).length === 0) {
+        toast.error('No avatars came back. Try a clearer, front-facing photo.');
+      } else {
+        toast.success(data.message || `Generated ${data.avatars.length} avatars`);
+      }
     } catch (error) {
       console.error('Error generating avatars:', error);
-      toast.error('Failed to generate avatars');
+      toast.error(error.message || 'Failed to generate avatars');
     } finally {
       setGenerating(false);
     }
@@ -304,26 +345,61 @@ const CoachAvatarEdit = () => {
         {generateMethod === 'generate' && (
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate Avatar</h2>
-            
+            <p className="text-sm text-gray-600 mb-4">
+              Generation works from a photo — it restyles a real face rather than
+              inventing one, so a clear front-facing picture gives the best result.
+            </p>
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Avatar Description
+                Photo to generate from <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setSelfieFile(e.target.files?.[0] ?? null)}
+                disabled={generating}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {selfieFile && (
+                <p className="text-sm text-gray-500 mt-1">Using {selfieFile.name}</p>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Style</label>
+              <select
+                value={avatarStyle}
+                onChange={(e) => setAvatarStyle(e.target.value)}
+                disabled={generating}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Every style (slower, more to choose from)</option>
+                {avatarStyles.map((style) => (
+                  <option key={style} value={style}>{style}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Extra direction <span className="text-gray-400">(optional)</span>
               </label>
               <textarea
                 value={avatarPrompt}
                 onChange={(e) => setAvatarPrompt(e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Describe your ideal avatar (e.g., 'A confident fitness coach with a warm smile')"
+                placeholder="e.g. 'warm smile, natural light, plain background'"
               />
               <p className="text-sm text-gray-500 mt-1">
-                Be descriptive but keep it professional. This will be your coach's face.
+                Steers the style. Leave it blank to use the default for the style you picked.
               </p>
             </div>
 
             <button
               onClick={generateAvatars}
-              disabled={generating || !avatarPrompt.trim()}
+              disabled={generating || !selfieFile}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {generating ? (
@@ -342,10 +418,10 @@ const CoachAvatarEdit = () => {
                 <h3 className="text-md font-medium text-gray-900 mb-4">Choose Your Avatar</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {generatedAvatars.map((avatar, index) => (
-                    <div key={index} className="relative">
+                    <div key={avatar.filename ?? index} className="relative">
                       <img
                         src={avatar.url}
-                        alt={`Generated avatar ${index + 1}`}
+                        alt={`${avatar.style ?? 'Generated'} avatar`}
                         className={`w-full aspect-square object-cover rounded-lg cursor-pointer border-4 transition-all ${
                           selectedAvatar === avatar.url
                             ? 'border-blue-500 ring-2 ring-blue-500 ring-offset-2'
@@ -353,6 +429,9 @@ const CoachAvatarEdit = () => {
                         }`}
                         onClick={() => selectGeneratedAvatar(avatar.url)}
                       />
+                      {avatar.style && (
+                        <p className="text-xs text-gray-600 mt-1 text-center">{avatar.style}</p>
+                      )}
                       {selectedAvatar === avatar.url && (
                         <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
                           ✓
@@ -362,6 +441,16 @@ const CoachAvatarEdit = () => {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/*
+              The generator returns partial success — some styles fail while
+              others land. Saying which beats leaving a short grid unexplained.
+            */}
+            {failedStyles.length > 0 && (
+              <p className="text-sm text-amber-700 mt-4">
+                Could not generate: {failedStyles.join(', ')}.
+              </p>
             )}
           </div>
         )}
