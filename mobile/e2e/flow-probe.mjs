@@ -98,6 +98,89 @@ section('Coaching turn on prompt v2');
         String(reply.body?.metadata?.freeMessagesRemaining));
 }
 
+// --- retrieval --------------------------------------------------------------
+/*
+  #27: `match_coach_content` failed on every call and the caller turned the
+  error into `[]`, so coaches answered without any of their creator's uploaded
+  content and nothing said so. Both halves are asserted here — that content
+  actually arrives, and that "no content" is reported as success rather than as
+  a failure. The failure branch itself needs a broken database, so it lives in
+  `functions/coach-response-generator/retrieval.test.mjs` instead.
+
+  The embedding matches what `harness/mock-openai.js` returns for any input, so
+  cosine similarity is 1 and the threshold is not what is under test.
+*/
+section('Creator content reaches the prompt (RAG retrieval)');
+{
+  /*
+    Float32-rounded on purpose: `harness/mock-openai.js` returns the vector
+    base64-encoded, which is what the OpenAI SDK asks for and decodes into a
+    Float32Array. Seeding the float64 originals would still match — cosine
+    similarity stays ~1 — but rounding here means the probe compares the bytes
+    the generator will actually send.
+  */
+  const mockEmbedding = Array.from(
+    new Float32Array(Array.from({ length: 1536 }, (_, i) => Math.sin(i) * 0.01))
+  );
+
+  /*
+    First, the coach as it stands: nothing uploaded. This must read as a
+    successful retrieval that found nothing, NOT as a failure. Conflating the
+    two is precisely what let #27 hide. Pocket is used rather than a second
+    coach because a fresh conversation would enter goal intake, which does not
+    retrieve at all and would report `null` for a different and correct reason.
+  */
+  const empty = await say('what tempo should I aim for?');
+  check('a coach with nothing uploaded still answers', empty.status === 200,
+        JSON.stringify(empty.body).slice(0, 200));
+  check('  → retrieval attempted', empty.body?.metadata?.retrievalFailed !== null,
+        'null means it never ran');
+  check('  → and empty is success, not failure',
+        empty.body?.metadata?.retrievalFailed === false &&
+        empty.body?.metadata?.relevantContentCount === 0,
+        `retrievalFailed=${empty.body?.metadata?.retrievalFailed}, count=${empty.body?.metadata?.relevantContentCount}`);
+
+  // A content_type only added by 20260810120000 — the enum extension that
+  // broke the function's return signature in the first place.
+  const { error: seedError } = await admin.from('coach_content_chunks').insert({
+    coach_id: POCKET,
+    content: 'Sit behind the beat. If it feels late to you it is probably right to everyone else.',
+    content_type: 'lesson_notes',
+    processed: true,
+    voice_sample: true,
+    embedding: JSON.stringify(mockEmbedding),
+  });
+  check('seeded a chunk of creator content', !seedError, seedError?.message);
+
+  const { data: direct, error: rpcError } = await admin.rpc('match_coach_content', {
+    coach_id: POCKET, query_embedding: mockEmbedding, match_threshold: 0.5, match_count: 5,
+  });
+  check('match_coach_content executes at all', !rpcError, rpcError?.message);
+  check('  → and returns the chunk', (direct?.length ?? 0) >= 1, `got ${direct?.length ?? 0}`);
+  check('  → content_type survives as text', typeof direct?.[0]?.content_type === 'string',
+        JSON.stringify(direct?.[0]?.content_type));
+
+  const reply = await say('how late should I be sitting on this groove?');
+  check('reply generated with retrieval in play', reply.status === 200,
+        JSON.stringify(reply.body).slice(0, 200));
+  check('chunks reached the prompt', (reply.body?.metadata?.relevantContentCount ?? 0) >= 1,
+        `relevantContentCount=${reply.body?.metadata?.relevantContentCount}`);
+  check('retrieval reported as healthy', reply.body?.metadata?.retrievalFailed === false,
+        String(reply.body?.metadata?.retrievalFailed));
+
+  // The chunk ids are recorded, so which content shaped a reply is answerable.
+  const { data: msgs } = await admin.from('conversation_messages')
+    .select('source_chunk_ids, metadata').eq('conversation_id', conversationId)
+    .eq('role', 'assistant').order('created_at', { ascending: false }).limit(1);
+  check('source_chunk_ids persisted on the reply', (msgs?.[0]?.source_chunk_ids?.length ?? 0) >= 1,
+        JSON.stringify(msgs?.[0]?.source_chunk_ids));
+  check('no retrieval_failed marker on a healthy reply',
+        msgs?.[0]?.metadata?.retrieval_failed === undefined,
+        JSON.stringify(msgs?.[0]?.metadata));
+
+  await admin.from('coach_content_chunks').delete().eq('coach_id', POCKET);
+}
+
 // --- prompt v1 still works --------------------------------------------------
 section('Prompt v1 still reachable (parallel, not replaced)');
 {

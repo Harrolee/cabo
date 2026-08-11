@@ -16,6 +16,7 @@ const {
   needsOnboarding,
   MAX_ONBOARDING_TURNS,
 } = require('./goal-onboarding');
+const { findRelevantContent } = require('./retrieval');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const supabase = createClient(
@@ -119,29 +120,12 @@ async function resolveCaller(req) {
 // Context loading
 // ---------------------------------------------------------------------------
 
-async function findRelevantContent(coachId, userMessage, limit = 3) {
-  try {
-    const embedding = await openai.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: userMessage,
-    });
-
-    const { data, error } = await supabase.rpc('match_coach_content', {
-      coach_id: coachId,
-      query_embedding: embedding.data[0].embedding,
-      match_threshold: 0.7,
-      match_count: limit,
-    });
-
-    if (error) {
-      console.error('Vector search error:', error);
-      return [];
-    }
-    return data || [];
-  } catch (error) {
-    console.error('Error finding relevant content:', error);
-    return [];
-  }
+async function embedForRetrieval(userMessage) {
+  const embedding = await openai.embeddings.create({
+    model: EMBEDDING_MODEL,
+    input: userMessage,
+  });
+  return embedding.data[0].embedding;
 }
 
 async function loadThreadHistory(conversationId, turns = 8) {
@@ -520,7 +504,10 @@ exports.generateCoachResponse = async (req, res) => {
         userContext.sessionContext ||
         detectSessionContext(userMessage, coach.session_contexts || []);
 
-      const relevantContent = coachId ? await findRelevantContent(coachId, userMessage) : [];
+      const retrieval = coachId
+        ? await findRelevantContent({ supabase, embed: embedForRetrieval, coachId, userMessage })
+        : { ok: true, chunks: [] };
+      const relevantContent = retrieval.chunks;
 
       const generated = await generateCoaching(coach, userMessage, {
         emotionalNeed,
@@ -536,7 +523,7 @@ exports.generateCoachResponse = async (req, res) => {
       promptVersion = generated.promptVersion;
 
       onboardingState = { active: false, complete: true };
-      detected = { emotionalNeed, sessionContext, relevantContent };
+      detected = { emotionalNeed, sessionContext, relevantContent, retrieval };
     }
 
     const latencyMs = Date.now() - startTime;
@@ -569,6 +556,15 @@ exports.generateCoachResponse = async (req, res) => {
           presentation,
           prompt_version: promptVersion,
           initiated_by: suppressUserTurn ? 'coach' : 'member',
+          /*
+            Recorded so a reply generated without the creator's content is
+            identifiable after the fact. Absent `source_chunk_ids` alone cannot
+            tell you whether the coach had nothing to retrieve or retrieval
+            broke — the ambiguity that hid #27 for this long.
+          */
+          ...(detected?.retrieval && !detected.retrieval.ok
+            ? { retrieval_failed: detected.retrieval.reason }
+            : {}),
         },
       });
 
@@ -611,6 +607,9 @@ exports.generateCoachResponse = async (req, res) => {
         promptVersion,
         model: CHAT_MODEL,
         relevantContentCount: detected?.relevantContent?.length ?? 0,
+        // null when retrieval was not attempted; false on success, including
+        // the legitimate "this coach has uploaded nothing" case.
+        retrievalFailed: detected?.retrieval ? !detected.retrieval.ok : null,
         responseLength: responseText.length,
         latencyMs,
         freeMessagesRemaining,

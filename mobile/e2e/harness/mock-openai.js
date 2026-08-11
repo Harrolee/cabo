@@ -110,16 +110,33 @@ app.post('/v1/chat/completions', (req, res) => {
   ));
 });
 
+/*
+  The embedding format matters, and getting it wrong is silent.
+
+  Since v4.7 the OpenAI SDK sends `encoding_format: 'base64'` whenever the
+  caller did not pick one, and then decodes the response itself. Handing it a
+  plain JSON array of 1536 numbers does not fail — it gets run through
+  `Buffer.from(array)`, which truncates every float to one byte, and the 1536
+  bytes are then reinterpreted as 384 float32s. The caller receives a
+  well-formed 384-dimension vector, and the only symptom is
+  `different vector dimensions 1536 and 384` from pgvector, far from the cause.
+
+  So honour the requested format. Returning floats when floats were asked for
+  keeps this usable from curl.
+*/
+const MOCK_VECTOR = Array.from({ length: 1536 }, (_, i) => Math.sin(i) * 0.01);
+
 app.post('/v1/embeddings', (req, res) => {
   const inputs = Array.isArray(req.body.input) ? req.body.input : [req.body.input];
+  const asBase64 = req.body.encoding_format === 'base64';
+  const embedding = asBase64
+    ? Buffer.from(new Float32Array(MOCK_VECTOR).buffer).toString('base64')
+    : MOCK_VECTOR;
+
   res.json({
     object: 'list',
     model: 'mock-embedding',
-    data: inputs.map((_, index) => ({
-      object: 'embedding',
-      index,
-      embedding: Array.from({ length: 1536 }, (_, i) => Math.sin(i) * 0.01),
-    })),
+    data: inputs.map((_, index) => ({ object: 'embedding', index, embedding })),
     usage: { prompt_tokens: 10, total_tokens: 10 },
   });
 });
