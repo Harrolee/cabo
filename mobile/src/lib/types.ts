@@ -72,10 +72,21 @@ export type NudgeCadence = 'daily' | 'few_times_week' | 'weekly' | 'off';
 
 export type NotificationChannel = 'push' | 'sms' | 'none';
 
-/** What the member told this coach they are working toward. */
-export interface MemberGoals {
-  id: string;
-  coach_id: string;
+export type OnboardingStatus = 'not_started' | 'in_progress' | 'complete' | 'skipped';
+
+/**
+ * What the member told this coach they are working toward — the payload of
+ * `get_member_context()`, which is the one read path for this data. The prompt,
+ * the visualiser and the app all see exactly these fields; reading
+ * `member_goals` directly would miss `days_together`, which only the function
+ * can compute (it joins the entitlement row). Writes still go straight to the
+ * table under RLS.
+ */
+export interface MemberContext {
+  /** null until the intake has created the row. */
+  goal_id: string | null;
+  display_name: string | null;
+  timezone: string | null;
   aspiration: string | null;
   goals: string[];
   current_level: string | null;
@@ -84,8 +95,11 @@ export interface MemberGoals {
   horizon: string | null;
   commitment: { days_per_week?: number; minutes_per_session?: number };
   wins: string[];
-  onboarding_status: 'not_started' | 'in_progress' | 'complete' | 'skipped';
+  visual: { self?: string; setting?: string; style?: string; avoid?: string };
+  onboarding_status: OnboardingStatus;
   onboarding_turns: number;
+  /** Days since this coach was first opened. 0 when they only just started. */
+  days_together: number;
 }
 
 export interface Visualization {

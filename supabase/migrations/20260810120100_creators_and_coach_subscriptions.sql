@@ -463,6 +463,12 @@ CREATE POLICY "Users can start a free tier for themselves"
 
 GRANT SELECT, INSERT         ON public.coach_subscriptions TO authenticated;
 GRANT SELECT                 ON public.coach_iap_products  TO anon, authenticated;
+-- anon needs SELECT for the "Anyone can view approved creators" policy above to
+-- mean anything: table grants are checked before RLS, so without this the
+-- logged-out coach detail page fails with "permission denied for table
+-- creator_profiles" on its embedded creator join. RLS still restricts anon to
+-- rows with status = 'approved'.
+GRANT SELECT                 ON public.creator_profiles    TO anon;
 GRANT SELECT, INSERT, UPDATE ON public.creator_profiles    TO authenticated;
 GRANT ALL ON public.creator_profiles    TO service_role;
 GRANT ALL ON public.coach_iap_products  TO service_role;

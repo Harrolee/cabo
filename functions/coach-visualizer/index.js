@@ -423,13 +423,6 @@ async function handleGenerate(req, res) {
   const profile = await readLikenessRow(caller.id);
   const likeness = await resolveLikeness(caller.id, profile);
 
-  const { data: goalRow } = await supabase
-    .from('member_goals')
-    .select('id')
-    .eq('user_id', caller.id)
-    .eq('coach_id', coachId)
-    .maybeSingle();
-
   const scene = await generateScene({ openai, model: CHAT_MODEL, coach, member, kind });
 
   // PhotoMaker only when there is a photo we can still reach *and* consent that
@@ -444,7 +437,9 @@ async function handleGenerate(req, res) {
     .insert({
       user_id: caller.id,
       coach_id: coachId,
-      goal_id: goalRow?.id ?? null,
+      // get_member_context already carries the goals row id, so this does not
+      // need a second query for it.
+      goal_id: member.goal_id ?? null,
       kind,
       scene: scene.scene,
       image_prompt: scene.image_prompt,

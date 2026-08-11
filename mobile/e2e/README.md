@@ -1,6 +1,6 @@
 # End-to-end probes
 
-Three suites that exercise the backend the way the app does — through
+Four suites that exercise the backend the way the app does — through
 PostgREST as a real `anon`/`authenticated` user, so RLS is actually in play,
 and through the Cloud Functions over HTTP.
 
@@ -9,6 +9,7 @@ and through the Cloud Functions over HTTP.
 | `rls-probe.mjs` | Roster, profile bootstrap, thread creation, message write permissions, unread counts, notification settings, push-device handover, cross-tenant isolation |
 | `flow-probe.mjs` | Goal intake, prompt v1/v2 selection, free-tier metering, the 402 paywall, entitlement restore, coach-initiated nudges, `suppressUserTurn` auth, the nudge dispatcher sweep |
 | `viz-realtime-probe.mjs` | Visualiser guards (`no_aspiration`, entitlement, daily limit), prompt hygiene, likeness consent and reference photos, and realtime delivery of a coach-initiated message |
+| `sms-image-probe.mjs` | The daily SMS image job across three disciplines: channel scoping, coach resolution, goal-driven prompts, likeness consent, and that no member can receive fitness before/after imagery |
 
 ## Setting up a local stack
 
@@ -68,7 +69,12 @@ cd mobile
 ENV_FILE=/tmp/cabo-local/local.env node e2e/rls-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/flow-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/viz-realtime-probe.mjs
+ENV_FILE=/tmp/cabo-local/local.env node e2e/sms-image-probe.mjs
 ```
+
+`sms-image-probe.mjs` needs the mock model but not the gateway: it calls the
+daily job's modules in-process and fakes Replicate, Twilio and GCS, so it needs
+no Twilio or Replicate credentials and spends nothing.
 
 They run from `mobile/` for `@supabase/supabase-js` resolution and exit non-zero
 on any failure.

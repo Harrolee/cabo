@@ -3,7 +3,10 @@ local-dev
 dist/
 
 static_assets/
-scripts/
+# `scripts/` is a local scratch directory, but a few operational scripts are
+# part of the repo and have to travel with it — un-ignore those by name.
+scripts/*
+!scripts/provision-appstore-subscriptions.mjs
 tmp/
 
 .env
@@ -84,3 +87,5 @@ packages/react-devtools-fusebox/dist
 packages/react-devtools-inline/dist
 packages/react-devtools-shell/dist
 packages/react-devtools-timeline/dist
+# Agent worktrees — never commit these
+.claude/worktrees/

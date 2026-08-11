@@ -50,7 +50,14 @@
     "extra": {
       "supabaseUrl": "$EXPO_PUBLIC_SUPABASE_URL",
       "supabaseAnonKey": "$EXPO_PUBLIC_SUPABASE_ANON_KEY",
-      "apiUrl": "$EXPO_PUBLIC_API_URL"
-    }
+      "apiUrl": "$EXPO_PUBLIC_API_URL",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "3b311f75-2e10-4105-b196-f4cc028a1719"
+      }
+    },
+    "owner": "harrolee"
   }
 }

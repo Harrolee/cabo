@@ -99,6 +99,15 @@ call writes the reply and extracts what it learned, under a strict JSON schema.
 - The member can correct anything at `goals/[coachId]`, because extraction will
   sometimes be subtly wrong.
 
+**One read path.** `get_member_context(p_user_id, p_coach_id)` is how goal data
+is read — by the prompt, by the visualiser, and by the app's `fetchGoals()`. It
+is `SECURITY DEFINER` with an ownership guard: a member may only ask for their
+own context, the service role may ask for anyone (it is acting for the member
+inside the functions), and `anon` cannot call it at all. It is also the only
+reader that can compute `days_together`, which needs the entitlement row, and it
+returns `goal_id`, so a null there means "the intake has never run". Writes are
+the other direction: the app updates `member_goals` directly under RLS.
+
 Creators author their own intake in `coach_profiles.onboarding_questions`, so a
 drum teacher asks different questions than a songwriter.
 
@@ -109,7 +118,9 @@ substituted the user's `image_preference` for the word "person". Every user in
 every discipline got the same gym scenes, and the "before" image was explicitly
 prompted toward *weak, frail, sad, nervous, skinny, chubby, overweight*.
 
-`coach-visualizer` replaces it:
+`coach-visualizer` replaces it for app members, and `motivational-images` now
+runs the same pipeline for SMS members (issue #13), so the description below
+holds for both channels:
 
 - The scene comes from `member_goals.aspiration` — what they told their coach
   they want to become. No aspiration, no image; the function returns
@@ -152,6 +163,7 @@ prompted toward *weak, frail, sad, nervous, skinny, chubby, overweight*.
 | `20260810130000_push_notifications_and_channels.sql` | `push_devices`, notification channel + timing, per-coach cadence, `coach_nudges` outbox, unread state, realtime, `due_coach_nudges()` |
 | `20260810140000_member_goals_and_visualization.sql` | `member_goals`, creator intake questions, `prompt_version`, `coach_visualizations`, `get_member_context()` |
 | `20260810160000_reference_photo_and_likeness_consent.sql` | Consent timestamps, the trigger making `likeness_consent` / `reference_photo_url` backend-only, the "no stored photo without consent" constraint, and the missing `service_role` grant on `user_profiles` |
+| `20260811090000_member_context_read_path.sql` | `get_member_context()` guarded by `auth.uid()`, opened to `authenticated`, closed to `anon`, and returning `goal_id` |
 
 Verified by applying the full chain from scratch against Postgres 16 + pgvector
 and exercising the rules: device gating, idempotent claim, mute, cadence
@@ -214,14 +226,15 @@ Not verified, and why:
   device. `/coach-nudges/preview` exists for exactly that check.
 - **Prompt v2 is not A/B'd.** Existing coaches stay on v1 until someone flips
   them. There is no eval harness comparing the two.
-- **`motivational-images` still owns the SMS path** and is still fitness-only.
-  Its `scenarios.json` before/after pairs are now dead weight for app users but
-  still drive SMS users.
+- **`motivational-images` still owns the SMS path**, but it is no longer
+  fitness-only: the scenario table is deleted and it renders the member's
+  aspiration through `shared/visualization.js` like the app does. See the
+  decision record in `docs/multi-domain-coaches.md`. What it still lacks is any
+  way for an SMS member to give likeness consent, so those images are always
+  scene-only.
 - **No push receipt cron.** `/receipts` exists but nothing calls it on a
   schedule; dead tokens are currently only pruned via ticket errors.
 - **The PhotoMaker branch has not been run against real credentials.** The
   upload, consent, revocation and model-selection paths are exercised locally,
   but nobody has yet confirmed that a stored photo comes back as a recognisable
   face — that needs Replicate and a real bucket.
-- **`get_member_context` is service-role only**, so the app reads
-  `member_goals` directly under RLS. Two paths to the same data.
