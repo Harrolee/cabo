@@ -90,7 +90,11 @@ ALTER TABLE public.coach_profiles
     */
     ADD COLUMN IF NOT EXISTS onboarding_questions text[] DEFAULT '{}',
     -- 'v1' is the 2024 single-string prompt; 'v2' is the rebuilt one.
-    ADD COLUMN IF NOT EXISTS prompt_version       text DEFAULT 'v2',
+    -- Deliberately added WITHOUT a default: a default would be materialised into
+    -- every existing row, so the 'v1' backfill below could never match and every
+    -- coach already in production would be silently switched to the v2 prompt.
+    -- The default is set to 'v2' after the backfill instead.
+    ADD COLUMN IF NOT EXISTS prompt_version       text,
     -- Creator opt-out: some coaches are drop-in, not goal-driven.
     ADD COLUMN IF NOT EXISTS collects_goals       boolean DEFAULT true NOT NULL,
     ADD COLUMN IF NOT EXISTS supports_visualization boolean DEFAULT true NOT NULL;
@@ -106,6 +110,10 @@ END $$;
 -- Existing coaches keep the prompt they were tuned against; only new rows
 -- default to v2. Flip a coach with: update coach_profiles set prompt_version='v2'.
 UPDATE public.coach_profiles SET prompt_version = 'v1' WHERE prompt_version IS NULL;
+
+-- Only now does 'v2' become the default, so it applies to rows created from
+-- here on rather than retroactively to the existing roster.
+ALTER TABLE public.coach_profiles ALTER COLUMN prompt_version SET DEFAULT 'v2';
 
 UPDATE public.coach_profiles SET onboarding_questions = ARRAY[
     'What are you hoping to be able to do that you can''t do yet?',

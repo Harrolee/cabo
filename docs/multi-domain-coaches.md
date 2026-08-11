@@ -50,6 +50,13 @@ for SMS".
 'listed'` when an approved creator stands behind it, enforced by a trigger so
 the rule holds regardless of which RLS policy admitted the write.
 
+One creator is the platform itself: slug `cabo`, `user_id IS NULL`, no payout
+share. The five original fitness personas (Zen Master, Gym Bro, Dance Teacher,
+Drill Sergeant, Frat Bro) belong to it, because they ship with the product
+rather than being anyone's work. They were seeded against the founder's own
+account and so were attributed to them personally in the roster until
+`20260811090100`.
+
 ### Identity
 
 `user_profiles.user_id` references `auth.users`, phone became optional and E.164
@@ -140,9 +147,10 @@ access.
 | `20260810120000_generalize_coach_domain.sql` | Categories, domain columns, roster search, backfill |
 | `20260810120100_creators_and_coach_subscriptions.sql` | Creators, entitlements, store products, `has_coach_access`, `get_coach_roster` |
 | `20260810120200_app_identity_and_conversations.sql` | `auth.users` identity, conversations, `open_coach_conversation`, `get_my_coaches` |
+| `20260811090100_platform_creator_for_default_coaches.sql` | The `cabo` platform creator; the five default coaches repointed at it |
 | `20260811120000_service_role_grants_for_legacy_tables.sql` | Explicit `service_role` DML on `user_profiles` / `subscriptions`, which the SMS job reads with the service key |
 
-All three are idempotent and verified by applying the full migration chain from
+All of them are idempotent and verified by applying the full migration chain from
 scratch against Postgres 16 + pgvector.
 
 `supabase/seeds/example_roster.sql` seeds a drummer, a songwriter and a yoga

@@ -99,6 +99,15 @@ call writes the reply and extracts what it learned, under a strict JSON schema.
 - The member can correct anything at `goals/[coachId]`, because extraction will
   sometimes be subtly wrong.
 
+**One read path.** `get_member_context(p_user_id, p_coach_id)` is how goal data
+is read — by the prompt, by the visualiser, and by the app's `fetchGoals()`. It
+is `SECURITY DEFINER` with an ownership guard: a member may only ask for their
+own context, the service role may ask for anyone (it is acting for the member
+inside the functions), and `anon` cannot call it at all. It is also the only
+reader that can compute `days_together`, which needs the entitlement row, and it
+returns `goal_id`, so a null there means "the intake has never run". Writes are
+the other direction: the app updates `member_goals` directly under RLS.
+
 Creators author their own intake in `coach_profiles.onboarding_questions`, so a
 drum teacher asks different questions than a songwriter.
 
@@ -135,6 +144,7 @@ holds for both channels:
 | ---- | -------- |
 | `20260810130000_push_notifications_and_channels.sql` | `push_devices`, notification channel + timing, per-coach cadence, `coach_nudges` outbox, unread state, realtime, `due_coach_nudges()` |
 | `20260810140000_member_goals_and_visualization.sql` | `member_goals`, creator intake questions, `prompt_version`, `coach_visualizations`, `get_member_context()` |
+| `20260811090000_member_context_read_path.sql` | `get_member_context()` guarded by `auth.uid()`, opened to `authenticated`, closed to `anon`, and returning `goal_id` |
 
 Verified by applying the full chain from scratch against Postgres 16 + pgvector
 and exercising the rules: device gating, idempotent claim, mute, cadence
@@ -208,5 +218,3 @@ Not verified, and why:
 - **Visualisation has no reference-photo upload flow** in the app, so every
   image currently renders scene-only. `user_profiles.reference_photo_url` and
   `likeness_consent` are wired but unpopulated.
-- **`get_member_context` is service-role only**, so the app reads
-  `member_goals` directly under RLS. Two paths to the same data.

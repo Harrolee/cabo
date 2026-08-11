@@ -2,7 +2,7 @@ import { API_URL, getAccessToken, supabase } from './supabase';
 import type {
   ChatMessage,
   CoachCategory,
-  MemberGoals,
+  MemberContext,
   MyCoach,
   NotificationPreferences,
   NudgeCadence,
@@ -260,23 +260,37 @@ export async function beginGoalOnboarding(coachId: string): Promise<string> {
   return data as string;
 }
 
-export async function fetchGoals(coachId: string): Promise<MemberGoals | null> {
-  const { data, error } = await supabase
-    .from('member_goals')
-    .select(
-      'id, coach_id, aspiration, goals, current_level, obstacles, motivation, horizon, commitment, wins, onboarding_status, onboarding_turns'
-    )
-    .eq('coach_id', coachId)
-    .maybeSingle();
+/**
+ * The one read path for goal data. `get_member_context()` is what the prompt
+ * and the visualiser read, so the app reads it too rather than querying
+ * `member_goals` and ending up with a second, subtly different shape — and it
+ * is the only caller that can compute `days_together`.
+ *
+ * Returns null when the intake has never run, so screens can tell "nothing
+ * recorded yet" from "recorded, but empty".
+ */
+export async function fetchGoals(coachId: string): Promise<MemberContext | null> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (!userId) return null;
+
+  const { data, error } = await supabase.rpc('get_member_context', {
+    p_user_id: userId,
+    p_coach_id: coachId,
+  });
 
   if (error) throw error;
-  return (data as MemberGoals) ?? null;
+
+  const context = data as MemberContext | null;
+  return context?.goal_id ? context : null;
 }
 
 /** Members can correct anything the intake got wrong. */
 export async function updateGoals(
   coachId: string,
-  patch: Partial<Pick<MemberGoals, 'aspiration' | 'goals' | 'current_level' | 'obstacles' | 'motivation' | 'horizon'>>
+  patch: Partial<
+    Pick<MemberContext, 'aspiration' | 'goals' | 'current_level' | 'obstacles' | 'motivation' | 'horizon'>
+  >
 ): Promise<void> {
   const { error } = await supabase.from('member_goals').update(patch).eq('coach_id', coachId);
   if (error) throw error;
