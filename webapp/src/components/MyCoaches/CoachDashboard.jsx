@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../main';
 import { toast } from 'react-hot-toast';
+import {
+  LISTING_LABELS,
+  listingBadgeClass,
+  publishCoach,
+  unlistCoach,
+} from '../../utils/creators';
+import { useCreatorProfile } from '../../hooks/useCreatorProfile';
+import CreatorStatusBanner from '../Creator/CreatorStatusBanner';
 
 // Chat Modal Component
 const CoachChatModal = ({ coach, isOpen, onClose }) => {
@@ -180,6 +188,8 @@ const CoachDashboard = () => {
   const [user, setUser] = useState(null);
   const [chatModalOpen, setChatModalOpen] = useState(false);
   const [selectedCoach, setSelectedCoach] = useState(null);
+  const [publishingId, setPublishingId] = useState(null);
+  const { creator, loading: creatorLoading } = useCreatorProfile();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -227,34 +237,57 @@ const CoachDashboard = () => {
     setSelectedCoach(null);
   };
 
-  const togglePublicStatus = async (coach) => {
+  const applyListingResult = (coach, result) => {
+    setCoaches(prevCoaches =>
+      prevCoaches.map(c =>
+        c.id === coach.id
+          ? {
+              ...c,
+              listing_status: result.listing_status,
+              creator_id: creator ? creator.id : c.creator_id,
+            }
+          : c
+      )
+    );
+  };
+
+  // draft → in_review → listed. Submitting for review always works; reaching
+  // the roster needs an approved creator, and the database is the one that
+  // decides. A refusal is reported as approval state, not as a Postgres error.
+  const handlePublish = async (coach) => {
+    if (!creator) {
+      toast.error('Set up your creator profile before publishing a coach.');
+      navigate('/creator');
+      return;
+    }
+    setPublishingId(coach.id);
     try {
-      const newPublicStatus = !coach.public;
-      
-      const { error } = await supabase
-        .from('coach_profiles')
-        .update({ public: newPublicStatus })
-        .eq('id', coach.id);
-
-      if (error) throw error;
-
-      // Update the local state
-      setCoaches(prevCoaches => 
-        prevCoaches.map(c => 
-          c.id === coach.id 
-            ? { ...c, public: newPublicStatus }
-            : c
-        )
-      );
-
-      toast.success(
-        newPublicStatus 
-          ? `${coach.name} is now public and visible to everyone!` 
-          : `${coach.name} is now private and only visible to you.`
-      );
+      const result = await publishCoach(coach, creator);
+      applyListingResult(coach, result);
+      if (result.listed) {
+        toast.success(result.message);
+      } else {
+        toast(result.message, { icon: '⏳', duration: 7000 });
+      }
     } catch (error) {
-      console.error('Error updating coach public status:', error);
-      toast.error('Failed to update coach visibility');
+      console.error('Error publishing coach:', error);
+      toast.error(error.message || 'Failed to publish this coach');
+    } finally {
+      setPublishingId(null);
+    }
+  };
+
+  const handleUnlist = async (coach) => {
+    setPublishingId(coach.id);
+    try {
+      const result = await unlistCoach(coach);
+      applyListingResult(coach, result);
+      toast.success(result.message);
+    } catch (error) {
+      console.error('Error unlisting coach:', error);
+      toast.error(error.message || 'Failed to unlist this coach');
+    } finally {
+      setPublishingId(null);
     }
   };
 
@@ -283,6 +316,14 @@ const CoachDashboard = () => {
           + Create New Coach
         </Link>
       </div>
+
+      {!creatorLoading && (creator?.status !== 'approved') && (
+        <CreatorStatusBanner
+          status={creator?.status || 'none'}
+          showLink
+          className="mb-8"
+        />
+      )}
 
       {coaches.length === 0 ? (
         // Empty state
@@ -317,12 +358,8 @@ const CoachDashboard = () => {
                   }`}>
                     {coach.active ? 'Active' : 'Inactive'}
                   </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    coach.public 
-                      ? 'bg-blue-100 text-blue-800' 
-                      : 'bg-orange-100 text-orange-800'
-                  }`}>
-                    {coach.public ? 'Public' : 'Private'}
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${listingBadgeClass(coach.listing_status)}`}>
+                    {LISTING_LABELS[coach.listing_status] || 'Draft'}
                   </div>
                 </div>
               </div>
@@ -368,23 +405,41 @@ const CoachDashboard = () => {
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <button 
-                    onClick={() => togglePublicStatus(coach)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      coach.public
-                        ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                    }`}
-                  >
-                    {coach.public ? '🔒 Make Private' : '🌍 Publish'}
-                  </button>
-                  <button 
+                  {coach.listing_status === 'listed' ? (
+                    <button
+                      onClick={() => handleUnlist(coach)}
+                      disabled={publishingId === coach.id}
+                      className="bg-orange-100 text-orange-700 px-3 py-2 rounded-lg hover:bg-orange-200 text-sm font-medium disabled:opacity-50"
+                    >
+                      {publishingId === coach.id ? '…' : '🔒 Unlist'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handlePublish(coach)}
+                      disabled={publishingId === coach.id || creator?.status === 'suspended'}
+                      className="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 text-sm font-medium disabled:opacity-50"
+                    >
+                      {publishingId === coach.id
+                        ? '…'
+                        : coach.listing_status === 'in_review'
+                          ? '🌍 Retry publish'
+                          : '🌍 Publish'}
+                    </button>
+                  )}
+                  <button
                     onClick={() => navigate(`/my-coaches/${coach.id}/content`)}
                     className="bg-purple-100 text-purple-700 px-3 py-2 rounded-lg hover:bg-purple-200 text-sm font-medium"
                   >
                     📁 Content
                   </button>
                 </div>
+                {coach.listing_status === 'in_review' && (
+                  <p className="text-xs text-yellow-700">
+                    {creator?.status === 'approved'
+                      ? 'Submitted — publish again to put it on the roster.'
+                      : 'Submitted. It goes live as soon as your creator account is approved.'}
+                  </p>
+                )}
               </div>
             </div>
           ))}
