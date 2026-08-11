@@ -506,15 +506,17 @@ module "motivation_function" {
   source = "./modules/cloud_function"
   
   name        = "send-motivational-images"
-  description = "Function to send motivational images to users"
+  description = "Daily goal-driven image for members still on the SMS channel"
   region      = var.region
   bucket_name = google_storage_bucket.function_bucket.name
   source_object = google_storage_bucket_object.motivational_images_source.name
   entry_point = "sendMotivationalImages"
-  memory      = "256M"
-  timeout     = 300
+  memory      = "512M"
+  # One scene brief plus one Replicate render per member; the render alone
+  # regularly takes 60s+.
+  timeout     = 540
   service_account_email = google_service_account.motivational_images.email
-  
+
   environment_variables = {
     PROJECT_ID              = var.project_id
     TWILIO_ACCOUNT_SID     = var.twilio_account_sid
@@ -525,6 +527,7 @@ module "motivation_function" {
     REPLICATE_API_TOKEN    = var.replicate_api_key
     ALLOWED_ORIGINS        = var.allowed_origins
     OPENAI_API_KEY         = var.openai_api_key
+    OPENAI_CHAT_MODEL      = var.openai_chat_model
     CONVERSATION_BUCKET_NAME = var.conversation_bucket_name
   }
   depends_on = [google_storage_bucket_object.motivational_images_source]

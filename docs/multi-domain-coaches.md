@@ -72,6 +72,59 @@ Web keeps Stripe. Mobile uses per-coach StoreKit subscriptions, mapped in
 `coach_iap_products` and validated by the new `iap-validator` function against
 Apple's certificate chain. See `functions/iap-validator/README.md`.
 
+## Decision: SMS stays, and the daily image was generalised
+
+**Decided: generalise the daily image job rather than retire it or freeze it**
+(issue #13, options were retire / generalise / freeze).
+
+The reasoning is a product bet about acquisition, not about any measurement of
+the current install base: **signing up over SMS is meaningfully less friction
+than asking someone to download an app.** Someone can be texting a coach a
+minute after hearing about it, with no store page, no account creation and no
+install. That is worth keeping as a real, first-class channel, and keeping it
+means the outbound content on that channel has to work for every discipline on
+the roster — not just the fitness personas that predate the split. Retiring the
+job would have thrown the channel away to save maintaining one function; the
+freeze option would have kept a fitness-shaped job alive and simply refused to
+serve anyone else.
+
+There is no production user base yet, which made this cheaper than it looks:
+there is no back-compatibility to preserve with what the old scenario table
+produced, so the implementation is the clean generalised one rather than a
+migration that tiptoes around live output.
+
+What changed in `functions/motivational-images`:
+
+- `scenarios.js` (472 lines of fitness before/after pairs), `descriptors.js`
+  and `prompt-generation.js` are deleted, along with the local copy of
+  `COACH_PERSONAS`. The whole "substitute the member's `image_preference` for
+  the word *person* in a canned gym scene" approach is gone.
+- The job now runs the same pipeline the app's visualiser runs: it resolves the
+  member's coach row, reads `get_member_context`, and renders the scene through
+  `functions/shared/visualization.js` (copied in per directory, as Cloud
+  Functions are zipped per-function). A drummer gets a kit, a yoga teacher gets
+  a mat, and there is no branch in the job that knows about any discipline.
+- With an aspiration on file the image is `becoming`; without one it is
+  `today` — an ordinary moment from the practice — rather than a guess at who
+  they want to be. `image_preference` survives only as a fallback for
+  `member_goals.visual.self`, i.e. "how do you want to be depicted".
+- **The shame framing is gone.** The old "before" image was prompted toward
+  `weak, frail, sad, nervous, skinny, chubby, overweight`. There is no before
+  image any more, and body descriptors sit on the *negative* side of every
+  prompt, exactly as they do for app users.
+- One image and one caption per send, in the coach's own voice, instead of a
+  pair plus a generated "transformation" message.
+- If the coach cannot be resolved, **nothing is sent**. There is no fitness
+  default left to fall back to, which is what makes "a non-fitness SMS member
+  cannot receive gym imagery" a property of the code rather than a hope.
+- Likeness is used only with explicit `likeness_consent`, matching the app.
+- The `trigger-daily-motivation` scheduler job in `_infra/main.tf` stays, since
+  the channel stays.
+
+`mobile/e2e/sms-image-probe.mjs` is the proof: it drives the real job against
+the real database for a drumming member, a yoga member and a legacy fitness
+member, and asserts on the actual model input.
+
 ## Free tier
 
 `open_coach_conversation()` creates a `free_tier` entitlement on first contact.
@@ -87,6 +140,7 @@ access.
 | `20260810120000_generalize_coach_domain.sql` | Categories, domain columns, roster search, backfill |
 | `20260810120100_creators_and_coach_subscriptions.sql` | Creators, entitlements, store products, `has_coach_access`, `get_coach_roster` |
 | `20260810120200_app_identity_and_conversations.sql` | `auth.users` identity, conversations, `open_coach_conversation`, `get_my_coaches` |
+| `20260811120000_service_role_grants_for_legacy_tables.sql` | Explicit `service_role` DML on `user_profiles` / `subscriptions`, which the SMS job reads with the service key |
 
 All three are idempotent and verified by applying the full migration chain from
 scratch against Postgres 16 + pgvector.
@@ -106,5 +160,10 @@ instructor. It is a seed, not a migration — run it by hand on dev/staging.
   approving it is a manual insert today.
 - **Revenue split is recorded, not paid.** `revenue_share_bps` is stored; there
   is no payout job.
-- **`motivational-images`** is still entirely fitness-specific and only makes
-  sense for fitness coaches.
+- **SMS members have no way to give likeness consent.** The daily image now
+  honours `likeness_consent` strictly, and nothing in the SMS flow asks for it,
+  so every SMS image renders scene-only until that is wired up.
+- **Predefined personas must exist as `coach_profiles` rows.** They are
+  inserted conditionally by `20250531093301_add_predefined_coaches.sql`; where
+  the row is missing, the daily image job skips that member rather than
+  guessing a discipline.

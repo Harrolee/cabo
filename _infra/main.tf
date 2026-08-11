@@ -50,9 +50,13 @@ resource "google_storage_bucket" "coach_content_bucket" {
 }
 
 # Cloud Scheduler configuration
+#
+# Kept deliberately: SMS stays a first-class acquisition channel (signup by
+# text is far less friction than an app install), so the daily image job was
+# generalised rather than retired. See docs/multi-domain-coaches.md.
 resource "google_cloud_scheduler_job" "daily_motivation" {
   name        = "trigger-daily-motivation"
-  description = "Triggers the motivation function daily"
+  description = "Triggers the daily goal-driven image for SMS members"
   schedule    = "0 9 * * *"
   time_zone   = "America/New_York"
 

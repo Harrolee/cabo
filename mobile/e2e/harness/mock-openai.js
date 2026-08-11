@@ -70,12 +70,28 @@ app.post('/v1/chat/completions', (req, res) => {
   }
 
   if (schemaName === 'visualization_scene') {
+    // Echo the coach's discipline and the member's own words back out, the way
+    // a real model would. Nothing here is discipline-aware on its own, which is
+    // the point: if the brief says drumming the scene is drumming, and if it
+    // says yoga the scene is yoga, with no branch in the pipeline.
+    const brief = system.match(/A member of (.+?)'s (.+?) practice is going to see/);
+    const coachName = brief?.[1] ?? 'your coach';
+    const discipline = (brief?.[2] ?? 'their practice').toLowerCase();
+    const aspiration = system.match(/Wants to become: (.+)/)?.[1]?.toLowerCase() ?? null;
+    const setting = system.match(/A place they pictured themselves: (.+)/)?.[1] ?? null;
+    const self = system.match(/How they want to be depicted: (.+)/)?.[1] ?? null;
+
     return res.json(reply(JSON.stringify({
-      scene: 'You behind the kit in a small club, mid-groove, the band locked in around you.',
+      scene: aspiration
+        ? `You in the middle of ${discipline} — ${aspiration}.`
+        : `You in the middle of ${discipline}, on an ordinary day.`,
       image_prompt:
-        'A drummer seated behind a four-piece kit in a small club, mid-groove, sticks blurred, ' +
-        'warm stage light from house left, shallow depth of field, candid documentary photograph',
-      caption: 'That is what holding it down looks like.',
+        `${self || 'A person'} deep in ${discipline}` +
+        `${setting ? ` in ${setting}` : ''}` +
+        `${aspiration ? `, working toward being ${aspiration}` : ''}` +
+        ', hands busy, warm side light from a window, shallow depth of field, ' +
+        'candid documentary photograph',
+      caption: `${coachName}: this is what ${discipline} looks like on a good day.`,
     })));
   }
 
