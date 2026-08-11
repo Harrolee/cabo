@@ -50,8 +50,240 @@ function Table({ columns, rows, onRowClick }) {
   );
 }
 
+const CREATOR_STATUS_STYLE = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  approved: 'bg-green-100 text-green-800',
+  suspended: 'bg-red-100 text-red-800',
+};
+
+/**
+ * Creator approval. The status, revenue share and payout columns are all
+ * restored by a database trigger on any write that carries an end-user JWT, so
+ * every action here goes through the admin Cloud Function, which holds the
+ * service role key server-side. Nothing on this page could work from the
+ * browser's Supabase client, and that is deliberate.
+ */
+function CreatorsPanel({ callAdmin }) {
+  const [creators, setCreators] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('pending');
+  const [busyId, setBusyId] = useState(null);
+  const [expanded, setExpanded] = useState(null);
+  const [coaches, setCoaches] = useState([]);
+  const [shareDraft, setShareDraft] = useState({});
+
+  async function loadCreators() {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ pageSize: '100' });
+      if (statusFilter) params.set('status', statusFilter);
+      if (search) params.set('search', search);
+      const data = await callAdmin(`/creators?${params.toString()}`);
+      setCreators(data.creators || []);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load creators');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadCreators();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
+
+  async function openCreator(creator) {
+    if (expanded === creator.id) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(creator.id);
+    setCoaches([]);
+    try {
+      const data = await callAdmin(`/creators/${creator.id}/coaches`);
+      setCoaches(data.coaches || []);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load this creator’s coaches');
+    }
+  }
+
+  async function patchCreator(creator, body, successMessage) {
+    setBusyId(creator.id);
+    try {
+      const updated = await callAdmin(`/creators/${creator.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
+      const changed = updated.coaches_changed || [];
+      toast.success(
+        changed.length > 0
+          ? `${successMessage} ${changed.length} coach${changed.length === 1 ? '' : 'es'} ${
+              updated.status === 'approved' ? 'published to the roster' : 'taken off the roster'
+            }.`
+          : successMessage
+      );
+      await loadCreators();
+      if (expanded === creator.id) {
+        const data = await callAdmin(`/creators/${creator.id}/coaches`);
+        setCoaches(data.coaches || []);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Update failed');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border px-3 py-2 rounded"
+        >
+          <option value="pending">Pending review</option>
+          <option value="approved">Approved</option>
+          <option value="suspended">Suspended</option>
+          <option value="">All</option>
+        </select>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') loadCreators(); }}
+          placeholder="Search name, handle, or email"
+          className="border px-3 py-2 rounded w-72"
+        />
+        <button onClick={loadCreators} className="bg-blue-600 text-white px-4 py-2 rounded">Search</button>
+      </div>
+
+      {loading ? (
+        <div className="p-4 border rounded">Loading…</div>
+      ) : creators.length === 0 ? (
+        <div className="p-6 border rounded text-sm text-gray-500">
+          No creators {statusFilter ? `with status "${statusFilter}"` : ''}.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {creators.map((creator) => (
+            <div key={creator.id} className="border rounded">
+              <div className="p-4 flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[220px]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{creator.display_name}</span>
+                    <span className="text-sm text-gray-500">/creators/{creator.slug}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CREATOR_STATUS_STYLE[creator.status] || 'bg-gray-100 text-gray-700'}`}>
+                      {creator.status}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">{creator.user_email}</div>
+                  {creator.coach_counts && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {creator.coach_counts.total} coach{creator.coach_counts.total === 1 ? '' : 'es'}
+                      {creator.coach_counts.in_review > 0 && ` · ${creator.coach_counts.in_review} awaiting listing`}
+                      {creator.coach_counts.listed > 0 && ` · ${creator.coach_counts.listed} listed`}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">Share %</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={shareDraft[creator.id] ?? Math.round(creator.revenue_share_bps / 100)}
+                    onChange={(e) => setShareDraft((p) => ({ ...p, [creator.id]: e.target.value }))}
+                    className="border px-2 py-1 rounded w-16"
+                  />
+                  <button
+                    disabled={busyId === creator.id}
+                    onClick={() => patchCreator(
+                      creator,
+                      { revenue_share_bps: Math.round(Number(shareDraft[creator.id] ?? creator.revenue_share_bps / 100) * 100) },
+                      'Revenue share updated.'
+                    )}
+                    className="px-3 py-1 border rounded text-sm disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {creator.status !== 'approved' && (
+                    <button
+                      disabled={busyId === creator.id}
+                      onClick={() => patchCreator(creator, { status: 'approved' }, `${creator.display_name} approved.`)}
+                      className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                  )}
+                  {creator.status !== 'suspended' && (
+                    <button
+                      disabled={busyId === creator.id}
+                      onClick={() => patchCreator(creator, { status: 'suspended' }, `${creator.display_name} suspended.`)}
+                      className="bg-red-100 text-red-700 px-4 py-2 rounded disabled:opacity-50"
+                    >
+                      Suspend
+                    </button>
+                  )}
+                  <button onClick={() => openCreator(creator)} className="px-3 py-2 border rounded text-sm">
+                    {expanded === creator.id ? 'Hide' : 'Details'}
+                  </button>
+                </div>
+              </div>
+
+              {expanded === creator.id && (
+                <div className="border-t p-4 bg-gray-50 space-y-3 text-sm">
+                  {creator.bio && <p className="text-gray-700 whitespace-pre-line">{creator.bio}</p>}
+                  {creator.website_url && (
+                    <a href={creator.website_url} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                      {creator.website_url}
+                    </a>
+                  )}
+                  {creator.social_links && Object.keys(creator.social_links).length > 0 && (
+                    <div className="flex flex-wrap gap-3 text-gray-600">
+                      {Object.entries(creator.social_links).map(([key, value]) => (
+                        <span key={key}><span className="capitalize text-gray-500">{key}:</span> {value}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="font-medium mb-1">Coaches</h4>
+                    {coaches.length === 0 ? (
+                      <div className="text-gray-500">None yet.</div>
+                    ) : (
+                      <ul className="divide-y bg-white border rounded">
+                        {coaches.map((coach) => (
+                          <li key={coach.id} className="px-3 py-2 flex justify-between">
+                            <span>
+                              {coach.name} <span className="text-gray-500">@{coach.handle}</span>
+                              {coach.discipline && <span className="text-gray-400"> — {coach.discipline}</span>}
+                            </span>
+                            <span className="text-gray-600 capitalize">{(coach.listing_status || 'draft').replace('_', ' ')}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const token = useAdminToken();
+  const [tab, setTab] = useState('users');
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -155,6 +387,25 @@ export default function AdminDashboard() {
   return (
     <div className="p-4 space-y-4">
       <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
+
+      <div className="flex gap-2 border-b">
+        {[['users', 'Users'], ['creators', 'Creators']].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 -mb-px border-b-2 font-medium ${
+              tab === key ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'creators' ? (
+        token ? <CreatorsPanel callAdmin={callAdmin} /> : <div className="p-4">Loading…</div>
+      ) : (
+      <>
       <div className="flex items-center gap-2">
         <input
           value={search}
@@ -236,6 +487,8 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

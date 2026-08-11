@@ -691,7 +691,7 @@ module "admin_api_function" {
   source = "./modules/cloud_function"
 
   name        = "admin-api"
-  description = "Admin API for user management and chat logs"
+  description = "Admin API for user management, chat logs, and creator approval"
   region      = var.region
   bucket_name = google_storage_bucket.function_bucket.name
   source_object = google_storage_bucket_object.admin_api_source.name

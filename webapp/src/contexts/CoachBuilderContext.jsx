@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../main';
 import { toast } from 'react-hot-toast';
+import { fetchMyCreatorProfile } from '../utils/creators';
 
 const CoachBuilderContext = createContext();
 
@@ -345,9 +346,14 @@ export const CoachBuilderProvider = ({ children }) => {
 
       // Insert minimal coach profile as draft if none exists yet
       if (!previewCoachId) {
+        // Credit the coach to the builder's creator profile from the start, so
+        // publishing later is a listing_status change and nothing else.
+        const creator = await fetchMyCreatorProfile();
+
         const dbData = {
           user_id: user.id,
           user_email: user.email,
+          creator_id: creator?.id || null,
           name: coachData.name || 'Sample Coach',
           handle: coachData.handle || `coach-${Math.random().toString(36).slice(2,8)}`,
           description: coachData.description || null,
@@ -477,10 +483,15 @@ export const CoachBuilderProvider = ({ children }) => {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
 
+      // Credit the coach to its creator. Without this a coach can never be
+      // listed, because the listing rules look for an approved creator here.
+      const creator = await fetchMyCreatorProfile();
+
       // Prepare data for database (convert empty strings to null for enum fields)
       const dbData = {
         user_id: user.id,
         user_email: userEmail,
+        creator_id: creator?.id || null,
         name: coachData.name,
         handle: coachData.handle,
         description: coachData.description,
