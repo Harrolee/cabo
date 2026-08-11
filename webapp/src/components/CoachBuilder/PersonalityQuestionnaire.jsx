@@ -1,17 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../main';
 import { useCoachBuilder } from '../../contexts/CoachBuilderContext';
 import ProgressStepper from './components/ProgressStepper';
 import Background from './components/Background';
 
+// Textareas collect one item per line; the DB columns are text[].
+const linesToArray = (value) =>
+  (value || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+const arrayToLines = (value) => (Array.isArray(value) ? value.join('\n') : '');
+
 const PersonalityQuestionnaire = () => {
   const navigate = useNavigate();
   const { coachData, updatePersonality, nextStep, prevStep } = useCoachBuilder();
-  
+
   const [formData, setFormData] = useState({
     name: coachData.name || '',
     handle: coachData.handle || '',
     description: coachData.description || '',
+    // What this coach actually coaches. Without it the prompt builder falls
+    // back to "their craft" and every coach reads like a generic one.
+    discipline: coachData.discipline || '',
+    category_slug: coachData.category_slug || '',
+    tagline: coachData.tagline || '',
+    expertise: arrayToLines(coachData.expertise),
+    starter_prompts: arrayToLines(coachData.starter_prompts),
     primary_response_style: coachData.primary_response_style || '',
     communication_traits: {
       energy_level: 5,
@@ -24,6 +41,26 @@ const PersonalityQuestionnaire = () => {
   });
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [categories, setCategories] = useState([]);
+
+  // The verticals are a lookup table, not a hardcoded list: a new one is a row.
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from('coach_categories')
+      .select('slug, label, description, emoji, sort_order')
+      .eq('active', true)
+      .order('sort_order')
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.warn('Could not load coach categories:', error.message);
+          return;
+        }
+        setCategories(data || []);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const questions = [
     {
@@ -31,6 +68,12 @@ const PersonalityQuestionnaire = () => {
       title: 'Basic Information',
       subtitle: 'Let\'s start with the basics about your AI coach',
       type: 'basic_info'
+    },
+    {
+      id: 'discipline',
+      title: 'What does your coach coach?',
+      subtitle: 'Drumming, songwriting, yoga, sales — anything. This is what the coach is an expert in.',
+      type: 'discipline'
     },
     {
       id: 'response_style',
@@ -168,8 +211,16 @@ const PersonalityQuestionnaire = () => {
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(prev => prev + 1);
     } else {
-      // Save all data and go to next step
-      updatePersonality(formData);
+      // Save all data and go to next step. The list fields are edited as text
+      // but persisted as arrays.
+      updatePersonality({
+        ...formData,
+        discipline: formData.discipline.trim(),
+        tagline: formData.tagline.trim(),
+        category_slug: formData.category_slug || 'other',
+        expertise: linesToArray(formData.expertise),
+        starter_prompts: linesToArray(formData.starter_prompts)
+      });
       nextStep();
       navigate('/coach-builder/content');
     }
@@ -189,6 +240,11 @@ const PersonalityQuestionnaire = () => {
     switch (question.type) {
       case 'basic_info':
         return formData.name.trim() && formData.handle.trim();
+      case 'discipline':
+        // Category may be blank only if the lookup failed to load.
+        return Boolean(
+          formData.discipline.trim() && (formData.category_slug || categories.length === 0)
+        );
       case 'single_select':
         return formData[question.field];
       case 'sliders':
@@ -208,7 +264,7 @@ const PersonalityQuestionnaire = () => {
           type="text"
           value={formData.name}
           onChange={(e) => handleBasicInfoChange('name', e.target.value)}
-          placeholder="e.g., Sarah's Fitness Coach"
+          placeholder="e.g., Pocket, June, Marisol's Yoga Coach"
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         />
         <p className="mt-1 text-sm text-gray-500">
@@ -250,6 +306,96 @@ const PersonalityQuestionnaire = () => {
         />
         <p className="mt-1 text-sm text-gray-500">
           Optional: A brief description of your coaching style
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderDiscipline = () => (
+    <div className="space-y-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Discipline *
+        </label>
+        <input
+          type="text"
+          value={formData.discipline}
+          onChange={(e) => handleBasicInfoChange('discipline', e.target.value)}
+          placeholder="e.g., Drum set — groove, timing and feel"
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <p className="mt-1 text-sm text-gray-500">
+          The specialty your coach speaks from. It shows on the roster and shapes every reply.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Category {categories.length > 0 ? '*' : ''}
+        </label>
+        <select
+          value={formData.category_slug}
+          onChange={(e) => handleBasicInfoChange('category_slug', e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">Choose a category…</option>
+          {categories.map((category) => (
+            <option key={category.slug} value={category.slug}>
+              {category.emoji ? `${category.emoji} ` : ''}{category.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-sm text-gray-500">
+          {categories.find((category) => category.slug === formData.category_slug)?.description
+            || 'Where your coach sits when people browse the roster'}
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Tagline
+        </label>
+        <input
+          type="text"
+          value={formData.tagline}
+          onChange={(e) => handleBasicInfoChange('tagline', e.target.value)}
+          placeholder="e.g., Groove first. Chops later."
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <p className="mt-1 text-sm text-gray-500">
+          Optional: one line under your coach's name on the roster
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Helps with
+        </label>
+        <textarea
+          value={formData.expertise}
+          onChange={(e) => handleBasicInfoChange('expertise', e.target.value)}
+          placeholder={'One per line, e.g.\ntimekeeping\ngroove and pocket\nplaying to a click'}
+          rows={4}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <p className="mt-1 text-sm text-gray-500">
+          Optional: one skill or topic per line. These are the capabilities the coach claims.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Conversation starters
+        </label>
+        <textarea
+          value={formData.starter_prompts}
+          onChange={(e) => handleBasicInfoChange('starter_prompts', e.target.value)}
+          placeholder={'One per line, e.g.\nMy time falls apart when I add the hi-hat\nHow long should I practise each day?'}
+          rows={3}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <p className="mt-1 text-sm text-gray-500">
+          Optional: the questions offered to someone opening a fresh conversation
         </p>
       </div>
     </div>
@@ -336,6 +482,7 @@ const PersonalityQuestionnaire = () => {
           {/* Question Content */}
           <div className="mb-8">
             {currentQuestionData.type === 'basic_info' && renderBasicInfo()}
+            {currentQuestionData.type === 'discipline' && renderDiscipline()}
             {currentQuestionData.type === 'single_select' && renderSingleSelect(currentQuestionData)}
             {currentQuestionData.type === 'sliders' && renderSliders(currentQuestionData)}
           </div>
