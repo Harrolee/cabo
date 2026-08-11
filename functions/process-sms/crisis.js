@@ -138,11 +138,31 @@ const SIGNALS = [
     confidence: 'high',
     re: /\b(won't|wont|will not|might not)\s+be\s+(around|here|alive)\b|\bnot going to be (around|here)\b|\bthis is (my|the) last\b/,
   },
+  /*
+   * Split into two patterns rather than one broad one.
+   *
+   * The original allowed 30 characters between "point" and "this", so
+   * "there's no point in this drill" and "no point in this warmup honestly"
+   * both fired. Members say that about an exercise constantly, and a crisis
+   * line in reply to a chord chart complaint teaches them the coach does not
+   * understand them. It also missed "what's the point of any of it anymore",
+   * which is the real thing.
+   *
+   * So: "point" adjacent to "anymore" with at most a preposition between them,
+   * or "point in/of" followed by something that is unmistakably about life
+   * rather than about a drill. A bare noun after "in this" no longer counts.
+   */
   {
     id: 'no_point_anymore',
     category: 'suicidal_ideation',
     confidence: 'low',
-    re: /\b(no|not much|what's the|whats the)\s+(point|reason)\b[^.!?]{0,30}\b(any ?more|in (any of )?(this|it|going on|living|carrying on|trying)|to (it|any of it|keep going|keep trying|living|carry on))\b|\bno point in (living|being here|going on)\b/,
+    re: /\b(no|not much|what'?s the|whats the)\s+(point|reason)\s*(in|to|of)?\s*(any ?more|left)\b/,
+  },
+  {
+    id: 'no_point_in_living',
+    category: 'suicidal_ideation',
+    confidence: 'low',
+    re: /\b(point|reason)\s+(in|to|of|for)\s+(any of it|any of this|it all|living|being here|being alive|going on|carrying on|keep going|keeping going|getting up)\b/,
   },
   {
     id: 'cant_go_on',
