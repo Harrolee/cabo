@@ -119,11 +119,39 @@ let conversationId;
   const { data: subs, error: subErr } = await user.from('coach_subscriptions').select('source,status,free_message_quota').eq('coach_id', POCKET);
   check('free tier created', !subErr && subs?.[0]?.source === 'free_tier', subErr?.message ?? JSON.stringify(subs));
 
+  // get_member_context() is the one read path for goal data: the prompt, the
+  // visualiser and fetchGoals() all read this shape. A null goal_id is how the
+  // app tells "the intake has never run" from "it ran and found nothing".
+  const { data: before, error: beforeErr } = await user.rpc('get_member_context', {
+    p_user_id: userId, p_coach_id: POCKET,
+  });
+  check('get_member_context before intake → goal_id null', !beforeErr && before?.goal_id === null,
+        beforeErr?.message ?? JSON.stringify(before));
+
   const { data: goalId, error: goalErr } = await user.rpc('begin_goal_onboarding', { p_coach_id: POCKET });
   check('begin_goal_onboarding', !goalErr && !!goalId, goalErr?.message);
 
+  const { data: ctx, error: ctxErr } = await user.rpc('get_member_context', {
+    p_user_id: userId, p_coach_id: POCKET,
+  });
+  check('member reads own context (what fetchGoals calls)', !ctxErr && ctx?.goal_id === goalId,
+        ctxErr?.message ?? JSON.stringify(ctx));
+  check('  → onboarding_status carried', ctx?.onboarding_status === 'in_progress', JSON.stringify(ctx?.onboarding_status));
+  check('  → days_together computed', typeof ctx?.days_together === 'number' && ctx.days_together >= 0,
+        JSON.stringify(ctx?.days_together));
+
+  const { data: svcCtx, error: svcErr } = await admin.rpc('get_member_context', {
+    p_user_id: userId, p_coach_id: POCKET,
+  });
+  check('service role reads any member (the Cloud Functions path)', !svcErr && svcCtx?.goal_id === goalId, svcErr?.message);
+
+  const { error: anonCtxErr } = await anon.rpc('get_member_context', { p_user_id: userId, p_coach_id: POCKET });
+  check('anon may NOT read a member context', !!anonCtxErr, anonCtxErr ? '' : 'call succeeded!');
+
+  // The row itself stays readable under RLS because the app writes to it.
   const { data: goals, error: gErr } = await user.from('member_goals').select('*').eq('coach_id', POCKET).maybeSingle();
-  check('member can read own goals', !gErr && goals?.onboarding_status === 'in_progress', gErr?.message ?? JSON.stringify(goals));
+  check('member_goals row visible under RLS (the write path)', !gErr && goals?.onboarding_status === 'in_progress',
+        gErr?.message ?? JSON.stringify(goals));
 }
 
 section('Message write permissions');
@@ -228,6 +256,12 @@ section('Cross-tenant isolation');
 
   const { data: theirGoals } = await otherClient.from('member_goals').select('id');
   check('another member cannot read these goals', (theirGoals?.length ?? 0) === 0, JSON.stringify(theirGoals));
+
+  // SECURITY DEFINER bypasses the policy above, so the function guards itself.
+  const { error: crossCtxErr } = await otherClient.rpc('get_member_context', {
+    p_user_id: userId, p_coach_id: POCKET,
+  });
+  check('another member cannot read this context', !!crossCtxErr, crossCtxErr ? '' : 'call succeeded!');
 
   const { data: theirCoaches } = await otherClient.rpc('get_my_coaches');
   check('get_my_coaches is per-caller', (theirCoaches?.length ?? 0) === 0, JSON.stringify(theirCoaches?.length));
