@@ -118,7 +118,9 @@ substituted the user's `image_preference` for the word "person". Every user in
 every discipline got the same gym scenes, and the "before" image was explicitly
 prompted toward *weak, frail, sad, nervous, skinny, chubby, overweight*.
 
-`coach-visualizer` replaces it:
+`coach-visualizer` replaces it for app members, and `motivational-images` now
+runs the same pipeline for SMS members (issue #13), so the description below
+holds for both channels:
 
 - The scene comes from `member_goals.aspiration` — what they told their coach
   they want to become. No aspiration, no image; the function returns
@@ -205,9 +207,12 @@ Not verified, and why:
   device. `/coach-nudges/preview` exists for exactly that check.
 - **Prompt v2 is not A/B'd.** Existing coaches stay on v1 until someone flips
   them. There is no eval harness comparing the two.
-- **`motivational-images` still owns the SMS path** and is still fitness-only.
-  Its `scenarios.json` before/after pairs are now dead weight for app users but
-  still drive SMS users.
+- **`motivational-images` still owns the SMS path**, but it is no longer
+  fitness-only: the scenario table is deleted and it renders the member's
+  aspiration through `shared/visualization.js` like the app does. See the
+  decision record in `docs/multi-domain-coaches.md`. What it still lacks is any
+  way for an SMS member to give likeness consent, so those images are always
+  scene-only.
 - **No push receipt cron.** `/receipts` exists but nothing calls it on a
   schedule; dead tokens are currently only pruned via ticket errors.
 - **Visualisation has no reference-photo upload flow** in the app, so every
