@@ -78,6 +78,56 @@ their listings back to `unlisted`.
 rather than US-only, and RLS accepts `auth.uid()` or the email claim alongside
 the legacy phone claim. Nothing about the existing SMS funnel changed.
 
+### Deleting an account
+
+App Store Review Guideline 5.1.1(v) requires an app that creates accounts to
+delete them from inside the app, so Settings → Delete account leads to a screen
+that names what will be destroyed and gates on typing the word DELETE. The work
+happens in `functions/account-deletion`, in this order and for this reason:
+
+1. **The reference photo objects, first.** Swept by prefix across the whole
+   `member-reference/<user id>/` path rather than by the URI in
+   `reference_photo_url`, exactly as `coach-visualizer`'s likeness revocation
+   does, so a photo stored under an older extension cannot survive. The
+   member-media bucket sets `soft_delete_policy` retention to 0 so this is real.
+   If it fails, **nothing else happens** — an orphaned photograph of somebody
+   who no longer has an account is worse than a deletion they have to retry.
+2. **Every public-schema row**, through `delete_member_account()`, one
+   transaction, service role only.
+3. **The `auth.users` row**, through GoTrue's admin API so identities, sessions
+   and refresh tokens go with it.
+
+**Decided: coaches the member created are not deleted with them, and not
+orphaned either.** `20260812090000` first defuses the two foreign keys that made
+the question urgent — `coach_profiles.user_id` and `.user_email` both cascaded,
+so deleting one person destroyed every coach they owned and, through those,
+other members' subscriptions, threads and goals. Both are now `ON DELETE SET
+NULL`, and the function decides explicitly instead:
+
+| Case | Outcome |
+| ---- | ------- |
+| Attributed to another creator (this is the five default personas, which still carry the founder's address in the legacy `user_email` column) | **Detached.** `user_id` and `user_email` cleared; listing and attribution untouched. |
+| Theirs, and other members are subscribed or have threads | **Retained and unlisted.** It keeps working for the people paying for it; nobody new can subscribe to a coach with nobody behind it. |
+| Theirs, and nobody else uses it | **Deleted**, with its content chunks and store products. |
+
+Their `creator_profiles` row is deleted if no coach still points at it, and
+otherwise survives with `user_id`, name, slug, bio, avatar, links, email and
+payout details all replaced — a row left sitting there with somebody's name and
+payout account in it is not deletion.
+
+**Apple subscriptions are not cancelled by any of this**, because they belong to
+the Apple ID rather than to the Cabo account and nothing on our side can touch
+them. The confirmation screen says so in a warning block above the confirmation
+field, with a link to the App Store subscription settings, because finding that
+out from the next charge is how someone becomes justifiably angry — and is an
+App Review risk in its own right.
+
+`get_coach_roster()` and `get_my_coaches()` both `LEFT JOIN creator_profiles`
+and are unaffected; `coach_profiles.subscriber_count` stays honest because the
+`AFTER DELETE` trigger on `coach_subscriptions` recomputes it per row.
+`account-deletion-probe.mjs` asserts all of that, and that the photo object is
+genuinely gone from the bucket.
+
 ### Conversations
 
 `conversations` (one per user/coach/channel) and `conversation_messages`
@@ -166,6 +216,7 @@ access.
 | `20260811120000_service_role_grants_for_legacy_tables.sql` | Explicit `service_role` DML on `user_profiles` / `subscriptions`, which the SMS job reads with the service key |
 | `20260811120100_creator_self_signup.sql` | INSERT guard on the platform-owned creator columns, one profile per account, `creator_slug_available`, coach attribution guard |
 | `20260811120200_prompt_v2_rollout.sql` | Moves every coach to prompt v2, logging previous values so the rollout is exactly reversible |
+| `20260812090000_account_deletion.sql` | `coach_profiles`' two owner foreign keys stop cascading; `delete_member_account()` |
 
 All of them are idempotent and verified by applying the full migration chain
 from scratch against Postgres 16 + pgvector.
@@ -189,6 +240,14 @@ instructor. It is a seed, not a migration — run it by hand on dev/staging.
   to read their own split. Splitting the two needs a view or a definer function.
 - **Revenue split is recorded, not paid.** `revenue_share_bps` is stored; there
   is no payout job.
+- **The coach detail read fails for `anon`.** Selecting `coach_profiles` with
+  embedded joins returns `permission denied for table user_profiles`, because
+  the legacy phone-era policies (`Users can view their own coaches`) subquery
+  `user_profiles` directly instead of going through the `SECURITY DEFINER`
+  `owns_coach()`, and `anon` has no grant on that table. Reproducible on `main`
+  and visible as four failures in `rls-probe.mjs`; the fix is to rewrite those
+  three policies in terms of `owns_coach()`, which is what the newer `by uid`
+  policies already do.
 - **SMS members have no way to give likeness consent.** The daily image now
   honours `likeness_consent` strictly, and nothing in the SMS flow asks for it,
   so every SMS image renders scene-only until that is wired up.

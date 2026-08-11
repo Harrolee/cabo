@@ -50,6 +50,16 @@ async function callFunction<T>(path: string, body: unknown): Promise<T> {
     }
 
     /*
+      503 is the one server error worth rendering: it is the deliberate "this
+      cannot be done right now, try again shortly" that account deletion
+      returns when the stored photo could not be deleted, and telling someone
+      to try again is more use than telling them nothing.
+    */
+    if (response.status === 503 && typeof payload.message === 'string') {
+      throw new Error(payload.message);
+    }
+
+    /*
       4xx bodies carry a message written for the member. 5xx bodies must not be
       rendered even if the server sends detail — a stack or a cloud-provider
       JSON blob in an alert is worse than saying nothing useful.
@@ -424,4 +434,43 @@ export async function updateCoachNotifications(
 /** Fires a real notification to this account's devices, to prove the wiring. */
 export async function sendTestNotification(coachId: string) {
   return callFunction<{ success: boolean; ok: number }>('/coach-nudges/preview', { coachId });
+}
+
+// ---------------------------------------------------------------------------
+// Account deletion
+// ---------------------------------------------------------------------------
+
+export interface DeletionSummary {
+  conversations: number | null;
+  goals: number | null;
+  images: number | null;
+  subscriptions: number | null;
+  hasReferencePhoto: boolean;
+}
+
+/**
+ * What deleting would destroy, counted live.
+ *
+ * The confirmation is worth more when it says "4 conversations and 2 goals"
+ * than when it lists table names, and someone who has nothing stored should be
+ * told that rather than warned about it.
+ */
+export async function fetchDeletionSummary(): Promise<DeletionSummary> {
+  const { summary } = await callFunction<{ summary: DeletionSummary }>(
+    '/account-deletion/preview',
+    {}
+  );
+  return summary;
+}
+
+/**
+ * Irreversible. The caller is responsible for having got a deliberate
+ * confirmation first — see `app/delete-account.tsx`, which makes the member
+ * type the word.
+ *
+ * The literal string is what the server checks, so a retry with an empty body
+ * cannot delete anything.
+ */
+export async function deleteAccount(): Promise<void> {
+  await callFunction<{ success: boolean }>('/account-deletion', { confirm: 'DELETE' });
 }

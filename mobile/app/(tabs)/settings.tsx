@@ -38,8 +38,18 @@ export default function SettingsScreen() {
   return (
     <Screen edges={[]}>
       <ScrollView contentContainerStyle={styles.container}>
+        {/*
+          Delete lives at the top, with the account it deletes. Guideline
+          5.1.1(v) wants it findable, and burying it three screens down under
+          "Advanced" is the pattern the guideline exists to stop.
+        */}
         <Section title="Account">
           <Row label="Signed in as" value={user?.email ?? 'Apple ID'} />
+          <Action
+            label="Delete account"
+            destructive
+            onPress={() => router.push('/delete-account')}
+          />
         </Section>
 
         <Section title="Notifications">
@@ -138,10 +148,12 @@ function Action({
   label,
   onPress,
   disabled,
+  destructive,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  destructive?: boolean;
 }) {
   return (
     <Pressable
@@ -150,7 +162,7 @@ function Action({
       accessibilityRole="button"
       style={({ pressed }) => [styles.row, (pressed || disabled) && styles.pressed]}
     >
-      <Text style={styles.actionLabel}>{label}</Text>
+      <Text style={[styles.actionLabel, destructive && styles.destructiveLabel]}>{label}</Text>
       <Text style={styles.chevron}>›</Text>
     </Pressable>
   );
@@ -210,6 +222,9 @@ const styles = StyleSheet.create({
   actionLabel: {
     color: theme.color.text,
     fontSize: theme.font.body,
+  },
+  destructiveLabel: {
+    color: theme.color.danger,
   },
   chevron: {
     color: theme.color.textFaint,

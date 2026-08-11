@@ -66,6 +66,15 @@ resource "google_service_account" "iap_validator" {
   project      = var.project_id
 }
 
+# Its own identity rather than sharing the visualiser's: this is the only thing
+# in the estate that deletes a member outright, and "who erased this account"
+# should be answerable from the audit log without ambiguity.
+resource "google_service_account" "account_deletion" {
+  account_id   = "account-deletion"
+  display_name = "Service Account for Account Deletion Function"
+  project      = var.project_id
+}
+
 # Create conversation storage bucket
 resource "google_storage_bucket" "conversation_storage" {
   name          = "${var.project_id}-${var.conversation_bucket_name}"
@@ -178,11 +187,32 @@ resource "google_storage_bucket_iam_member" "coach_visualizer_bucket_access" {
   member = "serviceAccount:${google_service_account.coach_visualizer.email}"
 }
 
-# The only identity that may read, write or delete a member's reference photo.
+# The only identities that may read, write or delete a member's reference
+# photo: the visualiser, which stores and revokes it, and account deletion,
+# which sweeps the whole per-member prefix before erasing the account.
 resource "google_storage_bucket_iam_member" "coach_visualizer_member_media_access" {
   bucket = google_storage_bucket.member_media_bucket.name
   role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.coach_visualizer.email}"
+}
+
+resource "google_project_iam_member" "account_deletion_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/logging.logWriter"
+  ])
+
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.account_deletion.email}"
+}
+
+# Scoped to the member-media bucket alone. Deleting an account never needs to
+# reach the public image bucket or the conversation archive.
+resource "google_storage_bucket_iam_member" "account_deletion_member_media_access" {
+  bucket = google_storage_bucket.member_media_bucket.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.account_deletion.email}"
 }
 
 resource "google_project_iam_member" "coach_nudges_roles" {
@@ -391,6 +421,14 @@ data "archive_file" "coach_visualizer_zip" {
   excludes    = ["node_modules"]
 }
 
+# Account deletion package
+data "archive_file" "account_deletion_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/account-deletion"
+  output_path = "${path.root}/tmp/account-deletion.zip"
+  excludes    = ["node_modules"]
+}
+
 # Coach nudges (push) package
 data "archive_file" "coach_nudges_zip" {
   type        = "zip"
@@ -497,6 +535,12 @@ resource "google_storage_bucket_object" "coach_visualizer_source" {
   name   = "coach-visualizer-${data.archive_file.coach_visualizer_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.coach_visualizer_zip.output_path
+}
+
+resource "google_storage_bucket_object" "account_deletion_source" {
+  name   = "account-deletion-${data.archive_file.account_deletion_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.account_deletion_zip.output_path
 }
 
 resource "google_storage_bucket_object" "coach_nudges_source" {
@@ -864,6 +908,43 @@ module "coach_visualizer_function" {
 resource "google_cloud_run_service_iam_member" "coach_visualizer_invoker" {
   location = module.coach_visualizer_function.function.location
   service  = module.coach_visualizer_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+module "account_deletion_function" {
+  source = "./modules/cloud_function"
+
+  name        = "account-deletion"
+  description = "Erases a member's account: reference photo, every row, then the auth identity"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.account_deletion_source.name
+  entry_point = "deleteAccount"
+  memory      = "512M"
+  # Sweeping a bucket prefix plus one transaction; nowhere near the 60s default,
+  # but a deletion that times out half way is worth avoiding outright.
+  timeout     = 120
+  service_account_email = google_service_account.account_deletion.email
+
+  environment_variables = {
+    PROJECT_ID                = var.project_id
+    SUPABASE_URL              = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    MEMBER_MEDIA_BUCKET       = google_storage_bucket.member_media_bucket.name
+    ALLOWED_ORIGINS           = var.allowed_origins
+  }
+  depends_on = [
+    google_storage_bucket_object.account_deletion_source,
+    google_storage_bucket_iam_member.account_deletion_member_media_access,
+  ]
+}
+
+# Public like the other app-facing functions: the endpoint authenticates the
+# caller from their Supabase JWT and can only ever delete that caller.
+resource "google_cloud_run_service_iam_member" "account_deletion_invoker" {
+  location = module.account_deletion_function.function.location
+  service  = module.account_deletion_function.function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }

@@ -67,6 +67,7 @@ function RootNavigator() {
       <Stack.Screen name="visualize/[coachId]" options={{ title: 'Becoming' }} />
       <Stack.Screen name="notification-settings" options={{ title: 'Notifications' }} />
       <Stack.Screen name="likeness" options={{ title: 'Your photo' }} />
+      <Stack.Screen name="delete-account" options={{ title: 'Delete account' }} />
     </Stack>
   );
 }
