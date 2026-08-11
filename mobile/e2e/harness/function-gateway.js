@@ -77,6 +77,13 @@ process.env.COACH_RESPONSE_GENERATOR_URL = `http://127.0.0.1:${PORT}/coach-respo
 mount('/coach-response-generator', 'coach-response-generator', 'generateCoachResponse');
 mount('/coach-nudges', 'coach-nudges', 'coachNudges');
 mount('/coach-visualizer', 'coach-visualizer', 'coachVisualizer');
+/*
+  Mounted so the app's Settings flow can be driven end to end against a local
+  stack. It reaches a real bucket, so deleting an account through the gateway
+  needs GCS credentials — `account-deletion-probe.mjs` drives the same handler
+  in process against a fake Cloud Storage API instead, and needs none.
+*/
+mount('/account-deletion', 'account-deletion', 'deleteAccount');
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

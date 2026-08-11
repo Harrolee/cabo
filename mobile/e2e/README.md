@@ -1,6 +1,6 @@
 # End-to-end probes
 
-Four suites that exercise the backend the way the app does — through
+Five suites that exercise the backend the way the app does — through
 PostgREST as a real `anon`/`authenticated` user, so RLS is actually in play,
 and through the Cloud Functions over HTTP.
 
@@ -10,6 +10,7 @@ and through the Cloud Functions over HTTP.
 | `flow-probe.mjs` | Goal intake, prompt v1/v2 selection, free-tier metering, the 402 paywall, entitlement restore, coach-initiated nudges, `suppressUserTurn` auth, the nudge dispatcher sweep |
 | `viz-realtime-probe.mjs` | Visualiser guards (`no_aspiration`, entitlement, daily limit), prompt hygiene, likeness consent and reference photos, and realtime delivery of a coach-initiated message |
 | `sms-image-probe.mjs` | The daily SMS image job across three disciplines: channel scoping, coach resolution, goal-driven prompts, likeness consent, and that no member can receive fitness before/after imagery |
+| `account-deletion-probe.mjs` | Account deletion: that no row in any affected table survives, that the reference photo **object** is gone from the bucket, what happens to coaches the member created and to the people subscribed to them, and that a photo we cannot delete stops the whole deletion |
 
 ## Setting up a local stack
 
@@ -70,11 +71,21 @@ ENV_FILE=/tmp/cabo-local/local.env node e2e/rls-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/flow-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/viz-realtime-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/sms-image-probe.mjs
+ENV_FILE=/tmp/cabo-local/local.env node e2e/account-deletion-probe.mjs
 ```
 
 `sms-image-probe.mjs` needs the mock model but not the gateway: it calls the
 daily job's modules in-process and fakes Replicate, Twilio and GCS, so it needs
 no Twilio or Replicate credentials and spends nothing.
+
+`account-deletion-probe.mjs` needs neither the gateway nor the mock model. It
+drives `functions/account-deletion` in process against `harness/fake-gcs.mjs`,
+a four-endpoint stand-in for the Cloud Storage JSON API that
+`@google-cloud/storage` talks to when `STORAGE_EMULATOR_HOST` is set — which is
+what lets it assert that the member's photo *object* is gone rather than that
+the column pointing at it is empty. It creates its own coaches, creators and
+members and removes all of them afterwards, including on failure, because the
+other suites assert on the exact contents of the seeded roster.
 
 They run from `mobile/` for `@supabase/supabase-js` resolution and exit non-zero
 on any failure.
