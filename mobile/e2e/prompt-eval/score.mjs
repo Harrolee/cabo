@@ -26,6 +26,9 @@ const STOPWORDS = new Set([
   'through', 'sound', 'sounds', 'sounded', 'around', 'together', 'whole', 'work',
   'works', 'working', 'part', 'place', 'both', 'yourself', 'myself', 'sometimes',
   'always', 'never', 'often', 'instead', 'things', 'stuff', 'lot',
+  // Generic to the activity rather than to this member: saying "practice" is
+  // not evidence that the coach read anyone's goals.
+  'practice', 'practise', 'session', 'sessions', 'reach', 'reaches',
 ]);
 
 /**
@@ -134,12 +137,27 @@ export function memberGrounding(caseDef, text) {
   */
   const replyWords = words(text).map(stem);
   const memberWords = words(memberText).map(stem);
+  /*
+    A phrase the member has just said themselves is not evidence the coach read
+    the member block — "two finished songs" is in `current_level` *and* in the
+    message that prompted the reply. Subtract the conversation, exactly as the
+    single-token path already does.
+  */
+  const conversationText = [caseDef.message, ...(caseDef.history || []).map((m) => m.content)]
+    .join(' ');
+  const conversationWords = new Set(words(conversationText).map(stem));
   const phrases = [];
   for (let n = 5; n >= 3; n--) {
     for (let i = 0; i + n <= memberWords.length; i++) {
       const gram = memberWords.slice(i, i + n);
       const carriers = gram.filter((w) => w.length > 3 && !STOPWORDS.has(w));
       if (carriers.length < 2) continue;
+      /*
+        Word order is not protection: "I've only ever finished two songs" and
+        the member block's "two finished songs" are the same fact, and a reply
+        echoing it has learned nothing from the member block.
+      */
+      if (carriers.every((w) => conversationWords.has(w))) continue;
       for (let j = 0; j + n <= replyWords.length; j++) {
         if (gram.every((w, k) => replyWords[j + k] === w)) {
           const phrase = words(text).slice(j, j + n).join(' ');

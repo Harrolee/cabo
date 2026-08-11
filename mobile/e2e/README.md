@@ -116,6 +116,15 @@ started automatically if it is not already listening.
   you can disagree with the regex by reading the report.
 - `--judge` adds a blind pairwise pass: A/B order alternates and the judge is
   never told which prompt is which.
+- `--no-chunks` runs with retrieval returning nothing, which is what production
+  does today (`match_coach_content` fails on every call and the caller
+  swallows it). Run both ways: a verdict that only holds when retrieval works
+  is not a verdict about the system as deployed.
+- Every run first asserts that the two prompts it is about to compare are
+  structurally distinct — v1 headings present and v2 tags absent, and vice
+  versa. The harness never reads `coach_profiles`, so `prompt_version` in a
+  database cannot influence which path is exercised, but "we compared v1 and
+  v2" is worthless if both sides were quietly the same prompt.
 - Every run writes `results/<date>-<model>.md` **and** the raw transcripts as
   `.json`, so a scorer bug can be fixed and the tally rebuilt with `--rescore`
   instead of paying for a second run against different text.

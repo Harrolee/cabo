@@ -93,21 +93,50 @@ validation of a bad plan — through *both* prompt builders and scores the
 replies against the claims above rather than against generic quality. It
 defaults to the local mock; `--real` is the only way to spend credits.
 
-The committed run (`results/2026-08-11-gpt-4o-mini.md`, gpt-4o-mini, 12 cases,
-$0.006) says:
+It was run twice, because `match_coach_content` is currently broken — it
+raises `Returned type coach_content_type does not match expected type text`
+on every call and the caller swallows it — so **production retrieves nothing
+today**. The harness hands chunks to the builders directly, so it can run
+either world: the default simulates retrieval working, `--no-chunks` simulates
+today.
 
-| Axis | Winner |
-| ---- | ------ |
-| References the member's own goal, obstacles, commitment | **v2** (blind judge 9–3; deterministic 2/9 vs 0/9) |
-| One action, not four | **v2** (judge 10–2; mean reply 48 words vs 78) |
-| Stays inside the discipline | **v2**, narrowly (3/3 vs 2/3 declined) |
-| Pushes back instead of agreeing | **v2** (3/3 vs 2/3) |
-| Invents no shared history, recites no chunks | tie — both clean, including on cold-start cases |
-| Ends with one question, not two | **v1** (12/12 vs 10/12) |
-| Medical handling | wash, and **both are inadequate** — see below |
+| Axis | Retrieval working | Retrieval dead (today) |
+| ---- | ----------------- | ---------------------- |
+| References the member's goal, obstacles, commitment | **v2** 2/9 vs 0/9 | **v2** 3/9 vs 0/9 |
+| One action, not four | **v2** (judge 10–2) | **v2** (judge 10–2) |
+| Reply length (limit 90) | **v2** 48 words vs 78 | **v2** 49 words vs 76 |
+| Stays inside the discipline | **v2** 3/3 vs 2/3 | tie 3/3 |
+| Points them somewhere useful | tie 2/3 | **v2** 3/3 vs 1/3 |
+| Pushes back instead of agreeing | **v2** 3/3 vs 2/3 | tie 2/3 |
+| Ends with one question, not two | **v1** 12/12 vs 10/12 | **v2** 12/12 vs 10/12 |
+| Invents no history, recites no chunks | tie 12/12 | tie 12/12 |
+| Blind judge, overall | v2 6, v1 3, tie 3 | v2 5, v1 5, tie 2 |
+| Medical handling | wash, **both inadequate** | wash, **both inadequate** |
 
-So v2 wins the things it was built to win, and
-`20260811120000_prompt_v2_rollout.sql` moves the fleet onto it, reversibly.
+Two results survive both conditions and are what the rollout rests on:
+
+- **v1 never references the member.** Zero hits in eighteen opportunities
+  across both runs; v2 managed five ("hold the pocket" — the member's
+  aspiration; "stick to your 30 minutes" — their recorded commitment; "a
+  moment with your father" — their motivation). That is the `<member>` block
+  doing exactly what it was added for, and it cannot be retrieval-dependent
+  because the member block is not retrieved.
+- **v2 says one thing in two-thirds the words.** Judge 20–4 on single-action
+  across both runs, ~48 words against ~77.
+
+Everything else moved between the two runs, including the judge's overall
+verdict, which is a **dead heat under today's conditions**. So the honest
+summary is narrower than "v2 wins": v2 wins the two structural things, ties the
+rest, and is not worse anywhere reproducible.
+`20260811120000_prompt_v2_rollout.sql` acts on that, and is exactly reversible
+for the same reason.
+
+**The voice-evidence axis is not validly tested against production.** v2's
+distinguishing claim about retrieved chunks — evidence of voice, not answers —
+cannot be evaluated on a system that retrieves nothing. With chunks injected,
+neither version lifted from them (12/12 clean both), so there is no evidence
+that the reframing helps either. Re-run this once `match_coach_content` is
+fixed.
 
 **The finding that matters most is not about v1 vs v2.** On the songwriting
 case — a member reporting three days without sleep, panic symptoms, and "it's
@@ -249,11 +278,14 @@ Not verified, and why:
   thing to fix, and it is worth fixing in the prompt *and* in code — a
   keyword-triggered, non-model response path does not depend on the model
   choosing to notice.
-- **The eval is one sample per case at temperature 0.8.** Twelve cases, one
-  run each, on gpt-4o-mini rather than the configured gpt-4o. Good enough to
-  decide a rollout, not good enough to call small differences real. Reruns are
-  cheap; `--rescore` re-tallies saved transcripts for free when a scorer turns
-  out to be wrong.
+- **The eval is one sample per case at temperature 0.8.** Twelve cases, two
+  runs, on gpt-4o-mini rather than the configured gpt-4o. Good enough to
+  decide a rollout, not good enough to call small differences real — several
+  axes swapped winners between the two runs. `--rescore` re-tallies saved
+  transcripts for free when a scorer turns out to be wrong.
+- **Retrieval is broken, so v2's chunk-framing claim is untested.** Re-run
+  `prompt-eval` without `--no-chunks` once `match_coach_content` returns rows
+  again; that is the only axis in §2 this eval could not speak to.
 - **`motivational-images` still owns the SMS path** and is still fitness-only.
   Its `scenarios.json` before/after pairs are now dead weight for app users but
   still drive SMS users.

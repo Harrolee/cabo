@@ -6,11 +6,24 @@
   them. That deliberate caution has now been paid off by evidence rather than
   by assumption: `mobile/e2e/prompt-eval/` runs a fixed set of coaching turns
   through both prompt builders and scores them against the specific claims
-  made for v2 in `docs/prompts-and-notifications.md` §2. The committed run
-  (`results/2026-08-11-gpt-4o-mini.md`) has v2 ahead on member grounding,
-  brevity, single-action, discipline containment and anti-sycophancy, level on
-  invention and recitation, and behind only on the number of trailing
-  questions. Medical handling is a wash — and inadequate in both, which is a
+  made for v2 in `docs/prompts-and-notifications.md` §2.
+
+  It was run twice — once simulating retrieval working, once with retrieval
+  returning nothing, which is what production does today while
+  `match_coach_content` is broken. Two results hold in both runs, and they are
+  what this migration rests on: v1 referenced a member's own goal, obstacle or
+  commitment in *zero* of eighteen opportunities where v2 managed five, and v2
+  gives one action in two-thirds the words (blind judge 20-4 on single-action).
+  Everything else moved between runs, including the judge's overall verdict,
+  which is a dead heat under today's conditions. So this is a narrow win on the
+  two structural differences rather than a broad one — hence the care taken
+  below to make it undoable.
+
+  Not evidence for this change: v2's claim about framing retrieved chunks as
+  voice evidence. That cannot be tested while retrieval returns nothing, and
+  with chunks injected by hand neither version recited from them.
+
+  Medical handling is a wash — and inadequate in both, which is a
   prompt-independent follow-up, not a reason to stay on v1.
 
   Two things this migration is careful about.
