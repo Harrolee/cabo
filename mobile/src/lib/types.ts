@@ -113,6 +113,21 @@ export interface Visualization {
   created_at: string;
 }
 
+/**
+ * Whether the member has agreed to their own face being used, and whether we
+ * are holding a photo of them. Both come from the backend — the app never
+ * writes either directly, and a stored photo without consent is not a state the
+ * backend will report.
+ */
+export interface LikenessStatus {
+  consent: boolean;
+  hasPhoto: boolean;
+  consentAt: string | null;
+  photoUpdatedAt: string | null;
+  /** Short-lived signed URL, for showing the member what we hold. */
+  previewUrl: string | null;
+}
+
 export interface NotificationPreferences {
   notification_channel: NotificationChannel;
   nudge_hour: number;

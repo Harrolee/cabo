@@ -124,4 +124,6 @@ app.post('/v1/embeddings', (req, res) => {
   });
 });
 
-app.listen(8791, () => console.log('mock openai on http://127.0.0.1:8791/v1'));
+// Overridable so a second stack can run alongside the first.
+const PORT = Number(process.env.PORT || 8791);
+app.listen(PORT, () => console.log(`mock openai on http://127.0.0.1:${PORT}/v1`));

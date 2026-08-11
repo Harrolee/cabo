@@ -4,6 +4,12 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
+// The model table the function itself uses, so the assertions below cannot
+// drift away from what actually ships.
+import { MODELS } from '../../functions/shared/visualization.js';
+
+const PHOTOMAKER_MODEL = MODELS.WITH_LIKENESS.id;
+const SCENE_ONLY_MODEL = MODELS.SCENE_ONLY.id;
 
 const env = Object.fromEntries(
   fs.readFileSync(process.env.ENV_FILE, 'utf8').split('\n').filter(Boolean).map((l) => {
@@ -11,7 +17,7 @@ const env = Object.fromEntries(
     return [l.slice(0, i), l.slice(i + 1).replace(/^"|"$/g, '')];
   })
 );
-const API = 'http://127.0.0.1:8790';
+const API = process.env.API_BASE || 'http://127.0.0.1:8790';
 const admin = createClient(env.API_URL, env.SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 let pass = 0, fail = 0;
@@ -90,6 +96,8 @@ section('Scene generation (image model stubbed at the Replicate boundary)');
         !/before|after|transformation|weight loss|slimmer/i.test(row?.image_prompt ?? ''), row?.image_prompt);
   check('no body descriptors in the prompt',
         !/\b(skinny|chubby|overweight|frail|ripped|muscular)\b/i.test(row?.image_prompt ?? ''), row?.image_prompt);
+  check('scene-only model recorded with no reference photo',
+        row?.model === SCENE_ONLY_MODEL, String(row?.model));
 
   if (r.status === 200) {
     check('generate returned 200 with an image', !!r.body?.visualization?.image_url, JSON.stringify(r.body).slice(0, 150));
@@ -98,6 +106,118 @@ section('Scene generation (image model stubbed at the Replicate boundary)');
     console.log(`      (image model unavailable: ${r.status} ${JSON.stringify(r.body).slice(0, 120)})`);
     check('failed generation is recorded, not silently dropped', row?.status === 'failed' && !!row?.error);
   }
+}
+
+// --- likeness ---------------------------------------------------------------
+/*
+  The identity-preserving branch, without spending anything at Replicate: what
+  is under test is which model gets chosen and whether consent can be forged or
+  outlived, all of which is decided before the model is ever called. The runs
+  below fail at the Replicate boundary (no token in the harness) and that is
+  fine — `coach_visualizations.model` is written before the call, so the choice
+  is on the row either way. Failed rows also do not count toward the daily
+  limit, which is why this section can sit in front of it.
+*/
+section('Likeness: consent is explicit, backend-only, and revocable');
+{
+  const status = await viz('/likeness', {});
+  check('status endpoint reports no consent and no photo',
+        status.status === 200 && status.body.likeness?.consent === false
+          && status.body.likeness?.hasPhoto === false, JSON.stringify(status.body).slice(0, 160));
+
+  const noConsent = await viz('/likeness/grant', { photoBase64: 'x'.repeat(64) });
+  check('grant without an explicit consent flag is refused',
+        noConsent.status === 400, `${noConsent.status} ${JSON.stringify(noConsent.body).slice(0, 120)}`);
+
+  const notAnImage = await viz('/likeness/grant', {
+    consent: true,
+    photoBase64: Buffer.from('this is not an image, it is a sentence.').toString('base64'),
+  });
+  check('a file that is not an image is refused on its bytes',
+        notAnImage.status === 400 && notAnImage.body.error === 'photo_unsupported_format',
+        `${notAnImage.status} ${JSON.stringify(notAnImage.body).slice(0, 140)}`);
+
+  const heicHeader = Buffer.concat([
+    Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypheic'), Buffer.alloc(64, 1),
+  ]);
+  const heic = await viz('/likeness/grant', { consent: true, photoBase64: heicHeader.toString('base64') });
+  check('HEIC is refused with something the member can act on',
+        heic.status === 400 && /heic/i.test(heic.body.message ?? ''), JSON.stringify(heic.body).slice(0, 140));
+
+  // The member owns the row, so PostgREST will happily accept this write; the
+  // trigger is what keeps consent from being self-granted.
+  await user.from('user_profiles')
+    .update({ likeness_consent: true, reference_photo_url: 'https://example.com/someone-else.jpg' })
+    .eq('user_id', userId);
+  const selfGranted = (await admin.from('user_profiles')
+    .select('likeness_consent, reference_photo_url').eq('user_id', userId).maybeSingle()).data;
+  check('a member cannot grant themselves consent directly',
+        selfGranted?.likeness_consent === false, JSON.stringify(selfGranted));
+  check('  → nor point the photo at somebody else',
+        selfGranted?.reference_photo_url === null, JSON.stringify(selfGranted?.reference_photo_url));
+}
+
+section('Likeness: PhotoMaker is chosen once consent and a photo exist');
+{
+  // Stands in for the stored photo. A gs:// URI would be checked against the
+  // bucket, which the harness has no credentials for; an external URL takes the
+  // same path the model call does.
+  const now = new Date().toISOString();
+  await admin.from('user_profiles').update({
+    reference_photo_url: 'https://example.com/reference.jpg',
+    likeness_consent: true,
+    likeness_consent_at: now,
+    reference_photo_updated_at: now,
+  }).eq('user_id', userId);
+
+  const status = await viz('/likeness', {});
+  check('status reflects the stored photo', status.body.likeness?.consent === true
+        && status.body.likeness?.hasPhoto === true, JSON.stringify(status.body).slice(0, 160));
+
+  await viz('/generate', { coachId: POCKET, kind: 'becoming' });
+  const withLikeness = (await admin.from('coach_visualizations').select('model, status')
+    .eq('user_id', userId).order('created_at', { ascending: false }).limit(1)).data?.[0];
+  check('the generation records the PhotoMaker model',
+        withLikeness?.model === PHOTOMAKER_MODEL, JSON.stringify(withLikeness));
+
+  // The trigger word PhotoMaker needs is appended by MODELS.WITH_LIKENESS.build,
+  // and appended exactly once.
+  const input = MODELS.WITH_LIKENESS.build('a drummer mid-groove', 'https://example.com/reference.jpg');
+  check('the prompt carries the img trigger word exactly once',
+        (input.prompt.match(/\bimg\b/g) ?? []).length === 1, input.prompt);
+  check('  → and the reference photo is passed as the input image',
+        input.input_image === 'https://example.com/reference.jpg', String(input.input_image));
+}
+
+section('Likeness: revoking reverts the next generation to scene-only');
+{
+  const revoke = await viz('/likeness/revoke', {});
+  check('revoke succeeds', revoke.status === 200 && revoke.body.likeness?.consent === false,
+        `${revoke.status} ${JSON.stringify(revoke.body).slice(0, 140)}`);
+  check('  → and reports the photo as deleted', revoke.body.photoDeleted === true,
+        JSON.stringify(revoke.body).slice(0, 140));
+
+  const cleared = (await admin.from('user_profiles')
+    .select('likeness_consent, reference_photo_url, likeness_consent_at, reference_photo_updated_at')
+    .eq('user_id', userId).maybeSingle()).data;
+  check('both columns are cleared, not just the flag',
+        cleared?.likeness_consent === false && cleared?.reference_photo_url === null
+          && cleared?.likeness_consent_at === null && cleared?.reference_photo_updated_at === null,
+        JSON.stringify(cleared));
+
+  await viz('/generate', { coachId: POCKET, kind: 'becoming' });
+  const afterRevoke = (await admin.from('coach_visualizations').select('model')
+    .eq('user_id', userId).order('created_at', { ascending: false }).limit(1)).data?.[0];
+  check('the next generation is back on the scene-only model',
+        afterRevoke?.model === SCENE_ONLY_MODEL, JSON.stringify(afterRevoke));
+
+  // A photo pointer that consent no longer covers is not a state the database
+  // will even hold.
+  const { error } = await admin.from('user_profiles')
+    .update({ reference_photo_url: 'gs://bucket/orphan.jpg', likeness_consent: false })
+    .eq('user_id', userId);
+  check('a stored photo without consent is rejected by the database',
+        !!error, JSON.stringify(error?.message ?? 'accepted'));
 }
 
 section('Daily limit');

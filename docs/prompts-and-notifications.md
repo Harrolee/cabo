@@ -138,12 +138,31 @@ holds for both channels:
   identifiable person.
 - 3 images per member per day.
 
+### The reference photo
+
+- `POST /coach-visualizer/likeness{,/grant,/revoke}` are the only writers of
+  `user_profiles.likeness_consent` and `reference_photo_url`. A trigger reverts
+  any member's direct write to either, so consent cannot be self-granted and
+  the pointer cannot be aimed at a photograph of somebody else.
+- The photo lives in the private `-member-media` bucket (public access
+  prevention on, versioning off, soft delete off) and is only ever handed to
+  the model as a 15-minute signed URL.
+- Withdrawal deletes the object first, then clears the columns — that order is
+  what makes an in-flight generation's signed URL 404 instead of letting one
+  last picture through. A pointer with no object behind it, or an object with
+  no consent in front of it, is resolved against using the photo and cleaned up
+  on the next call.
+- `coach_visualizations.model` is written before the Replicate call, so which
+  model a member's picture was made with is on the row even when generation
+  fails.
+
 ## Migrations
 
 | File | Contents |
 | ---- | -------- |
 | `20260810130000_push_notifications_and_channels.sql` | `push_devices`, notification channel + timing, per-coach cadence, `coach_nudges` outbox, unread state, realtime, `due_coach_nudges()` |
 | `20260810140000_member_goals_and_visualization.sql` | `member_goals`, creator intake questions, `prompt_version`, `coach_visualizations`, `get_member_context()` |
+| `20260810160000_reference_photo_and_likeness_consent.sql` | Consent timestamps, the trigger making `likeness_consent` / `reference_photo_url` backend-only, the "no stored photo without consent" constraint, and the missing `service_role` grant on `user_profiles` |
 | `20260811090000_member_context_read_path.sql` | `get_member_context()` guarded by `auth.uid()`, opened to `authenticated`, closed to `anon`, and returning `goal_id` |
 
 Verified by applying the full chain from scratch against Postgres 16 + pgvector
@@ -215,6 +234,7 @@ Not verified, and why:
   scene-only.
 - **No push receipt cron.** `/receipts` exists but nothing calls it on a
   schedule; dead tokens are currently only pruned via ticket errors.
-- **Visualisation has no reference-photo upload flow** in the app, so every
-  image currently renders scene-only. `user_profiles.reference_photo_url` and
-  `likeness_consent` are wired but unpopulated.
+- **The PhotoMaker branch has not been run against real credentials.** The
+  upload, consent, revocation and model-selection paths are exercised locally,
+  but nobody has yet confirmed that a stored photo comes back as a recognisable
+  face — that needs Replicate and a real bucket.
