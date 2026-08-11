@@ -27,6 +27,7 @@ import CoachDashboard from './components/MyCoaches/CoachDashboard';
 import CoachContentManager from './components/MyCoaches/CoachContentManager';
 import CoachEdit from './components/MyCoaches/CoachEdit';
 import CoachAvatarEdit from './components/MyCoaches/CoachAvatarEdit';
+import CreatorProfilePage from './components/Creator/CreatorProfilePage';
 import AdminDashboard from './components/AdminDashboard';
 import { AdminProtectedRoute } from './components/AdminProtectedRoute';
 
@@ -122,6 +123,7 @@ export function App() {
       <Route element={<ProtectedRoute session={session}><AuthenticatedLayout session={session} /></ProtectedRoute>}>
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/billing" element={<BillingPage />} />
+        <Route path="/creator" element={<CreatorProfilePage />} />
         <Route path="/my-coaches" element={<CoachDashboard />} />
         <Route path="/my-coaches/:coachId/content" element={<CoachContentManager />} />
         <Route path="/my-coaches/:coachId/edit" element={<CoachEdit />} />

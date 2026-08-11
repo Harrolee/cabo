@@ -49,10 +49,56 @@ resource "google_storage_bucket" "coach_content_bucket" {
   }
 }
 
+/*
+  Member-supplied media — today, the reference photo the visualiser hands to
+  PhotoMaker so the person in the picture is actually them.
+
+  Deliberately not the coach-content or image buckets: those are versioned and
+  public-read respectively, and a photograph of a member must be neither. The
+  settings here all serve one promise — that withdrawing consent deletes the
+  photo:
+
+    public_access_prevention   nothing here is ever fetched without a signed URL
+    versioning off             a delete does not leave a previous generation
+    soft_delete retention 0    a delete is not recoverable for a week afterwards
+    lifecycle 365 days         an account nobody comes back to expires anyway
+
+  The bucket is written and read only by the coach-visualizer service account.
+*/
+resource "google_storage_bucket" "member_media_bucket" {
+  name          = "${var.project_id}-${var.member_media_bucket_name}"
+  location      = var.member_media_bucket_location
+  force_destroy = false
+
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  versioning {
+    enabled = false
+  }
+
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 365
+    }
+    action {
+      type = "Delete"
+    }
+  }
+}
+
 # Cloud Scheduler configuration
+#
+# Kept deliberately: SMS stays a first-class acquisition channel (signup by
+# text is far less friction than an app install), so the daily image job was
+# generalised rather than retired. See docs/multi-domain-coaches.md.
 resource "google_cloud_scheduler_job" "daily_motivation" {
   name        = "trigger-daily-motivation"
-  description = "Triggers the motivation function daily"
+  description = "Triggers the daily goal-driven image for SMS members"
   schedule    = "0 9 * * *"
   time_zone   = "America/New_York"
 

@@ -53,6 +53,14 @@ export default function SettingsScreen() {
           />
         </Section>
 
+        <Section title="Your photo">
+          <Text style={styles.note}>
+            Optional. Give us a photo of yourself and the pictures your coaches make of you are
+            drawn to look like you. Delete it here at any time.
+          </Text>
+          <Action label="Face in your pictures" onPress={() => router.push('/likeness')} />
+        </Section>
+
         <Section title="Subscriptions">
           <Text style={styles.note}>
             Each coach is a separate subscription billed through your Apple ID. Manage or cancel

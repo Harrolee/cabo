@@ -2,7 +2,8 @@ import { API_URL, getAccessToken, supabase } from './supabase';
 import type {
   ChatMessage,
   CoachCategory,
-  MemberGoals,
+  LikenessStatus,
+  MemberContext,
   MyCoach,
   NotificationPreferences,
   NudgeCadence,
@@ -260,23 +261,37 @@ export async function beginGoalOnboarding(coachId: string): Promise<string> {
   return data as string;
 }
 
-export async function fetchGoals(coachId: string): Promise<MemberGoals | null> {
-  const { data, error } = await supabase
-    .from('member_goals')
-    .select(
-      'id, coach_id, aspiration, goals, current_level, obstacles, motivation, horizon, commitment, wins, onboarding_status, onboarding_turns'
-    )
-    .eq('coach_id', coachId)
-    .maybeSingle();
+/**
+ * The one read path for goal data. `get_member_context()` is what the prompt
+ * and the visualiser read, so the app reads it too rather than querying
+ * `member_goals` and ending up with a second, subtly different shape — and it
+ * is the only caller that can compute `days_together`.
+ *
+ * Returns null when the intake has never run, so screens can tell "nothing
+ * recorded yet" from "recorded, but empty".
+ */
+export async function fetchGoals(coachId: string): Promise<MemberContext | null> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (!userId) return null;
+
+  const { data, error } = await supabase.rpc('get_member_context', {
+    p_user_id: userId,
+    p_coach_id: coachId,
+  });
 
   if (error) throw error;
-  return (data as MemberGoals) ?? null;
+
+  const context = data as MemberContext | null;
+  return context?.goal_id ? context : null;
 }
 
 /** Members can correct anything the intake got wrong. */
 export async function updateGoals(
   coachId: string,
-  patch: Partial<Pick<MemberGoals, 'aspiration' | 'goals' | 'current_level' | 'obstacles' | 'motivation' | 'horizon'>>
+  patch: Partial<
+    Pick<MemberContext, 'aspiration' | 'goals' | 'current_level' | 'obstacles' | 'motivation' | 'horizon'>
+  >
 ): Promise<void> {
   const { error } = await supabase.from('member_goals').update(patch).eq('coach_id', coachId);
   if (error) throw error;
@@ -323,6 +338,47 @@ export async function fetchVisualizations(coachId?: string): Promise<Visualizati
 export async function setVisualizationSaved(id: string, saved: boolean): Promise<void> {
   const { error } = await supabase.from('coach_visualizations').update({ saved }).eq('id', id);
   if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Likeness: the member's reference photo
+// ---------------------------------------------------------------------------
+
+/*
+  These three go through the Cloud Function rather than PostgREST on purpose.
+  The columns behind them are trigger-protected against direct writes, because
+  consent to store a face has to come with the file being stored, and
+  withdrawing it has to come with the file being deleted. Splitting those apart
+  is exactly the failure mode to avoid.
+*/
+
+export async function fetchLikeness(): Promise<LikenessStatus> {
+  const { likeness } = await callFunction<{ likeness: LikenessStatus }>('/coach-visualizer/likeness', {});
+  return likeness;
+}
+
+/** Uploads the photo and records consent in the same call. */
+export async function grantLikeness(photoBase64: string): Promise<LikenessStatus> {
+  const { likeness } = await callFunction<{ likeness: LikenessStatus }>(
+    '/coach-visualizer/likeness/grant',
+    { consent: true, photoBase64 }
+  );
+  return likeness;
+}
+
+/**
+ * Withdraws consent and deletes the stored photo.
+ *
+ * `photoDeleted` is false in the rare case where consent was withdrawn but the
+ * file survived the attempt; the screen says so rather than claiming an
+ * erasure that has not happened yet.
+ */
+export async function revokeLikeness(): Promise<{
+  likeness: LikenessStatus;
+  photoDeleted: boolean;
+  message?: string;
+}> {
+  return callFunction('/coach-visualizer/likeness/revoke', {});
 }
 
 // ---------------------------------------------------------------------------

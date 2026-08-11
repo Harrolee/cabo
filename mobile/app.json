@@ -44,6 +44,13 @@
           "icon": "./assets/notification-icon.png",
           "color": "#7C5CFF"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Pick a photo of yourself so the pictures your coaches make of you are drawn to look like you. Stored only until you delete it, and only ever one.",
+          "cameraPermission": "Take a photo of yourself so the pictures your coaches make of you are drawn to look like you. Stored only until you delete it, and only ever one."
+        }
       ]
     ],
     "experiments": {

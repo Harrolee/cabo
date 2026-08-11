@@ -161,7 +161,10 @@ resource "google_project_iam_member" "coach_visualizer_roles" {
   for_each = toset([
     "roles/cloudfunctions.invoker",
     "roles/storage.objectUser",
-    "roles/logging.logWriter"
+    "roles/logging.logWriter",
+    # Reference photos are never public, so the model is handed a signed URL;
+    # signing from a Cloud Run identity needs signBlob on itself.
+    "roles/iam.serviceAccountTokenCreator"
   ])
 
   project = var.project_id
@@ -171,6 +174,13 @@ resource "google_project_iam_member" "coach_visualizer_roles" {
 
 resource "google_storage_bucket_iam_member" "coach_visualizer_bucket_access" {
   bucket = "${var.project_id}-image-bucket"
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.coach_visualizer.email}"
+}
+
+# The only identity that may read, write or delete a member's reference photo.
+resource "google_storage_bucket_iam_member" "coach_visualizer_member_media_access" {
+  bucket = google_storage_bucket.member_media_bucket.name
   role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.coach_visualizer.email}"
 }
@@ -506,15 +516,17 @@ module "motivation_function" {
   source = "./modules/cloud_function"
   
   name        = "send-motivational-images"
-  description = "Function to send motivational images to users"
+  description = "Daily goal-driven image for members still on the SMS channel"
   region      = var.region
   bucket_name = google_storage_bucket.function_bucket.name
   source_object = google_storage_bucket_object.motivational_images_source.name
   entry_point = "sendMotivationalImages"
-  memory      = "256M"
-  timeout     = 300
+  memory      = "512M"
+  # One scene brief plus one Replicate render per member; the render alone
+  # regularly takes 60s+.
+  timeout     = 540
   service_account_email = google_service_account.motivational_images.email
-  
+
   environment_variables = {
     PROJECT_ID              = var.project_id
     TWILIO_ACCOUNT_SID     = var.twilio_account_sid
@@ -525,6 +537,7 @@ module "motivation_function" {
     REPLICATE_API_TOKEN    = var.replicate_api_key
     ALLOWED_ORIGINS        = var.allowed_origins
     OPENAI_API_KEY         = var.openai_api_key
+    OPENAI_CHAT_MODEL      = var.openai_chat_model
     CONVERSATION_BUCKET_NAME = var.conversation_bucket_name
   }
   depends_on = [google_storage_bucket_object.motivational_images_source]
@@ -678,7 +691,7 @@ module "admin_api_function" {
   source = "./modules/cloud_function"
 
   name        = "admin-api"
-  description = "Admin API for user management and chat logs"
+  description = "Admin API for user management, chat logs, and creator approval"
   region      = var.region
   bucket_name = google_storage_bucket.function_bucket.name
   source_object = google_storage_bucket_object.admin_api_source.name
@@ -839,9 +852,13 @@ module "coach_visualizer_function" {
     OPENAI_CHAT_MODEL          = var.openai_chat_model
     REPLICATE_API_TOKEN        = var.replicate_api_key
     VISUALIZATION_DAILY_LIMIT  = var.visualization_daily_limit
+    MEMBER_MEDIA_BUCKET        = google_storage_bucket.member_media_bucket.name
     ALLOWED_ORIGINS            = var.allowed_origins
   }
-  depends_on = [google_storage_bucket_object.coach_visualizer_source]
+  depends_on = [
+    google_storage_bucket_object.coach_visualizer_source,
+    google_storage_bucket_iam_member.coach_visualizer_member_media_access,
+  ]
 }
 
 resource "google_cloud_run_service_iam_member" "coach_visualizer_invoker" {

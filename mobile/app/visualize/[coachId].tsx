@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { LikenessConsent } from '@/components/LikenessConsent';
 import { EmptyState, Loading, Screen } from '@/components/Screen';
 import {
   NoAspirationError,
@@ -21,7 +22,7 @@ import {
   setVisualizationSaved,
 } from '@/lib/api';
 import { theme, tintForCategory } from '@/lib/theme';
-import type { MemberGoals, RosterCoach, Visualization } from '@/lib/types';
+import type { MemberContext, RosterCoach, Visualization } from '@/lib/types';
 
 const KINDS: Array<{ key: 'becoming' | 'milestone' | 'today'; label: string; blurb: string }> = [
   { key: 'becoming', label: 'Becoming', blurb: 'You, once you get there' },
@@ -36,7 +37,7 @@ export default function VisualizeScreen() {
   const router = useRouter();
 
   const [coach, setCoach] = useState<RosterCoach | null>(null);
-  const [goals, setGoals] = useState<MemberGoals | null>(null);
+  const [goals, setGoals] = useState<MemberContext | null>(null);
   const [images, setImages] = useState<Visualization[]>([]);
   const [kind, setKind] = useState<'becoming' | 'milestone' | 'today'>('becoming');
   const [loading, setLoading] = useState(true);
@@ -113,6 +114,9 @@ export default function VisualizeScreen() {
             <Text style={[styles.editLink, { color: tint }]}>Edit</Text>
           </Pressable>
         </View>
+
+        {/* Sits above the button because it changes what the button produces. */}
+        <LikenessConsent tint={tint} />
 
         <View style={styles.kindRow}>
           {KINDS.map((option) => {

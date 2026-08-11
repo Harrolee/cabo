@@ -8,14 +8,13 @@ import chatImage from '/src/assets/intro/2-chat.png';
 export function DesktopOnboarding({ handleInitialSubscribe }) {
   const features = [
     {
-      title: "Describe Yourself 🤔",
-      description: "Pick a coach and tell them what you want. Send a selfie and describe yourself for super-personalized motivation",
-      // description: "Get matched with a supportive buddy who understands your goals and keeps you motivated",
+      title: "Pick Your Coach 🤔",
+      description: "Drumming, songwriting, yoga, training — choose a coach who knows your discipline and tell them what you're working on",
       image: defineSelfImage
     },
     {
       title: "Sneak a Peek 👀",
-      description: "What's that in panel two of comic you? Got a blonde surfer 'miron your gains, bruh. CRUNCH ON! 💪",
+      description: "See yourself a few months in: a picture of you having actually put in the practice",
       image: personalizedImages
     },
     {
@@ -29,8 +28,8 @@ export function DesktopOnboarding({ handleInitialSubscribe }) {
     <div className="min-h-screen w-full flex flex-col items-center">
       <div className="w-full max-w-[1800px] px-8 py-16">
         <h1 className="text-6xl font-bold mb-24 text-center text-white">
-          Your Personal Fitness <br />
-          Journey Awaits
+          Find a Coach for <br />
+          What You're Working On
         </h1>
         
         <div className="flex justify-between gap-12 mb-24">

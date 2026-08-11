@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../main';
 import { toast } from 'react-hot-toast';
+import { fetchMyCreatorProfile } from '../utils/creators';
 
 const CoachBuilderContext = createContext();
 
@@ -18,6 +19,12 @@ export const CoachBuilderProvider = ({ children }) => {
     name: '',
     handle: '',
     description: '',
+    // Domain fields — a coach is not implicitly a fitness coach.
+    discipline: '',
+    category_slug: '',
+    tagline: '',
+    expertise: [],
+    starter_prompts: [],
     primary_response_style: '',
     secondary_response_style: '',
     emotional_response_map: {},
@@ -91,6 +98,13 @@ export const CoachBuilderProvider = ({ children }) => {
       name: prev.name && prev.name.trim() ? prev.name : 'Sample Coach',
       handle: prev.handle && prev.handle.trim() ? prev.handle : `coach-${randomSuffix}`,
       description: prev.description || '',
+      // Quick Start skips the questionnaire, so keep the domain fields
+      // populated rather than letting the coach land with a NULL discipline.
+      discipline: prev.discipline && prev.discipline.trim() ? prev.discipline : 'General coaching',
+      category_slug: prev.category_slug || 'other',
+      tagline: prev.tagline || '',
+      expertise: prev.expertise || [],
+      starter_prompts: prev.starter_prompts || [],
       primary_response_style: presetStyle,
       communication_traits: {
         energy_level: 5,
@@ -270,6 +284,10 @@ export const CoachBuilderProvider = ({ children }) => {
               name: coachData.name || 'Sample Coach',
               handle: coachData.handle || undefined,
               description: coachData.description || undefined,
+              // Without these the prompt builder degrades to "their craft".
+              discipline: coachData.discipline || undefined,
+              tagline: coachData.tagline || undefined,
+              expertise: coachData.expertise?.length ? coachData.expertise : undefined,
               primary_response_style: coachData.primary_response_style || 'empathetic_mirror',
               secondary_response_style: coachData.secondary_response_style || undefined,
               emotional_response_map: coachData.emotional_response_map || {},
@@ -328,12 +346,22 @@ export const CoachBuilderProvider = ({ children }) => {
 
       // Insert minimal coach profile as draft if none exists yet
       if (!previewCoachId) {
+        // Credit the coach to the builder's creator profile from the start, so
+        // publishing later is a listing_status change and nothing else.
+        const creator = await fetchMyCreatorProfile();
+
         const dbData = {
           user_id: user.id,
           user_email: user.email,
+          creator_id: creator?.id || null,
           name: coachData.name || 'Sample Coach',
           handle: coachData.handle || `coach-${Math.random().toString(36).slice(2,8)}`,
           description: coachData.description || null,
+          discipline: coachData.discipline?.trim() || null,
+          category_slug: coachData.category_slug || 'other',
+          tagline: coachData.tagline?.trim() || null,
+          expertise: coachData.expertise || [],
+          starter_prompts: coachData.starter_prompts || [],
           primary_response_style: coachData.primary_response_style || 'empathetic_mirror',
           secondary_response_style: coachData.secondary_response_style || null,
           emotional_response_map: coachData.emotional_response_map || {},
@@ -455,13 +483,25 @@ export const CoachBuilderProvider = ({ children }) => {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
 
+      // Credit the coach to its creator. Without this a coach can never be
+      // listed, because the listing rules look for an approved creator here.
+      const creator = await fetchMyCreatorProfile();
+
       // Prepare data for database (convert empty strings to null for enum fields)
       const dbData = {
         user_id: user.id,
         user_email: userEmail,
+        creator_id: creator?.id || null,
         name: coachData.name,
         handle: coachData.handle,
         description: coachData.description,
+        // Domain fields from the questionnaire. A NULL discipline is what made
+        // every web-built coach read as a generic fitness coach.
+        discipline: coachData.discipline?.trim() || null,
+        category_slug: coachData.category_slug || 'other',
+        tagline: coachData.tagline?.trim() || null,
+        expertise: coachData.expertise || [],
+        starter_prompts: coachData.starter_prompts || [],
         primary_response_style: coachData.primary_response_style || null,
         secondary_response_style: coachData.secondary_response_style || null,
         emotional_response_map: coachData.emotional_response_map,
@@ -536,6 +576,11 @@ export const CoachBuilderProvider = ({ children }) => {
       name: '',
       handle: '',
       description: '',
+      discipline: '',
+      category_slug: '',
+      tagline: '',
+      expertise: [],
+      starter_prompts: [],
       primary_response_style: '',
       secondary_response_style: '',
       emotional_response_map: {},
