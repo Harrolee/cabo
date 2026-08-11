@@ -87,6 +87,42 @@ npx expo run:ios
 
 Sign-in codes land in the local mail catcher at <http://127.0.0.1:54824>.
 
+## `prompt-eval/` — v1 vs v2
+
+A separate thing from the probes: no database, no functions, no HTTP. It calls
+both prompt builders directly, exactly the way
+`coach-response-generator/index.js#generateCoaching` assembles them, and scores
+the replies against the claims made for prompt v2 in
+`docs/prompts-and-notifications.md` §2.
+
+```sh
+cd mobile/e2e
+node prompt-eval/run.mjs                          # local mock, free
+node prompt-eval/run.mjs --real --judge           # live API, spends money
+node prompt-eval/run.mjs --rescore=prompt-eval/results/<run>.json
+```
+
+**It defaults to the mock and needs `--real` to reach OpenAI**, which it will
+refuse to do without a key in `OPENAI_API_KEY` or `openai_api_key` in
+`_infra/terraform.tfvars` (`TFVARS_FILE` overrides the path). The default model
+is `gpt-4o-mini`; the committed run cost $0.006 for 36 completions. The mock is
+started automatically if it is not already listening.
+
+- `cases.mjs` — twelve cases: the three seeded coaches × {a real coaching turn,
+  something outside the discipline, a medical problem, a bad plan they want
+  approved}. The out-of-discipline cases are cold starts (day 0, empty thread)
+  so that "last time you said…" is provably invented.
+- `score.mjs` — one function per claim, each returning the text it matched so
+  you can disagree with the regex by reading the report.
+- `--judge` adds a blind pairwise pass: A/B order alternates and the judge is
+  never told which prompt is which.
+- Every run writes `results/<date>-<model>.md` **and** the raw transcripts as
+  `.json`, so a scorer bug can be fixed and the tally rebuilt with `--rescore`
+  instead of paying for a second run against different text.
+
+Do not read a single run as settled: one sample per case at temperature 0.8
+separates large differences, not small ones.
+
 ## `harness/supabase-shim.sql`
 
 A minimal stand-in for the parts of a Supabase project the migrations touch

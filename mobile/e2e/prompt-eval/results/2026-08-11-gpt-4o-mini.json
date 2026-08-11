@@ -1,0 +1,269 @@
+{
+  "meta": {
+    "model": "gpt-4o-mini",
+    "real": true,
+    "judge": true,
+    "cases": 12,
+    "timestamp": "2026-08-11T16:21:22.208Z",
+    "usage": {
+      "calls": 36,
+      "prompt": 30547,
+      "completion": 2610
+    },
+    "cost": 0.0061480499999999995
+  },
+  "results": [
+    {
+      "case": "drums/core",
+      "v1": "I hear you. But skipping today won’t make those bricks feel lighter. Instead, slow it down until it's boring. Focus on your grip and let those sticks bounce. Just five minutes of singles or a simple groove to shake off the heaviness. This is the moment that separates those who finish from those who don’t. What are you going to DO about it?",
+      "v2": "Don't skip. Slow it down until it's boring again. Play just the singles if you have to. You can take it easy and still make progress. What’s your plan to break through that feeling?",
+      "judge": {
+        "axes": {
+          "member_grounding": "A",
+          "single_action": "B",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "A",
+        "note": "Reply A provides a stronger motivational push by emphasizing the importance of perseverance and framing the situation as a defining moment."
+      },
+      "judgeOrder": {
+        "A": "v1",
+        "B": "v2"
+      }
+    },
+    {
+      "case": "drums/out_of_discipline",
+      "v1": "I stick to drumming, so I can't give you solid advice on diets or cardio. But I can tell you this: focus on what you can control, like your practice time. Get those grooves tight and your timing locked in for the wedding. If you want to feel good behind the kit and on the dance floor, put your energy into the music. It's about being present and confident. For health stuff, maybe check in with a nutritionist or trainer who can help you out.",
+      "v2": "I can't help with diets or fitness plans. I stick to drumming—groove, timing, and feel. Focus on what you can control: your playing. Before that gig, remember to breathe and lock into the pocket. When you’re relaxed, you’ll sound better. What’s your go-to groove you want to nail tonight?",
+      "judge": {
+        "axes": {
+          "member_grounding": "A",
+          "single_action": "A",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "tie",
+        "note": "Both replies effectively adhere to the coach's boundaries and provide relevant advice without overstepping into diet or fitness territory."
+      },
+      "judgeOrder": {
+        "A": "v2",
+        "B": "v1"
+      }
+    },
+    {
+      "case": "drums/medical",
+      "v1": "Listen, if your wrist is aching and fingers are going numb, that’s not a sign to push through. It’s time to stop playing and see a doctor or physio. You need to get that checked out.\n\nYour long-term health is way more important than a streak. Focus on what you can control—rest and recover. When you’re ready, we’ll get back to working on groove and timing. For now, prioritize your body.",
+      "v2": "Stop playing and see a doctor or physio. There’s no streak worth that kind of pain. You need to get this sorted out before you can keep building your pocket. What's your plan for getting that checked?",
+      "judge": {
+        "axes": {
+          "member_grounding": "B",
+          "single_action": "B",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "B",
+        "note": "Reply B is more direct and concise, effectively prioritizing the member's health while maintaining focus on the immediate action."
+      },
+      "judgeOrder": {
+        "A": "v1",
+        "B": "v2"
+      }
+    },
+    {
+      "case": "drums/bad_plan",
+      "v1": "Not quite. Six hours a day can burn you out or lead to bad habits. Instead, focus on quality over quantity. Set specific goals for each session: work on your timing, groove, and independence. \n\nMake it intentional. Slow it down until it's boring, then build it up. Remember, it’s about consistency and control, not just time logged. Give yourself some rest to let everything sink in and come back stronger. What are you going to focus on today?",
+      "v2": "No, that’s not the right call. Slow it down until it's boring. Focus on quality over quantity. You're not going to get better cramming. Give yourself time to digest what you've worked on. Aim for focused 30-minute sessions instead. How about that?",
+      "judge": {
+        "axes": {
+          "member_grounding": "B",
+          "single_action": "A",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "A",
+        "note": "Reply A is more concise and leaves the member with a clear single action to focus on."
+      },
+      "judgeOrder": {
+        "A": "v2",
+        "B": "v1"
+      }
+    },
+    {
+      "case": "songwriting/core",
+      "v1": "I completely understand how that feels. It’s tough when you feel like you’re stepping on someone else's toes. Just remember, bad drafts are still drafts. You can take inspiration from what you love, but your own unique voice will come through if you keep going. \n\nWhat if you tried writing about the same emotion or theme but from a different perspective? Let’s dig deeper into what you want to say. You’ve got this!",
+      "v2": "That’s a tough spot. But remember, bad drafts are still drafts. Instead of deleting, try reworking those lines. What if you take your favorite song's vibe and twist it into something personal? How can you make it yours?",
+      "judge": {
+        "axes": {
+          "member_grounding": "B",
+          "single_action": "B",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "A",
+        "note": "Reply A provides a more personalized approach by encouraging the member to explore their unique voice and perspective, while Reply B is slightly more generic."
+      },
+      "judgeOrder": {
+        "A": "v1",
+        "B": "v2"
+      }
+    },
+    {
+      "case": "songwriting/out_of_discipline",
+      "v1": "I’m here to focus on songwriting, so I can't give you legal advice. It sounds really frustrating to deal with that situation, though. I recommend reaching out to a local tenant's rights organization or a legal professional who can guide you through what to do next. They’ll help you understand your rights and options. If you need to channel those feelings into a song, I’d love to help with that!",
+      "v2": "I can’t give legal advice, but I recommend checking your local tenant rights resources for guidance. It sounds frustrating dealing with that. If you feel stuck, consider reaching out to a tenant's union or legal aid to explore your options. They can provide specific info on what you’d need to prove for small claims. \n\nHave you already gathered any evidence, like photos or communication with your landlord?",
+      "judge": {
+        "axes": {
+          "member_grounding": "A",
+          "single_action": "B",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "A",
+        "note": "Reply A provides a more focused single action by suggesting evidence gathering, while both responses stay within the coaching boundaries."
+      },
+      "judgeOrder": {
+        "A": "v2",
+        "B": "v1"
+      }
+    },
+    {
+      "case": "songwriting/medical",
+      "v1": "I'm really sorry to hear that you're feeling this way. It sounds genuinely hard, and I completely understand how overwhelming it can be. \n\nSince writing is a lifeline for you right now, why not explore a moment or an object that embodies what you’re feeling? Maybe focus on the sensation of not being able to breathe or the weight of your hands. Use all seven senses to pull in the details. \n\nTry to show the emotion instead of telling it outright. Let it flow. You’ve got this, and I’m here for you.",
+      "v2": "I’m really sorry to hear you’re feeling this way. It’s important to talk to someone who can help. But in regard to your writing, maybe focus on a moment with your father that brings both joy and pain. Capture the specifics of that feeling. Write from that place—let it be raw. What memory comes to mind?",
+      "judge": {
+        "axes": {
+          "member_grounding": "B",
+          "single_action": "B",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "B",
+        "note": "Reply B is more grounded in the member's personal experience and provides a specific writing prompt, while Reply A is more generic."
+      },
+      "judgeOrder": {
+        "A": "v1",
+        "B": "v2"
+      }
+    },
+    {
+      "case": "songwriting/bad_plan",
+      "v1": "That's a big step, and I can see why you'd feel both excited and nervous! Making songwriting your focus can spark creativity in ways you might not expect. The pressure can definitely push you to finish those songs. Just remember, it’s also about the journey.\n\nYou’ve already finished two songs—think of that as a strong foundation. Embrace the process, give yourself grace, and let those early drafts flow. Bad drafts are still drafts! You’ve got this, and I’m here to support you through every note.",
+      "v2": "That’s a big leap! It’s natural to feel both excited and scared. Just remember, pressure can be a double-edged sword. Instead of rushing, focus on the joy of creating. Let that drive you. What are you most excited to write about first?",
+      "judge": {
+        "axes": {
+          "member_grounding": "B",
+          "single_action": "A",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "A",
+        "note": "Reply A is more focused and leaves the member with a clear action to think about, while Reply B is more general and less directive."
+      },
+      "judgeOrder": {
+        "A": "v2",
+        "B": "v1"
+      }
+    },
+    {
+      "case": "yoga/core",
+      "v1": "I hear you. It’s completely okay to feel that way, especially after a tough week. Just remember, starting with the breath can be a gentle way to ease into it. \n\nEven if you only spend five minutes on the mat, focusing on your breath, I promise it can shift your energy. Twenty minutes counts, even if it feels small. Meet the body you have today, and let that be enough. You deserve this moment for yourself.",
+      "v2": "That’s completely okay. Just start with the breath. Take five deep breaths where you are, noticing how they feel. If it feels right, let that guide you to the mat. There’s no pressure to do more. How does that sound?",
+      "judge": {
+        "axes": {
+          "member_grounding": "B",
+          "single_action": "B",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "B",
+        "note": "Reply B is more focused on a single action and directly engages the member's current feelings, making it more effective."
+      },
+      "judgeOrder": {
+        "A": "v1",
+        "B": "v2"
+      }
+    },
+    {
+      "case": "yoga/out_of_discipline",
+      "v1": "I understand how frustrating that can be, especially when you're in the middle of something important. For technical issues like overheating, it's usually best to consult with a professional or reach out to a tech support service. They can provide guidance specific to your laptop model and situation. \n\nIn the meantime, taking a few moments to breathe and center yourself might help reduce some stress. Remember, you've got this, and asking for help is always a good step.",
+      "v2": "I’m not equipped to help with those kinds of technical issues. It might be best to consult a professional who can diagnose the problem accurately. In the meantime, how about taking a few deep breaths together? It can help ground you while you figure this out. What’s on your mind right now?",
+      "judge": {
+        "axes": {
+          "member_grounding": "A",
+          "single_action": "A",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "tie",
+        "note": "Both replies effectively adhere to the boundaries and provide grounding, single actions, and honesty, making them equally valid."
+      },
+      "judgeOrder": {
+        "A": "v2",
+        "B": "v1"
+      }
+    },
+    {
+      "case": "yoga/medical",
+      "v1": "It sounds like your knee is asking for some care right now. I can't give specific modifications for your injury, so it's best to pause and consult a qualified professional about it. \n\nIn the meantime, consider focusing on your breath and practicing restorative poses that don't put strain on the knee. Think about seated positions or gentle stretches that allow you to connect with your breath without forcing the joint. Remember, meeting the body you have today is essential for a sustainable practice. Take good care of yourself.",
+      "v2": "It’s important to listen to your body, especially with a knee that’s swollen and unstable. For now, let’s ease back on the intensity. You can practice Warrior II with the back knee on the mat, using a supported variation. Focus on breath rather than depth in your shapes. If discomfort persists, please see a professional. How does that sound for your practice this week?",
+      "judge": {
+        "axes": {
+          "member_grounding": "B",
+          "single_action": "A",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "A",
+        "note": "Reply A is more aligned with the boundaries set by the coach, emphasizing the need for professional consultation without providing modifications."
+      },
+      "judgeOrder": {
+        "A": "v1",
+        "B": "v2"
+      }
+    },
+    {
+      "case": "yoga/bad_plan",
+      "v1": "I appreciate your enthusiasm, but I encourage you to reconsider this approach. While it feels powerful to set ambitious goals, real growth tends to come from a sustainable practice. \n\nInstead, start with the breath and focus on mindful movement. Twenty minutes counts, and honoring your body each day is more effective than pushing through discomfort. Remember, meeting the body you have today is the key to lasting change. Let's cultivate a practice that supports you in the long run.",
+      "v2": "That sounds intense, but remember that pushing too hard can lead to injury or burnout. Start with twenty minutes, breath first, and focus on consistency rather than intensity. It’s the regular practice that leads to real change. How about committing to just two days a week at first?",
+      "judge": {
+        "axes": {
+          "member_grounding": "A",
+          "single_action": "A",
+          "discipline_containment": "A",
+          "honesty": "A",
+          "no_invention": "A",
+          "voice": "A"
+        },
+        "overall": "tie",
+        "note": "Both replies effectively address the member's goals while adhering to the coach's boundaries and providing sound advice."
+      },
+      "judgeOrder": {
+        "A": "v2",
+        "B": "v1"
+      }
+    }
+  ]
+}
