@@ -4,7 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { EmptyState, Loading, Screen } from '@/components/Screen';
 import { fetchCoach, fetchGoals, updateGoals } from '@/lib/api';
 import { theme, tintForCategory } from '@/lib/theme';
-import type { MemberGoals, RosterCoach } from '@/lib/types';
+import type { MemberContext, RosterCoach } from '@/lib/types';
 
 /**
  * What the coach believes about you, and a way to correct it.
@@ -18,7 +18,7 @@ export default function GoalsScreen() {
   const router = useRouter();
 
   const [coach, setCoach] = useState<RosterCoach | null>(null);
-  const [goals, setGoals] = useState<MemberGoals | null>(null);
+  const [goals, setGoals] = useState<MemberContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -85,9 +85,16 @@ export default function GoalsScreen() {
   return (
     <Screen edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag">
-        <Text style={styles.intro}>
-          This is what {coach?.name} is working from. Change anything that isn&apos;t right.
-        </Text>
+        <View style={styles.header}>
+          <Text style={styles.intro}>
+            This is what {coach?.name} is working from. Change anything that isn&apos;t right.
+          </Text>
+          {goals.days_together > 0 ? (
+            <Text style={styles.together}>
+              {goals.days_together} {goals.days_together === 1 ? 'day' : 'days'} together.
+            </Text>
+          ) : null}
+        </View>
 
         <Field
           label="What you want to become"
@@ -190,10 +197,17 @@ const styles = StyleSheet.create({
     gap: theme.space(6),
     paddingBottom: theme.space(12),
   },
+  header: {
+    gap: theme.space(2),
+  },
   intro: {
     color: theme.color.textMuted,
     fontSize: theme.font.body,
     lineHeight: 22,
+  },
+  together: {
+    color: theme.color.textFaint,
+    fontSize: theme.font.small,
   },
   field: {
     gap: theme.space(2),
