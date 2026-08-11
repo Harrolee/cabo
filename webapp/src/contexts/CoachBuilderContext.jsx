@@ -527,26 +527,19 @@ export const CoachBuilderProvider = ({ children }) => {
 
       if (coachError) throw coachError;
 
-      // If avatar was generated, save the selected avatar choice
-      if (coachData.avatarData.selectedAvatar && !coachData.avatarData.skipped) {
-        try {
-          await fetch(`${import.meta.env.VITE_API_URL}/coach-avatar-generator/save-avatar`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              coachId: coach.id,
-              selectedAvatarUrl: coachData.avatarData.selectedAvatar.url,
-              avatarStyle: coachData.avatarData.selectedAvatar.style,
-              originalSelfieUrl: coachData.avatarData.originalSelfieUrl
-            })
-          });
-        } catch (avatarError) {
-          console.warn('Failed to save avatar data via cloud function:', avatarError);
-          toast.error('Your coach was saved, but the avatar failed to save. You can try again from settings.');
-        }
-      }
+      /*
+        The avatar is already persisted: `dbData` above carries avatar_url,
+        avatar_style and original_selfie_url into the insert.
+
+        What used to be here was a follow-up POST to
+        `/coach-avatar-generator/save-avatar`, an endpoint that has never
+        existed — the generator does not route on path, so the request was only
+        ever going to be read as a malformed generation request. It could not
+        fail loudly either: `fetch` does not reject on a 4xx, so the catch
+        almost never ran, and when it did it told the creator their avatar had
+        failed to save when the insert had already saved it. Same defect as the
+        `/motivational-images` call this branch removes (#22).
+      */
 
       // Process uploaded content files
       if (uploadedFiles.length > 0) {
