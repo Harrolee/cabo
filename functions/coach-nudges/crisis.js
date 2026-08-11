@@ -378,7 +378,7 @@ const REGIONS = {
     label: 'unknown',
     // No region resolved. This must still leave them with something reachable.
     crisis:
-      'contact your local emergency services right now — 112 across Europe and much of the world, ' +
+      'contact your local emergency services right now: 112 across Europe and much of the world, ' +
       '999 in the UK, or 988 for the Suicide & Crisis Lifeline in the US and Canada',
     open: '',
     emergency: 'contact your local emergency services or go to your nearest emergency room',
@@ -465,7 +465,7 @@ function buildCrisisReply({ category = 'suicidal_ideation', region = 'DEFAULT', 
     return [
       "I'm going to step out of coach mode for a second.",
       '',
-      `What you're describing needs medical help now, not coaching — ${iCoach}, and anything I said here would be a guess. Please ${resources.emergency}. Do that before you do anything else today.`,
+      `What you're describing needs medical help now, not coaching. ${iCoach}, and anything I said here would be a guess. Please ${resources.emergency}. Do that before you do anything else today.`,
       '',
       "I'm not going anywhere. Message me once you've been seen.",
     ].join('\n');
@@ -478,7 +478,7 @@ function buildCrisisReply({ category = 'suicidal_ideation', region = 'DEFAULT', 
     return [
       "I'm going to step out of coach mode for a second.",
       '',
-      `What you've just told me is more than I'm any use for — ${iCoach}, and someone hurting you is not something to work around. Please ${line}`,
+      `What you've just told me is more than I'm any use for. ${iCoach}, and someone hurting you is not something to work around. Please ${line}`,
       '',
       "I'm not going anywhere. Message me when you've talked to someone.",
     ].join('\n');
@@ -488,7 +488,7 @@ function buildCrisisReply({ category = 'suicidal_ideation', region = 'DEFAULT', 
     return [
       "I'm going to step out of coach mode for a second.",
       '',
-      `What you've just told me is more than I'm any use for — ${iCoach}, I'm not a crisis service, and I'd rather say so than keep coaching through it. Please ${resources.crisis}.${open} If you've hurt yourself badly, ${resources.danger || resources.emergency}.`,
+      `What you've just told me is more than I'm any use for. ${iCoach}, I'm not a crisis service, and I'd rather say so than keep coaching through it. Please ${resources.crisis}.${open} If you've hurt yourself badly, ${resources.danger || resources.emergency}.`,
       '',
       "I'm not going anywhere. Message me when you've talked to someone.",
     ].join('\n');
@@ -497,7 +497,7 @@ function buildCrisisReply({ category = 'suicidal_ideation', region = 'DEFAULT', 
   return [
     "I'm going to step out of coach mode for a second.",
     '',
-    `What you've just told me is more than I'm any use for — ${iCoach}, I'm not a crisis service, and I'd rather say that than keep coaching. Please ${resources.crisis}.${open} If you're in immediate danger, ${resources.danger || resources.emergency}.`,
+    `What you've just told me is more than I'm any use for. ${iCoach}, I'm not a crisis service, and I'd rather say that than keep coaching. Please ${resources.crisis}.${open} If you're in immediate danger, ${resources.danger || resources.emergency}.`,
     '',
     "I'm not going anywhere. Message me when you've talked to someone.",
   ].join('\n');
