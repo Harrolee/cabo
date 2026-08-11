@@ -2,6 +2,7 @@ import { API_URL, getAccessToken, supabase } from './supabase';
 import type {
   ChatMessage,
   CoachCategory,
+  LikenessStatus,
   MemberGoals,
   MyCoach,
   NotificationPreferences,
@@ -323,6 +324,47 @@ export async function fetchVisualizations(coachId?: string): Promise<Visualizati
 export async function setVisualizationSaved(id: string, saved: boolean): Promise<void> {
   const { error } = await supabase.from('coach_visualizations').update({ saved }).eq('id', id);
   if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Likeness: the member's reference photo
+// ---------------------------------------------------------------------------
+
+/*
+  These three go through the Cloud Function rather than PostgREST on purpose.
+  The columns behind them are trigger-protected against direct writes, because
+  consent to store a face has to come with the file being stored, and
+  withdrawing it has to come with the file being deleted. Splitting those apart
+  is exactly the failure mode to avoid.
+*/
+
+export async function fetchLikeness(): Promise<LikenessStatus> {
+  const { likeness } = await callFunction<{ likeness: LikenessStatus }>('/coach-visualizer/likeness', {});
+  return likeness;
+}
+
+/** Uploads the photo and records consent in the same call. */
+export async function grantLikeness(photoBase64: string): Promise<LikenessStatus> {
+  const { likeness } = await callFunction<{ likeness: LikenessStatus }>(
+    '/coach-visualizer/likeness/grant',
+    { consent: true, photoBase64 }
+  );
+  return likeness;
+}
+
+/**
+ * Withdraws consent and deletes the stored photo.
+ *
+ * `photoDeleted` is false in the rare case where consent was withdrawn but the
+ * file survived the attempt; the screen says so rather than claiming an
+ * erasure that has not happened yet.
+ */
+export async function revokeLikeness(): Promise<{
+  likeness: LikenessStatus;
+  photoDeleted: boolean;
+  message?: string;
+}> {
+  return callFunction('/coach-visualizer/likeness/revoke', {});
 }
 
 // ---------------------------------------------------------------------------

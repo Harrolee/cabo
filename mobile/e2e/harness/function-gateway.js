@@ -37,7 +37,7 @@ process.env.REPLICATE_API_TOKEN = tfvar('replicate_api_key');
 process.env.OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4o';
 // USE_REAL_OPENAI=1 to hit the live API; otherwise the local stand-in.
 if (process.env.USE_REAL_OPENAI !== '1') {
-  process.env.OPENAI_BASE_URL = 'http://127.0.0.1:8791/v1';
+  process.env.OPENAI_BASE_URL = process.env.MOCK_OPENAI_URL || 'http://127.0.0.1:8791/v1';
 }
 process.env.INTERNAL_SERVICE_KEY = 'local-internal-key';
 process.env.ALLOWED_ORIGINS = '*';
@@ -54,7 +54,9 @@ process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'mock-key';
 
 const PORT = Number(process.env.PORT || 8790);
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+// Wide enough for a base64 reference photo (6MB decoded) on its way to the
+// visualiser's likeness endpoints.
+app.use(express.json({ limit: '12mb' }));
 
 function mount(route, dir, exportName) {
   const mod = require(path.join(FUNCTIONS_DIR, dir, 'index.js'));

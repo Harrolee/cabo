@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { LikenessConsent } from '@/components/LikenessConsent';
 import { EmptyState, Loading, Screen } from '@/components/Screen';
 import {
   NoAspirationError,
@@ -113,6 +114,9 @@ export default function VisualizeScreen() {
             <Text style={[styles.editLink, { color: tint }]}>Edit</Text>
           </Pressable>
         </View>
+
+        {/* Sits above the button because it changes what the button produces. */}
+        <LikenessConsent tint={tint} />
 
         <View style={styles.kindRow}>
           {KINDS.map((option) => {

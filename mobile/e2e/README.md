@@ -8,7 +8,7 @@ and through the Cloud Functions over HTTP.
 | ----- | ------ |
 | `rls-probe.mjs` | Roster, profile bootstrap, thread creation, message write permissions, unread counts, notification settings, push-device handover, cross-tenant isolation |
 | `flow-probe.mjs` | Goal intake, prompt v1/v2 selection, free-tier metering, the 402 paywall, entitlement restore, coach-initiated nudges, `suppressUserTurn` auth, the nudge dispatcher sweep |
-| `viz-realtime-probe.mjs` | Visualiser guards (`no_aspiration`, entitlement, daily limit), prompt hygiene, and realtime delivery of a coach-initiated message |
+| `viz-realtime-probe.mjs` | Visualiser guards (`no_aspiration`, entitlement, daily limit), prompt hygiene, likeness consent and reference photos, and realtime delivery of a coach-initiated message |
 
 ## Setting up a local stack
 
@@ -72,6 +72,16 @@ ENV_FILE=/tmp/cabo-local/local.env node e2e/viz-realtime-probe.mjs
 
 They run from `mobile/` for `@supabase/supabase-js` resolution and exit non-zero
 on any failure.
+
+Ports are overridable, so a second stack can run beside the first without the
+two gateways fighting over 8790: `PORT` on both harness processes,
+`MOCK_OPENAI_URL` on the gateway, and `API_BASE` on the probes.
+
+The visualiser's likeness endpoints need GCS credentials to store or delete a
+photo, so `/likeness/grant` cannot be exercised locally. Everything the choice
+between PhotoMaker and scene-only depends on — consent, the trigger that keeps
+members from granting it to themselves, revocation, and which model each
+generation records — is covered without them.
 
 ## Driving the app itself
 
