@@ -475,8 +475,11 @@ async function main() {
     const subId = await ensureSubscription(groupId, coach, log);
     if (!subId) continue;
     await ensureSubscriptionLocalization(subId, coach, log);
-    await ensurePrice(subId, log);
+    // Availability first: App Store Connect rejects a price for a territory
+    // the subscription is not yet available in, with a 409 "An error occurred
+    // while processing the pricing information".
     await ensureAvailability(subId, territoryIds, log);
+    await ensurePrice(subId, log);
   }
 
   if (SKIP_DB) return;
