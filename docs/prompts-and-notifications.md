@@ -128,7 +128,7 @@ Everything else moved between the two runs, including the judge's overall
 verdict, which is a **dead heat under today's conditions**. So the honest
 summary is narrower than "v2 wins": v2 wins the two structural things, ties the
 rest, and is not worse anywhere reproducible.
-`20260811120000_prompt_v2_rollout.sql` acts on that, and is exactly reversible
+`20260811120200_prompt_v2_rollout.sql` acts on that, and is exactly reversible
 for the same reason.
 
 **The voice-evidence axis is not validly tested against production.** v2's
