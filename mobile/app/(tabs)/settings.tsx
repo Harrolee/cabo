@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { IapUnavailableError, restoreCoachSubscriptions } from '@/lib/iap';
 import { unregisterThisDevice } from '@/lib/notifications';
+import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 import { theme } from '@/lib/theme';
 
 export default function SettingsScreen() {
@@ -71,11 +72,11 @@ export default function SettingsScreen() {
         <Section title="Legal">
           <Action
             label="Terms of Service"
-            onPress={() => Linking.openURL('https://cabofit.app/terms')}
+            onPress={() => Linking.openURL(TERMS_URL)}
           />
           <Action
             label="Privacy Policy"
-            onPress={() => Linking.openURL('https://cabofit.app/privacy')}
+            onPress={() => Linking.openURL(PRIVACY_URL)}
           />
         </Section>
 

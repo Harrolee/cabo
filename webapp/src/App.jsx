@@ -11,6 +11,9 @@ import { STRIPE_PUBLIC_KEY } from './constants';
 import SettingsPage from './components/SettingsPage';
 import BillingPage from './components/BillingPage';
 import HeroCoachPage from './components/HeroCoachPage';
+import { LegalPage } from './components/LegalPage';
+import { TermsOfService } from './components/TermsOfService';
+import { DataPolicy } from './components/DataPolicy';
 
 // Coach Builder imports
 import { CoachBuilderProvider } from './contexts/CoachBuilderContext';
@@ -96,6 +99,11 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/coaches" element={<HeroCoachPage />} />
+
+      {/* Standalone, unauthenticated pages: the iOS app and App Review link
+          straight at these, so they must render without a session. */}
+      <Route path="/terms" element={<LegalPage><TermsOfService /></LegalPage>} />
+      <Route path="/privacy" element={<LegalPage><DataPolicy /></LegalPage>} />
       
       {/* Coach Builder - Unauthenticated Routes */}
       <Route path="/coach-builder/*" element={

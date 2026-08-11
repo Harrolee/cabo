@@ -88,5 +88,42 @@ transaction pending for StoreKit to retry, rather than losing a paid purchase.
   `<API_URL>/iap-validator/apple-notifications`.
 - Set `APPLE_BUNDLE_ID`, `APPLE_APP_APPLE_ID` and `APPLE_ROOT_CERTS_BASE64` on
   the `iap-validator` function (see `functions/iap-validator/README.md`).
-- Add app icon and splash assets — `app.json` has no icon configured yet.
-- Replace the placeholder Terms and Privacy URLs in `app/(tabs)/settings.tsx`.
+- Register `com.cabo.coaches` on the Apple Developer account with the Push
+  Notifications capability. As of the last check it was **not** registered — the
+  account holds no bundle id under `com.cabo.*`.
+
+## Assets
+
+`assets/` holds the icon, the Android adaptive foreground, the splash and the
+Android notification icon. They are generated, not hand-drawn:
+
+```sh
+python3 assets/generate-assets.py    # needs Pillow
+```
+
+Edit the mark in that script and re-run rather than editing the PNGs. `icon.png`
+is deliberately written without an alpha channel — the App Store rejects icons
+that have one.
+
+## EAS
+
+`eas init` has been run: `extra.eas.projectId` and `owner` in `app.json` point
+at the real Expo project, which is what `getExpoPushTokenAsync()` mints a push
+token against. `resolveProjectId()` in `src/lib/notifications.ts` reads it from
+`Constants.expoConfig.extra.eas.projectId`, falling back to `Constants.easConfig`
+for builds made by EAS itself. If it ever resolves to nothing, `ensurePush()`
+logs a warning and returns `'denied'` rather than failing silently.
+
+`eas.json` carries the build profiles: `development` (dev client, internal
+distribution, device not simulator), `preview` (internal distribution), and
+`production` (auto-incrementing build number).
+
+A device build is what actually exercises push — the simulator cannot receive
+it, and `ensurePush()` returns `'unavailable'` there rather than burning the iOS
+permission prompt:
+
+```sh
+npx expo run:ios --device        # or: eas build --profile development --platform ios
+```
+
+A successful run puts a row in `push_devices` with an `ExponentPushToken[...]`.

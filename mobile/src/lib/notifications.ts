@@ -64,12 +64,20 @@ async function configureAndroidChannel() {
   });
 }
 
+/**
+ * The EAS project the push token is minted against.
+ *
+ * `eas init` writes it to `extra.eas.projectId` in app.json, which is where
+ * `Constants.expoConfig.extra` surfaces it. In a build made by EAS itself the
+ * value also arrives on `Constants.easConfig`, so both are checked: the first
+ * covers `expo run:ios` and Expo Go, the second an EAS build.
+ */
 function resolveProjectId(): string | undefined {
-  return (
+  const id =
     Constants.expoConfig?.extra?.eas?.projectId ??
     (Constants as any)?.easConfig?.projectId ??
-    undefined
-  );
+    undefined;
+  return typeof id === 'string' && id.length > 0 ? id : undefined;
 }
 
 export type PushPermission = 'granted' | 'denied' | 'unavailable';
@@ -107,6 +115,12 @@ export async function ensurePush(): Promise<PushPermission> {
 
   try {
     const projectId = resolveProjectId();
+    if (!projectId) {
+      console.warn(
+        'No EAS project id in app.json (extra.eas.projectId) — run `eas init` ' +
+          'in mobile/. Without it a build cannot mint a push token.'
+      );
+    }
     const token = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined
     );
