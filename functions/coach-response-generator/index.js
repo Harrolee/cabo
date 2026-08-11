@@ -9,6 +9,7 @@ const {
   EMOTIONAL_NEEDS,
 } = require('./coach-domain');
 const { buildSystemPromptV2, buildMessageHistory } = require('./coach-prompt-v2');
+const { detectCrisis, resolveRegion, buildCrisisReply } = require('./crisis');
 const {
   runOnboardingTurn,
   mergeGoals,
@@ -161,6 +162,33 @@ async function loadThreadHistory(conversationId, turns = 8) {
     .map((row) => ({ role: row.role, content: row.content, timestamp: row.created_at }));
 }
 
+/**
+ * Just enough of the profile to pick crisis resources. `user_profiles` carries
+ * `timezone` and an optional E.164 `phone_number` and nothing else that speaks
+ * to locale, so those are what `resolveRegion` reads. Only fetched when the
+ * detector has already fired, so it costs nothing on the normal path — and a
+ * failure here degrades to the generic "contact your local emergency services"
+ * message rather than to no message.
+ */
+async function loadLocaleProfile(userId) {
+  if (!userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('timezone, phone_number')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) {
+      console.warn('Could not load locale profile for crisis resources:', error.message);
+      return null;
+    }
+    return data || null;
+  } catch (error) {
+    console.warn('Could not load locale profile for crisis resources:', error.message);
+    return null;
+  }
+}
+
 async function loadMemberContext(userId, coachId) {
   if (!userId || !coachId) return {};
   const { data, error } = await supabase.rpc('get_member_context', {
@@ -306,6 +334,112 @@ exports.generateCoachResponse = async (req, res) => {
     }
 
     const memberId = caller?.id || thread?.user_id || requestData.onBehalfOfUserId || null;
+
+    // ---- Safety -----------------------------------------------------------
+    /*
+      Crisis escalation, before generation and before the paywall.
+
+      Deliberately ahead of the entitlement check: a member who has run out of
+      free messages and disclosed that they are not safe gets the resources,
+      not a 402. It is also ahead of intake, so someone who says it in their
+      very first message is not asked what their goals are.
+
+      No model is consulted about whether to fire or what to say. That is the
+      whole point of #30 — the model already had the option of escalating and
+      took it only where a creator had written the rule down. `suppressUserTurn`
+      turns are excluded because `userMessage` there is a synthetic instruction
+      the nudge dispatcher wrote, not something a member typed.
+    */
+    const detection = suppressUserTurn
+      ? { crisis: false }
+      : detectCrisis(userMessage);
+
+    if (detection.crisis) {
+      const localeProfile = await loadLocaleProfile(memberId);
+      const region = resolveRegion(localeProfile);
+      const responseText = buildCrisisReply({
+        category: detection.category,
+        region,
+        discipline: coach.discipline,
+      });
+
+      const safety = {
+        intervention: 'crisis_escalation',
+        category: detection.category,
+        confidence: detection.confidence,
+        region,
+        // Pattern ids, never the member's own words: this lands in a database
+        // column and in logs, and what they wrote is theirs.
+        signals: detection.signals,
+        model_called: false,
+      };
+
+      console.warn(
+        'Crisis escalation fired: category=%s confidence=%s region=%s signals=%s coach=%s',
+        detection.category,
+        detection.confidence,
+        region,
+        detection.signals.join(','),
+        coachId || 'snapshot'
+      );
+
+      let crisisMessageId = null;
+      if (thread) {
+        const { data: inserted, error: persistError } = await supabase
+          .from('conversation_messages')
+          .insert([
+            {
+              conversation_id: thread.id,
+              role: 'user',
+              content: userMessage,
+              detected_intent: 'crisis',
+              metadata: { safety_intervention: 'crisis_escalation', safety },
+            },
+            {
+              conversation_id: thread.id,
+              role: 'assistant',
+              content: responseText,
+              latency_ms: Date.now() - startTime,
+              detected_intent: 'crisis',
+              // Top-level as well as nested, so coach-nudges can filter on it
+              // with a plain PostgREST `metadata->>safety_intervention`.
+              metadata: {
+                safety_intervention: 'crisis_escalation',
+                safety,
+                presentation,
+                prompt_version: 'safety_net',
+                initiated_by: 'member',
+              },
+            },
+          ])
+          .select('id, role');
+
+        if (persistError) {
+          console.error('Failed to persist crisis messages:', persistError);
+        } else {
+          crisisMessageId = (inserted || []).find((row) => row.role === 'assistant')?.id ?? null;
+        }
+      }
+
+      // Not metered. Nobody pays for the message that tells them to call 988.
+      return res.json({
+        success: true,
+        response: responseText,
+        metadata: {
+          coachId,
+          coachName: coach.name,
+          discipline: coach.discipline || null,
+          presentation,
+          promptVersion: 'safety_net',
+          model: null,
+          latencyMs: Date.now() - startTime,
+          assistantMessageId: crisisMessageId,
+          freeMessagesRemaining: null,
+          onboarding: { active: false, complete: true },
+          safety,
+        },
+      });
+    }
 
     // ---- Entitlement ------------------------------------------------------
     // Only enforced for member-initiated turns. A coach-initiated nudge is

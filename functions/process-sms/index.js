@@ -4,6 +4,7 @@ const twilio = require('twilio');
 const { createClient } = require('@supabase/supabase-js');
 const { Storage } = require('@google-cloud/storage');
 const { COACH_PERSONAS, SPICE_LEVEL_DESCRIPTIONS } = require('./coach-personas');
+const { detectCrisis, resolveRegion, buildCrisisReply } = require('./crisis');
 const fetch = require('node-fetch');
 
 const openai = new OpenAI({
@@ -577,12 +578,13 @@ exports.processSms = async (req, res) => {
     const { data: userData, error: userError } = await supabase
       .from('user_profiles')
       .select(`
-        coach, 
-        coach_type, 
-        custom_coach_id, 
-        spice_level, 
+        coach,
+        coach_type,
+        custom_coach_id,
+        spice_level,
         image_preference,
-        coach_profiles!custom_coach_id(id, name, handle, primary_response_style, secondary_response_style, communication_traits)
+        timezone,
+        coach_profiles!custom_coach_id(id, name, handle, discipline, primary_response_style, secondary_response_style, communication_traits)
       `)
       .eq('phone_number', normalizedPhoneNumber)
       .single();
@@ -594,6 +596,43 @@ exports.processSms = async (req, res) => {
 
     if (!userData) {
       return res.status(404).send('User not found');
+    }
+
+    // ---- Safety ----------------------------------------------------------
+    /*
+      #30's code path applies here too. Predefined coaches never reach
+      coach-response-generator — `aiResponse.customerResponse` comes from this
+      function's own model call — so a crisis message from an SMS member would
+      otherwise be answered by a model with none of the shared safety wiring.
+      Same rule: detect on the inbound text, answer from code, no model.
+    */
+    const detection = detectCrisis(messageBody);
+    if (detection.crisis) {
+      const region = resolveRegion({
+        phone_number: normalizedPhoneNumber,
+        timezone: userData.timezone,
+      });
+      const crisisReply = buildCrisisReply({
+        category: detection.category,
+        region,
+        discipline: userData.coach_profiles?.discipline,
+      });
+
+      console.warn(
+        'Crisis escalation fired on SMS: category=%s confidence=%s region=%s signals=%s',
+        detection.category,
+        detection.confidence,
+        region,
+        detection.signals.join(',')
+      );
+
+      await storeConversation(normalizedPhoneNumber, messageBody);
+      await storeConversation(normalizedPhoneNumber, crisisReply, 'assistant');
+
+      const crisisTwiml = new twilio.twiml.MessagingResponse();
+      crisisTwiml.message(crisisReply);
+      res.type('text/xml');
+      return res.send(crisisTwiml.toString());
     }
 
     const conversationHistory = await getConversationHistory(normalizedPhoneNumber);

@@ -18,6 +18,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { z } = require('zod');
+const { detectCrisis } = require('./crisis');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -225,9 +226,103 @@ async function ensureConversation(userId, coachId, coachName) {
   return data.id;
 }
 
-async function dispatchOne(due, tokensByUser) {
+// ---------------------------------------------------------------------------
+// Safety hold
+// ---------------------------------------------------------------------------
+
+/*
+  #30, step 6. A nudge is unprompted outbound cheerfulness on a timer. Sending
+  one — "give me one thing you'll do today, what's it going to be?" — to someone
+  who told their coach yesterday that they were not safe is its own harm, and it
+  happens without anyone reading the thread first.
+
+  So the sweep holds off for a window after any crisis interaction. Two sources,
+  because either one alone has a gap:
+
+    1. `metadata->>safety_intervention` on the assistant message, written by
+       coach-response-generator when the code path fired.
+    2. The member's own recent messages, re-run through the same detector. This
+       catches threads that predate this deploy and any path that stored a
+       message without the flag.
+
+  It is a hold, not a block: HOLD_HOURS later the normal cadence resumes. The
+  member can still write at any time, and the crisis reply itself said so
+  ("message me when you've talked to someone"). Going quiet forever would be
+  the other failure — the coach vanishing exactly when they said they wouldn't.
+*/
+const CRISIS_HOLD_HOURS = Number(process.env.NUDGE_CRISIS_HOLD_HOURS || 72);
+
+async function usersOnSafetyHold(userIds) {
+  const held = new Set();
+  if (userIds.length === 0) return held;
+
+  const since = new Date(Date.now() - CRISIS_HOLD_HOURS * 3600 * 1000).toISOString();
+
+  const { data: conversations, error: convError } = await supabase
+    .from('conversations')
+    .select('id, user_id')
+    .in('user_id', userIds);
+
+  if (convError) {
+    // Fail closed on the safety question: if the thread history cannot be read,
+    // hold every candidate rather than nudge into an unknown state.
+    console.error('Could not read conversations for the crisis hold, holding all:', convError.message);
+    return new Set(userIds);
+  }
+
+  const owner = new Map((conversations || []).map((row) => [row.id, row.user_id]));
+  if (owner.size === 0) return held;
+
+  const { data: messages, error: msgError } = await supabase
+    .from('conversation_messages')
+    .select('conversation_id, role, content, metadata, created_at')
+    .in('conversation_id', [...owner.keys()])
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(2000);
+
+  if (msgError) {
+    console.error('Could not read recent messages for the crisis hold, holding all:', msgError.message);
+    return new Set(userIds);
+  }
+
+  for (const row of messages || []) {
+    const userId = owner.get(row.conversation_id);
+    if (!userId) continue;
+
+    if (row.metadata?.safety_intervention === 'crisis_escalation') {
+      held.add(userId);
+      continue;
+    }
+    if (row.role === 'user' && detectCrisis(row.content).crisis) {
+      held.add(userId);
+    }
+  }
+
+  return held;
+}
+
+async function dispatchOne(due, tokensByUser, onSafetyHold = new Set()) {
   const tokens = tokensByUser.get(due.user_id) || [];
   if (tokens.length === 0) return { skipped: 'no_devices' };
+
+  /*
+    Claimed before it is skipped, on purpose: the unique index on
+    (user, coach, local_date) means the next hourly tick cannot try again today.
+  */
+  if (onSafetyHold.has(due.user_id)) {
+    const { error: holdError } = await supabase.from('coach_nudges').insert({
+      user_id: due.user_id,
+      coach_id: due.coach_id,
+      conversation_id: due.conversation_id,
+      local_date: due.local_date,
+      status: 'skipped',
+      error: `held: crisis disclosure within ${CRISIS_HOLD_HOURS}h`,
+    });
+    if (holdError && holdError.code !== '23505') throw holdError;
+    console.warn('Nudge held for user %s: crisis disclosure inside the hold window', due.user_id);
+    return { skipped: 'safety_hold' };
+  }
 
   // Claim the slot first. The unique index on (user, coach, local_date) means
   // a concurrent run loses this insert and stops, so nobody is nudged twice.
@@ -321,18 +416,24 @@ async function handleDispatch(req, res) {
     return res.json({ success: true, considered: 0, sent: 0 });
   }
 
-  const tokensByUser = await devicesFor([...new Set(pairs.map((p) => p.user_id))]);
+  const userIds = [...new Set(pairs.map((p) => p.user_id))];
+  const tokensByUser = await devicesFor(userIds);
+  const onSafetyHold = await usersOnSafetyHold(userIds);
 
   let sent = 0;
   let skipped = 0;
   let failed = 0;
+  let held = 0;
 
   // Sequential on purpose: this fans out to an LLM call per pair, and a burst
   // of concurrent generations is the fastest way to hit a rate limit.
   for (const pair of pairs) {
     try {
-      const result = await dispatchOne(pair, tokensByUser);
-      if (result.skipped) skipped += 1;
+      const result = await dispatchOne(pair, tokensByUser, onSafetyHold);
+      if (result.skipped === 'safety_hold') {
+        held += 1;
+        skipped += 1;
+      } else if (result.skipped) skipped += 1;
       else if (result.delivered > 0) sent += 1;
       else failed += 1;
     } catch (err) {
@@ -341,8 +442,15 @@ async function handleDispatch(req, res) {
     }
   }
 
-  console.log('Nudge sweep: considered=%d sent=%d skipped=%d failed=%d', pairs.length, sent, skipped, failed);
-  return res.json({ success: true, considered: pairs.length, sent, skipped, failed });
+  console.log(
+    'Nudge sweep: considered=%d sent=%d skipped=%d (held=%d) failed=%d',
+    pairs.length,
+    sent,
+    skipped,
+    held,
+    failed
+  );
+  return res.json({ success: true, considered: pairs.length, sent, skipped, held, failed });
 }
 
 // ---------------------------------------------------------------------------
@@ -443,6 +551,13 @@ async function handleReceipts(req, res) {
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
+
+/*
+  Exported for `mobile/e2e/prompt-eval/crisis-probe.mjs`, which drives the
+  safety hold against a stubbed database. Not part of the function's contract —
+  Cloud Functions only ever calls `coachNudges`.
+*/
+exports._internals = { usersOnSafetyHold, CRISIS_HOLD_HOURS };
 
 exports.coachNudges = async (req, res) => {
   res.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');

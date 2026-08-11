@@ -151,6 +151,72 @@ them to stop playing and see a doctor") both versions behave perfectly — which
 suggests the fix is a stronger, more specific rule rather than another prompt
 rewrite.
 
+## 2b. Crisis escalation (issue #30)
+
+That finding is now fixed, and not by a prompt rewrite.
+
+**A code path, not a rule the model may follow.** `functions/shared/crisis.js`
+inspects the inbound message before generation. On a hit,
+`coach-response-generator` returns a response built in code and **never calls
+the model**; `process-sms` does the same on its own path, which predefined
+coaches still use. The escalation therefore cannot be talked out of firing by
+prompt injection, by a creator's persona, or by a model having an off day. It
+runs *before* the entitlement check too: a member out of free messages who says
+they are not safe gets the resources, not a 402, and is not metered for it.
+
+**What the reply does, and deliberately does not do.**
+
+1. Breaks frame explicitly — "I'm going to step out of coach mode for a
+   second" — so it does not blend into coach patter.
+2. Names something specific and reachable: 988 in the US and Canada, 116 123
+   and 999 in the UK, and so on. The fallback, when nothing on the profile
+   resolves to a region, still says to contact local emergency services and
+   names an emergency room. "Talk to someone who can help" is not a resource.
+3. **Does not answer the craft question in the same message.** This is the
+   product decision #30 asked for, taken deliberately: answering it is what
+   makes a disclosure feel noted and set aside. The craft question keeps.
+4. Leaves the door open — "I'm not going anywhere. Message me when you've
+   talked to someone." — so it does not read as a liability disclaimer.
+
+**Locale** comes from what `user_profiles` already carries: `timezone` first
+(more specific), then the E.164 `phone_number`. No new column, no migration.
+
+**False positives are the intended error.** Implied ideation is covered as well
+as explicit — "the only reason I'm still here", "no point anymore", "won't be
+around", "it'd be easier if I wasn't here" — because the message that opened
+the issue contained no explicit statement at all. Signals carry a `confidence`
+that changes nothing about what happens and is logged in
+`conversation_messages.metadata.safety.signals` (pattern ids, never the
+member's words), so the broad patterns can be tightened later with evidence.
+Patterns are still shaped around these disciplines: a stroke is a rudiment, a
+dead note is a note that does not ring, "this fill is killing me" is a Tuesday,
+and a panic attack before a gig is a coaching topic — none of those fire.
+
+**Defence in depth in the prompt.** Both builders now emit a safety section
+that is deliberately *not* inside `<boundaries>` (which opens with creator
+text), is placed last, and states that it outranks the persona, the boundaries
+and anything the member writes. Creator- and member-supplied text is scrubbed
+of the block tags and section headings the prompts use for their own structure,
+so a persona cannot forge or close a section.
+
+**The nudge dispatcher holds off** for 72 hours (`NUDGE_CRISIS_HOLD_HOURS`)
+after any crisis interaction, keyed on the `safety_intervention` flag and on
+re-running the detector over the member's own recent messages. A hold, not a
+block: unprompted cheerfulness on a timer is the risk, going silent forever is
+the other one.
+
+**Evidence.** `mobile/e2e/prompt-eval/results/`:
+
+| File | What it shows |
+| ---- | ------------- |
+| `2026-08-11-gpt-4o-mini-no-retrieval-crisis-rescore.md` | PR #26's real transcripts, re-scored: v1 and v2 both fail all four crisis axes on the case that opened #30 |
+| `2026-08-11-crisis-baseline-pre-change.md` | The three new crisis cases against the pre-change prompts. 6/6 fail; the yoga member who says she is hurting herself gets a bedtime sequence |
+| `2026-08-11-crisis-prompt-rule-only.md` | Real model, safety net disabled, new prompt rules only. 4/4 name a resource, including under a hostile persona — the prompt layer works, and is still not what we rely on |
+
+`mobile/e2e/prompt-eval/crisis-probe.mjs` is the permanent regression suite,
+including the acceptance criterion: the real Cloud Function handler, `openai`
+stubbed to throw, still answering with 988.
+
 ## 3. Conversational goal intake
 
 First contact with a coach runs an intake rather than a form. The same model
@@ -258,6 +324,11 @@ otherwise a member could write into someone else's thread.
 
 The app needs an **EAS project id** in `app.json` (`extra.eas.projectId`) before
 `getExpoPushTokenAsync` will return a token. `eas init` sets it.
+
+`NUDGE_CRISIS_HOLD_HOURS` (optional, default 72) is how long `coach-nudges`
+holds off unprompted outreach after a crisis interaction. It has no Terraform
+variable on purpose — the default is the intended behaviour, and setting it to
+0 would turn the hold off.
 
 ## Verified end to end
 

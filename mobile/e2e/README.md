@@ -118,6 +118,36 @@ node prompt-eval/run.mjs --real --judge           # live API, spends money
 node prompt-eval/run.mjs --rescore=prompt-eval/results/<run>.json
 ```
 
+## `prompt-eval/crisis-probe.mjs` — the #30 safety net
+
+Crisis escalation is the one behaviour that must not depend on a model
+choosing to comply, so it has its own suite. No database, no HTTP, no network,
+no credits — it runs anywhere `node` does:
+
+```sh
+cd mobile/e2e
+node prompt-eval/crisis-probe.mjs
+```
+
+It covers the detector (what must fire, and the drumming and songwriting
+phrases that must not), locale resolution from what `user_profiles` actually
+carries, the four properties the reply has to have, the mirrored copies of
+`functions/shared/crisis.js` being byte-identical, and a hostile creator
+persona failing to displace the rule from either prompt version. The last
+section loads the real `coach-response-generator` handler with the `openai`
+module replaced by a stub that throws, and asserts a crisis message still comes
+back naming 988 — then checks an ordinary message *does* reach for the model,
+so the stub is not merely inert.
+
+One-time setup: `cd functions/coach-response-generator && npm install`, same
+for `functions/coach-nudges`.
+
+`run.mjs` carries the same invariants as a startup assertion, and its crisis
+cases exercise the code path in the position production uses — before
+generation, no model call. `--no-safety-net` disables it, which is how the
+"what the prompt rule alone is worth" numbers in
+`results/2026-08-11-crisis-prompt-rule-only.md` were produced.
+
 **It defaults to the mock and needs `--real` to reach OpenAI**, which it will
 refuse to do without a key in `OPENAI_API_KEY` or `openai_api_key` in
 `_infra/terraform.tfvars` (`TFVARS_FILE` overrides the path). The default model
