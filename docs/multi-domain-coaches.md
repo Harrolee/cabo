@@ -50,6 +50,21 @@ for SMS".
 'listed'` when an approved creator stands behind it, enforced by a trigger so
 the rule holds regardless of which RLS policy admitted the write.
 
+Anyone can sign themselves up at `/creator` in the web app. The form sends only
+the columns a creator owns; `protect_creator_platform_fields()` discards
+`status`, `revenue_share_bps` and the payout columns on **insert as well as
+update**, so a new profile always lands `pending` on the standard split however
+the request was shaped. Approval is a platform action performed by the admin
+dashboard through `admin-api`, which holds the service role key server-side —
+the trigger only stands aside when `auth.uid()` is null.
+
+Publishing walks `draft → in_review → listed` from the coach card in
+`/my-coaches`. Submitting for review always succeeds; reaching the roster does
+not, and the `insufficient_privilege` a pending creator gets back is rendered as
+"your creator account is still under review" rather than as a Postgres error.
+Approving a creator publishes whatever they already queued; suspending one pulls
+their listings back to `unlisted`.
+
 ### Identity
 
 `user_profiles.user_id` references `auth.users`, phone became optional and E.164
@@ -87,9 +102,10 @@ access.
 | `20260810120000_generalize_coach_domain.sql` | Categories, domain columns, roster search, backfill |
 | `20260810120100_creators_and_coach_subscriptions.sql` | Creators, entitlements, store products, `has_coach_access`, `get_coach_roster` |
 | `20260810120200_app_identity_and_conversations.sql` | `auth.users` identity, conversations, `open_coach_conversation`, `get_my_coaches` |
+| `20260811120000_creator_self_signup.sql` | INSERT guard on the platform-owned creator columns, one profile per account, `creator_slug_available`, coach attribution guard |
 
-All three are idempotent and verified by applying the full migration chain from
-scratch against Postgres 16 + pgvector.
+All of them are idempotent and verified by applying the full migration chain
+from scratch against Postgres 16 + pgvector.
 
 `supabase/seeds/example_roster.sql` seeds a drummer, a songwriter and a yoga
 instructor. It is a seed, not a migration — run it by hand on dev/staging.
@@ -102,8 +118,12 @@ instructor. It is a seed, not a migration — run it by hand on dev/staging.
   the copy and the builder form are not.
 - **Google Play billing** is stubbed. `/iap-validator/verify` returns 501 for
   Android rather than granting anything.
-- **Creator onboarding** has no UI. Creating a `creator_profiles` row and
-  approving it is a manual insert today.
+- **Approved creators' payout terms are readable by any signed-in user.**
+  `authenticated` holds table-level `SELECT` on `creator_profiles`, and the
+  "Anyone can view approved creators" policy admits every approved row — so
+  `revenue_share_bps` and `payout_account_id` come with it. `anon` is limited to
+  the public columns; `authenticated` is not, because a creator has to be able
+  to read their own split. Splitting the two needs a view or a definer function.
 - **Revenue split is recorded, not paid.** `revenue_share_bps` is stored; there
   is no payout job.
 - **`motivational-images`** is still entirely fitness-specific and only makes

@@ -31,6 +31,7 @@ export const AuthenticatedLayout = ({ session }) => {
           <li><Link to="/">Home (Main App)</Link></li>
           <li><Link to="/coach-builder">Coach Builder</Link></li>
           <li><Link to="/my-coaches">My Coaches</Link></li>
+          <li><Link to="/creator">Creator</Link></li>
           <li><Link to="/settings">Settings</Link></li>
           <li><Link to="/billing">Billing</Link></li>
           <li><Link to="/coaches">Coaches</Link></li>
