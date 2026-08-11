@@ -303,7 +303,6 @@ Not verified, and why:
 - **The nudge dispatcher is untested against live Expo push.** The scheduling
   logic is verified in SQL; the delivery path has not run against a real
   device. `/coach-nudges/preview` exists for exactly that check.
-<<<<<<< HEAD
 - **Neither prompt handles an implied mental-health crisis.** The eval's
   hardest case is answered as a writing question by both v1 and v2. The
   boundary line exists in both prompts and is not enough. This is the next
