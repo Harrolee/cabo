@@ -143,25 +143,33 @@ async function processUser(user) {
 
 /**
  * Fetches all active users with their subscription status
+ *
+ * Only users still on the SMS channel. App users are reached by the
+ * coach-nudges dispatcher instead, which pushes a notification and writes the
+ * message into their in-app thread — texting them as well would double up.
+ *
  * @returns {Promise<UserProfile[]>} Array of user profiles
  */
 async function fetchActiveUsers() {
   const { data: users, error } = await supabaseClient
     .from("user_profiles")
     .select(`
-      phone_number, 
-      full_name, 
+      phone_number,
+      full_name,
       spice_level,
       coach,
       image_preference,
       email,
+      notification_channel,
       subscription:subscriptions!user_phone(
         status,
         trial_start_timestamp
       )
     `)
-    .eq("active", true);
-  
+    .eq("active", true)
+    .eq("notification_channel", "sms")
+    .not("phone_number", "is", null);
+
   if (error) {
     console.error('Error fetching users:', error);
     throw new Error(`Error fetching users: ${error.message}`);

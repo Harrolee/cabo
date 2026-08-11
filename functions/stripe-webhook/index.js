@@ -10,15 +10,20 @@ exports.stripeWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
 
+  // Signature verification is a 400 (Stripe should not retry — secret is wrong).
   try {
-    // Verify the webhook came from Stripe
     event = stripe.webhooks.constructEvent(
       req.rawBody,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
+  } catch (err) {
+    console.error('Stripe webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook signature error: ${err.message}`);
+  }
 
-    // Handle different event types
+  // Handler errors are a 500 so Stripe retries with backoff.
+  try {
     switch (event.type) {
       case 'customer.subscription.created':
         await handleSubscriptionCreated(event.data.object);
@@ -35,12 +40,19 @@ exports.stripeWebhook = async (req, res) => {
       case 'invoice.payment_failed':
         await handlePaymentFailed(event.data.object);
         break;
+      default:
+        console.log('Unhandled Stripe event type:', event.type);
     }
 
     res.json({ received: true });
   } catch (err) {
-    console.error('Webhook Error:', err);
-    res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error('Stripe webhook handler error:', {
+      eventType: event.type,
+      eventId: event.id,
+      message: err.message,
+      stack: err.stack,
+    });
+    res.status(500).send(`Webhook handler error: ${err.message}`);
   }
 };
 

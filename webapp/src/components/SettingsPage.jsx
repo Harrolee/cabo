@@ -25,10 +25,7 @@ function SettingsPage() {
   useEffect(() => {
     const fetchUserData = async () => {
       setInitialLoading(true);
-      console.log("fetchUserData called");
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      console.log("Full auth user object:", user);
 
       if (userError) {
         toast.error("Error fetching user authentication data. Please try logging in again.");
@@ -38,26 +35,20 @@ function SettingsPage() {
       }
 
       if (user) {
-        console.log(`User details - ID: ${user.id}, Email: ${user.email}, Phone: ${user.phone}`);
         setUserId(user.id);
 
         let normalizedPhone = user.phone;
         if (normalizedPhone && !normalizedPhone.startsWith('+')) {
-          // Assuming North American numbers based on your previous DB constraint
-          // If it's a 10-digit number, prepend +1. If it's 11 digits starting with 1, prepend +.
           if (normalizedPhone.length === 10 && /^[2-9]\d{9}$/.test(normalizedPhone)) {
             normalizedPhone = `+1${normalizedPhone}`;
           } else if (normalizedPhone.length === 11 && normalizedPhone.startsWith('1')) {
             normalizedPhone = `+${normalizedPhone}`;
           }
-          // Add more robust normalization if other international formats are expected from auth
-          console.log(`Normalized user.phone from '${user.phone}' to '${normalizedPhone}'`);
         }
 
         setUserPhone(normalizedPhone);
 
         if (!normalizedPhone) {
-          console.warn("User phone from auth is null or empty, even after normalization attempt.");
           toast.error("Your phone number is not available from authentication. Cannot load or save settings.");
           setInitialLoading(false);
           return;
@@ -80,13 +71,11 @@ function SettingsPage() {
         if (error) {
           if (error.code === 'PGRST116') {
             toast.error("Your user profile was not found using your phone number. Please contact support or try re-registering.");
-            console.error(`Profile not found (PGRST116) for normalized phone: '${normalizedPhone}', Original auth phone: '${user.phone}'`, error);
           } else {
             toast.error("Failed to load your settings.");
-            console.error("Error fetching profile (other than PGRST116):", error);
+            console.error("Error fetching profile:", error);
           }
         } else if (data) {
-          console.log("Profile data fetched using phone:", data);
           setCoachType(data.coach_type || 'predefined');
           setCoach(data.coach || '');
           setCustomCoachId(data.custom_coach_id || '');
@@ -110,7 +99,6 @@ function SettingsPage() {
         }
       } else {
         toast.error("No user logged in. Please log in again.");
-        console.log("No user object returned from supabase.auth.getUser()");
       }
       setInitialLoading(false);
     };
@@ -120,23 +108,13 @@ function SettingsPage() {
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
-    console.log("handleSaveSettings called. Current userPhone state (should be normalized):", userPhone);
 
     if (!userPhone) {
       toast.error("User phone number not identified. Cannot save settings.");
-      console.error("Save aborted: userPhone (normalized) is not set.");
       return;
     }
 
     setLoading(true);
-    console.log("Attempting to save settings with:", { 
-      coach, 
-      coachType, 
-      customCoachId, 
-      spiceLevel, 
-      imagePreference, 
-      userPhone 
-    });
 
     try {
       const updateData = {
@@ -153,24 +131,19 @@ function SettingsPage() {
         updateData.custom_coach_id = customCoachId;
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('user_profiles')
         .update(updateData)
         .eq('phone_number', userPhone)
         .select();
 
-      if (error) {
-        console.error("Supabase update error:", error);
-        throw error;
-      }
+      if (error) throw error;
       toast.success("Settings saved successfully!");
-      console.log("Settings saved successfully, updated data:", data);
     } catch (error) {
       toast.error(`Failed to save settings: ${error.message}`);
-      console.error("Error saving settings (catch block):", error);
+      console.error("Error saving settings:", error);
     } finally {
       setLoading(false);
-      console.log("setLoading(false) called in finally block");
     }
   };
 

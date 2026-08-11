@@ -123,8 +123,6 @@ export const CoachBuilderProvider = ({ children }) => {
       // Generate a temporary coach ID for preview mode
       const tempCoachId = `temp-id-${Date.now()}`;
       
-      // Step 1: Get signed upload URL
-      console.log('Getting signed upload URL...');
       const uploadUrlResponse = await fetch(`${import.meta.env.VITE_API_URL}/coach-file-uploader`, {
         method: 'POST',
         headers: {
@@ -146,8 +144,6 @@ export const CoachBuilderProvider = ({ children }) => {
 
       const { uploadUrl, filePath, fileId, uploadTimestamp, coachId: signedCoachId } = await uploadUrlResponse.json();
 
-      // Step 2: Upload file directly to GCP Storage
-      console.log('Uploading file to GCP Storage...');
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         headers: {
@@ -205,9 +201,7 @@ export const CoachBuilderProvider = ({ children }) => {
     try {
       setIsProcessing(true);
       setProcessingStatus('processing');
-      
-      console.log(`Processing ${uploadedFiles.length} files for coach ${coachId}...`);
-      
+
       // Process each uploaded file
       const processingPromises = uploadedFiles.map(async (fileData) => {
         try {
@@ -231,7 +225,6 @@ export const CoachBuilderProvider = ({ children }) => {
           }
 
           const result = await response.json();
-          console.log(`Processed file ${fileData.file.name}:`, result);
           return result;
         } catch (error) {
           console.error(`Failed to process ${fileData.file.name}:`, error);
@@ -511,13 +504,12 @@ export const CoachBuilderProvider = ({ children }) => {
           });
         } catch (avatarError) {
           console.warn('Failed to save avatar data via cloud function:', avatarError);
-          // Continue with coach creation even if avatar save fails
+          toast.error('Your coach was saved, but the avatar failed to save. You can try again from settings.');
         }
       }
 
       // Process uploaded content files
       if (uploadedFiles.length > 0) {
-        console.log('Processing uploaded content...');
         await processContent(coach.id);
         
         // Update coach as processed

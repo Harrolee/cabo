@@ -1,446 +1,499 @@
 const { createClient } = require('@supabase/supabase-js');
 const OpenAI = require('openai');
-const fetch = require('node-fetch');
 const { z } = require('zod');
+const {
+  detectEmotionalNeed,
+  detectSessionContext,
+  resolvePresentation,
+  buildSystemPrompt,
+  EMOTIONAL_NEEDS,
+} = require('./coach-domain');
+const { buildSystemPromptV2, buildMessageHistory } = require('./coach-prompt-v2');
+const {
+  runOnboardingTurn,
+  mergeGoals,
+  needsOnboarding,
+  MAX_ONBOARDING_TURNS,
+} = require('./goal-onboarding');
 
-// Initialize services
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Validation schemas
+const CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4o';
+const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-ada-002';
+const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || '';
+
+// ---------------------------------------------------------------------------
+// Request shape
+// ---------------------------------------------------------------------------
+
 const BaseRequest = z.object({
-  userMessage: z.string().min(1).max(1000),
-  userContext: z.object({
-    emotionalNeed: z.enum(['encouragement', 'commiseration', 'pity', 'celebration', 'advice', 'accountability', 'check_in']).optional(),
-    situation: z.enum(['pre_workout', 'post_workout', 'struggling', 'plateau', 'beginner', 'advanced', 'injury_recovery']).optional(),
-    previousMessages: z.array(z.object({
-      role: z.enum(['user', 'assistant']),
-      content: z.string(),
-      timestamp: z.string()
-    })).optional()
-  }).optional()
+  userMessage: z.string().min(1).max(4000),
+  presentation: z.enum(['sms', 'chat', 'longform']).optional(),
+  conversationId: z.string().uuid().optional(),
+  /*
+    Coach-initiated turns (the nudge dispatcher) pass a synthetic instruction as
+    `userMessage`. It steers generation but must never appear in the member's
+    thread as something they said.
+  */
+  suppressUserTurn: z.boolean().optional(),
+  /* Service-to-service only: whose thread this is. */
+  onBehalfOfUserId: z.string().uuid().optional(),
+  userContext: z
+    .object({
+      emotionalNeed: z.enum(EMOTIONAL_NEEDS).optional(),
+      sessionContext: z.string().max(60).optional(),
+      previousMessages: z
+        .array(
+          z.object({
+            role: z.enum(['user', 'assistant']),
+            content: z.string(),
+            timestamp: z.string().optional(),
+          })
+        )
+        .optional(),
+    })
+    .optional(),
 });
 
-const CoachIdVariant = BaseRequest.extend({
-  coachId: z.string().uuid()
-});
+const CoachIdVariant = BaseRequest.extend({ coachId: z.string().uuid() });
 
-// Allow a snapshot coach definition for unauthenticated preview (no DB row yet)
 const CoachSnapshotVariant = BaseRequest.extend({
-  coachSnapshot: z.object({
-    name: z.string().default('Sample Coach'),
-    handle: z.string().optional(),
-    description: z.string().optional(),
-    primary_response_style: z.string().optional(),
-    secondary_response_style: z.string().optional(),
-    emotional_response_map: z.record(z.any()).optional(),
-    communication_traits: z.record(z.any()).optional(),
-    voice_patterns: z.record(z.any()).optional(),
-    catchphrases: z.array(z.string()).optional(),
-    vocabulary_preferences: z.record(z.any()).optional(),
-    avatar_url: z.string().optional(),
-    avatar_style: z.string().optional(),
-  }).passthrough()
+  coachSnapshot: z
+    .object({
+      name: z.string().default('Sample Coach'),
+      handle: z.string().optional(),
+      description: z.string().optional(),
+      discipline: z.string().optional(),
+      tagline: z.string().optional(),
+      expertise: z.array(z.string()).optional(),
+      domain_lexicon: z.record(z.any()).optional(),
+      session_contexts: z.array(z.string()).optional(),
+      coaching_boundaries: z.string().optional(),
+      prompt_version: z.enum(['v1', 'v2']).optional(),
+      primary_response_style: z.string().optional(),
+      secondary_response_style: z.string().optional(),
+      emotional_response_map: z.record(z.any()).optional(),
+      communication_traits: z.record(z.any()).optional(),
+      voice_patterns: z.record(z.any()).optional(),
+      catchphrases: z.array(z.string()).optional(),
+      vocabulary_preferences: z.record(z.any()).optional(),
+      avatar_url: z.string().optional(),
+      avatar_style: z.string().optional(),
+    })
+    .passthrough(),
 });
 
 const GenerateResponseRequest = z.union([CoachIdVariant, CoachSnapshotVariant]);
 
-/**
- * Response style patterns mapped to coaching styles
- */
-const RESPONSE_STYLES = {
-  tough_love: {
-    personality: "Direct, challenging coach who never coddles and redirects complaints into action. Uses firm but supportive language.",
-    patterns: [
-      "No excuses, let's focus on solutions",
-      "I hear you, but what are you going to DO about it?",
-      "Champions are made in moments like this",
-      "Stop making excuses and start making progress"
-    ],
-    tone: "firm, direct, action-oriented"
-  },
-  empathetic_mirror: {
-    personality: "Understanding coach who validates feelings first, then motivates from a place of empathy and connection.",
-    patterns: [
-      "I completely understand how you're feeling",
-      "That sounds really challenging, and your feelings are valid",
-      "Many people go through exactly what you're experiencing",
-      "Let's work through this together"
-    ],
-    tone: "warm, validating, supportive"
-  },
-  reframe_master: {
-    personality: "Optimistic coach who always finds the positive angle and helps people see opportunities in challenges.",
-    patterns: [
-      "Here's another way to look at this situation",
-      "What if this is actually an opportunity to",
-      "The silver lining here is",
-      "This challenge is preparing you for"
-    ],
-    tone: "positive, reframing, opportunity-focused"
-  },
-  data_driven: {
-    personality: "Evidence-based coach who uses facts, research, and metrics to support advice and motivation.",
-    patterns: [
-      "Studies show that",
-      "The data indicates",
-      "Research has proven",
-      "Statistically speaking"
-    ],
-    tone: "factual, evidence-based, logical"
-  },
-  story_teller: {
-    personality: "Relatable coach who shares personal anecdotes and experiences to connect and motivate.",
-    patterns: [
-      "I remember when I",
-      "This reminds me of a time when",
-      "I had a client who",
-      "Let me tell you about"
-    ],
-    tone: "personal, narrative, experiential"
-  },
-  cheerleader: {
-    personality: "High-energy, enthusiastic coach full of excitement and celebration.",
-    patterns: [
-      "YES! You've got this!",
-      "I'm SO proud of you!",
-      "This is AMAZING progress!",
-      "Keep that incredible energy going!"
-    ],
-    tone: "enthusiastic, celebratory, high-energy"
-  },
-  wise_mentor: {
-    personality: "Calm, thoughtful coach who provides deeper wisdom and life lessons.",
-    patterns: [
-      "In my experience",
-      "The deeper lesson here is",
-      "True growth comes from",
-      "Remember that this journey is about"
-    ],
-    tone: "calm, wise, philosophical"
-  }
-};
+// ---------------------------------------------------------------------------
+// Callers
+// ---------------------------------------------------------------------------
 
-/**
- * Detect emotional need from user message
- */
-function detectEmotionalNeed(message) {
-  const lowercaseMessage = message.toLowerCase();
-  
-  // Celebration keywords
-  if (lowercaseMessage.includes('pr') || lowercaseMessage.includes('personal record') || 
-      lowercaseMessage.includes('achieved') || lowercaseMessage.includes('accomplished') ||
-      lowercaseMessage.includes('hit my goal') || lowercaseMessage.includes('succeeded')) {
-    return 'celebration';
-  }
-  
-  // Struggle/pity keywords
-  if (lowercaseMessage.includes('tired') || lowercaseMessage.includes('exhausted') ||
-      lowercaseMessage.includes('can\'t') || lowercaseMessage.includes('impossible') ||
-      lowercaseMessage.includes('giving up') || lowercaseMessage.includes('quit')) {
-    return 'commiseration';
-  }
-  
-  // Advice keywords
-  if (lowercaseMessage.includes('what should') || lowercaseMessage.includes('how do i') ||
-      lowercaseMessage.includes('advice') || lowercaseMessage.includes('recommend') ||
-      lowercaseMessage.includes('help me') || lowercaseMessage.includes('what do you think')) {
-    return 'advice';
-  }
-  
-  // Accountability keywords
-  if (lowercaseMessage.includes('supposed to') || lowercaseMessage.includes('committed to') ||
-      lowercaseMessage.includes('promised') || lowercaseMessage.includes('accountability')) {
-    return 'accountability';
-  }
-  
-  // Default to encouragement
-  return 'encouragement';
+function isInternalCall(req) {
+  const provided = req.get('x-internal-key');
+  // Constant-time-ish: an empty configured key must never match.
+  return Boolean(INTERNAL_SERVICE_KEY) && provided === INTERNAL_SERVICE_KEY;
 }
 
-/**
- * Detect situation from user message
- */
-function detectSituation(message) {
-  const lowercaseMessage = message.toLowerCase();
-  
-  if (lowercaseMessage.includes('before') || lowercaseMessage.includes('about to') ||
-      lowercaseMessage.includes('getting ready')) {
-    return 'pre_workout';
+async function resolveCaller(req) {
+  const header = req.get('authorization') || req.get('Authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : null;
+  if (!token) return null;
+
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user) return null;
+    return data.user;
+  } catch (error) {
+    console.warn('Failed to resolve caller from token:', error.message);
+    return null;
   }
-  
-  if (lowercaseMessage.includes('finished') || lowercaseMessage.includes('completed') ||
-      lowercaseMessage.includes('just did') || lowercaseMessage.includes('after')) {
-    return 'post_workout';
-  }
-  
-  if (lowercaseMessage.includes('stuck') || lowercaseMessage.includes('plateau') ||
-      lowercaseMessage.includes('same weight') || lowercaseMessage.includes('not progressing')) {
-    return 'plateau';
-  }
-  
-  if (lowercaseMessage.includes('struggling') || lowercaseMessage.includes('difficult') ||
-      lowercaseMessage.includes('hard time')) {
-    return 'struggling';
-  }
-  
-  if (lowercaseMessage.includes('new to') || lowercaseMessage.includes('beginner') ||
-      lowercaseMessage.includes('first time') || lowercaseMessage.includes('starting')) {
-    return 'beginner';
-  }
-  
-  return null; // No specific situation detected
 }
 
-/**
- * Find relevant content using vector similarity search
- */
+// ---------------------------------------------------------------------------
+// Context loading
+// ---------------------------------------------------------------------------
+
 async function findRelevantContent(coachId, userMessage, limit = 3) {
   try {
-    // Generate embedding for user message
-    const embeddingResponse = await openai.embeddings.create({
-      model: "text-embedding-ada-002",
+    const embedding = await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
       input: userMessage,
     });
-    
-    const userEmbedding = embeddingResponse.data[0].embedding;
-    
-    // Use Supabase's vector similarity search
-    const { data: similarContent, error } = await supabase.rpc(
-      'match_coach_content',
-      {
-        coach_id: coachId,
-        query_embedding: userEmbedding,
-        match_threshold: 0.7,
-        match_count: limit
-      }
-    );
-    
+
+    const { data, error } = await supabase.rpc('match_coach_content', {
+      coach_id: coachId,
+      query_embedding: embedding.data[0].embedding,
+      match_threshold: 0.7,
+      match_count: limit,
+    });
+
     if (error) {
       console.error('Vector search error:', error);
       return [];
     }
-    
-    return similarContent || [];
+    return data || [];
   } catch (error) {
     console.error('Error finding relevant content:', error);
     return [];
   }
 }
 
-/**
- * Build conversation context from previous messages
- */
-function buildConversationContext(previousMessages = []) {
-  if (!previousMessages || previousMessages.length === 0) {
-    return "";
+async function loadThreadHistory(conversationId, turns = 8) {
+  const { data, error } = await supabase
+    .from('conversation_messages')
+    .select('role, content, created_at')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false })
+    .limit(turns);
+
+  if (error) {
+    console.warn('Failed to load thread history:', error.message);
+    return [];
   }
-  
-  const recentMessages = previousMessages.slice(-4); // Last 4 messages for context
-  const contextString = recentMessages
-    .map(msg => `${msg.role === 'user' ? 'User' : 'Coach'}: ${msg.content}`)
-    .join('\n');
-  
-  return `\n\nPrevious conversation context:\n${contextString}\n\n`;
+
+  return (data || [])
+    .reverse()
+    .map((row) => ({ role: row.role, content: row.content, timestamp: row.created_at }));
 }
 
-/**
- * Generate AI response using coach personality and content
- */
-async function generateCoachResponse(coach, userMessage, userContext = {}, relevantContent = []) {
-  const responseStyle = RESPONSE_STYLES[coach.primary_response_style] || RESPONSE_STYLES.empathetic_mirror;
-  const communicationTraits = coach.communication_traits || {};
-  const voicePatterns = coach.voice_patterns || {};
-  
-  // Detect context if not provided
-  const emotionalNeed = userContext.emotionalNeed || detectEmotionalNeed(userMessage);
-  const situation = userContext.situation || detectSituation(userMessage);
-  
-  // Build conversation context
-  const conversationContext = buildConversationContext(userContext.previousMessages);
-  
-  // Prepare voice characteristics
-  const energyLevel = communicationTraits.energy_level || 5;
-  const directness = communicationTraits.directness || 5;
-  const emotionFocus = communicationTraits.emotion_focus || 5;
-  const formality = communicationTraits.formality ?? 3;
-  
-  const voiceDescription = `
-Energy Level: ${energyLevel}/10 (${energyLevel > 7 ? 'high energy' : energyLevel > 4 ? 'moderate energy' : 'calm'})
-Directness: ${directness}/10 (${directness > 7 ? 'very direct' : directness > 4 ? 'moderately direct' : 'gentle'})
-Approach: ${emotionFocus > 6 ? 'emotion-focused' : emotionFocus < 4 ? 'logic-focused' : 'balanced'}
-Formality: ${formality}/10 (${formality > 6 ? 'formal, polished grammar' : formality < 4 ? 'casual, conversational' : 'neutral'})
-Sentence Structure: ${voicePatterns.sentence_structure || 'mixed_varied'}
-Vocabulary: ${voicePatterns.vocabulary_level || 'professional'}
-`;
-
-  // Include catchphrases if available
-  const catchphrases = coach.catchphrases && coach.catchphrases.length > 0 
-    ? `\nKnown catchphrases: ${coach.catchphrases.slice(0, 3).join(', ')}`
-    : '';
-  
-  // Prepare relevant content context
-  const contentContext = relevantContent.length > 0
-    ? `\n\nRelevant examples from ${coach.name}'s content:\n${relevantContent.map(content => 
-        `- ${content.content.substring(0, 200)}...`
-      ).join('\n')}`
-    : '';
-  
-  const systemPrompt = `You are ${coach.name}, an AI fitness coach with the following characteristics:
-
-CORE PERSONALITY: ${responseStyle.personality}
-
-RESPONSE STYLE: ${coach.primary_response_style}
-- Tone: ${responseStyle.tone}
-- Typical patterns: ${responseStyle.patterns.join('; ')}
-
-VOICE CHARACTERISTICS:
-${voiceDescription}${catchphrases}
-
-CONTEXT:
-- User's emotional need: ${emotionalNeed}
-- User's situation: ${situation || 'general'}
-- Your description: ${coach.description || 'Not provided'}${contentContext}
-
-INSTRUCTIONS:
-1. Respond as ${coach.name} in your authentic voice and style
-2. Address the user's ${emotionalNeed} need appropriately
-  3. Keep responses conversational and under 160 characters for SMS
-  4. Match your energy level (${energyLevel}/10), directness (${directness}/10), and formality (${formality}/10)
-  5. Use your typical response patterns when appropriate
-  6. Be helpful while staying true to your personality
-  ${catchphrases ? '7. Naturally incorporate your catchphrases when fitting' : ''}
-
-${conversationContext}
-
-Respond to this user message: "${userMessage}"`;
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage }
-      ],
-      max_tokens: 150,
-      temperature: 0.8,
-      presence_penalty: 0.1,
-      frequency_penalty: 0.1
-    });
-
-    return completion.choices[0].message.content.trim();
-  } catch (error) {
-    console.error('OpenAI API error:', error);
-    throw new Error('Failed to generate response');
+async function loadMemberContext(userId, coachId) {
+  if (!userId || !coachId) return {};
+  const { data, error } = await supabase.rpc('get_member_context', {
+    p_user_id: userId,
+    p_coach_id: coachId,
+  });
+  if (error) {
+    console.warn('Could not load member context:', error.message);
+    return {};
   }
+  return data || {};
 }
 
+// ---------------------------------------------------------------------------
+// Generation
+// ---------------------------------------------------------------------------
+
 /**
- * Main Cloud Function entry point
+ * v1 is the 2024 prompt, kept verbatim in behaviour so coaches tuned against it
+ * are not changed underneath their creator. v2 is the rebuilt one; see
+ * coach-prompt-v2.js for what differs.
  */
+async function generateCoaching(coach, userMessage, options) {
+  const profile = resolvePresentation(options.presentation);
+  const version = coach.prompt_version === 'v1' ? 'v1' : 'v2';
+
+  const messages =
+    version === 'v1'
+      ? [
+          { role: 'system', content: buildSystemPrompt(coach, options) },
+          { role: 'user', content: userMessage },
+        ]
+      : [
+          { role: 'system', content: buildSystemPromptV2(coach, options) },
+          ...buildMessageHistory(options.previousMessages),
+          { role: 'user', content: userMessage },
+        ];
+
+  const completion = await openai.chat.completions.create({
+    model: CHAT_MODEL,
+    messages,
+    max_tokens: profile.maxTokens,
+    temperature: 0.8,
+    presence_penalty: 0.1,
+    frequency_penalty: 0.1,
+  });
+
+  return { text: completion.choices[0].message.content.trim(), promptVersion: version };
+}
+
+/** Persist the extraction and advance the intake state machine. */
+async function saveOnboardingProgress({ userId, coachId, member, learned, complete }) {
+  const merged = mergeGoals(member, learned);
+  const turns = (member.onboarding_turns || 0) + 1;
+
+  const { error } = await supabase.from('member_goals').upsert(
+    {
+      user_id: userId,
+      coach_id: coachId,
+      ...merged,
+      onboarding_turns: turns,
+      onboarding_status: complete ? 'complete' : 'in_progress',
+    },
+    { onConflict: 'user_id,coach_id' }
+  );
+
+  if (error) console.error('Failed to save onboarding progress:', error);
+  return { turns, merged };
+}
+
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
+
 exports.generateCoachResponse = async (req, res) => {
   const startTime = Date.now();
-  // Set CORS headers
+
   res.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-internal-key');
   res.set('Access-Control-Max-Age', '3600');
 
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;
   }
 
   try {
-    // Validate request
     const requestData = GenerateResponseRequest.parse(req.body);
-    const { userMessage, userContext = {} } = requestData;
+    const { userMessage, userContext = {}, conversationId } = requestData;
+    const presentation = requestData.presentation || (conversationId ? 'chat' : 'sms');
+    const internal = isInternalCall(req);
+
+    // `suppressUserTurn` and `onBehalfOfUserId` are how a coach speaks first.
+    // Both are service-only; a member could otherwise write into someone
+    // else's thread or forge an unattributed turn.
+    if (!internal && (requestData.suppressUserTurn || requestData.onBehalfOfUserId)) {
+      return res.status(403).json({ error: 'suppressUserTurn and onBehalfOfUserId require service credentials' });
+    }
+
+    const caller = internal ? null : await resolveCaller(req);
+    const suppressUserTurn = Boolean(requestData.suppressUserTurn);
+
     let coach;
-    let coachIdForLog = null;
+    let coachId = null;
 
     if ('coachId' in requestData) {
-      const coachId = requestData.coachId;
-      console.log(`Generating response for coach ${coachId}: "${userMessage}"`);
-      // Get coach data from DB
+      coachId = requestData.coachId;
       const { data: dbCoach, error: coachError } = await supabase
         .from('coach_profiles')
         .select('*')
         .eq('id', coachId)
         .eq('active', true)
         .single();
+
       if (coachError || !dbCoach) {
         return res.status(404).json({ error: 'Coach not found or inactive' });
       }
       coach = dbCoach;
-      coachIdForLog = coachId;
     } else {
-      // Use snapshot directly
       coach = requestData.coachSnapshot;
-      console.log(`Generating response for snapshot coach: "${userMessage}"`);
     }
 
-    // Find relevant content using vector search only for persisted coaches
-    let relevantContent = [];
-    if (coachIdForLog) {
-      console.log('Finding relevant content...');
-      relevantContent = await findRelevantContent(coachIdForLog, userMessage);
+    // ---- Thread -----------------------------------------------------------
+    let thread = null;
+    if (conversationId) {
+      const { data: conversation, error: threadError } = await supabase
+        .from('conversations')
+        .select('id, user_id, coach_id')
+        .eq('id', conversationId)
+        .single();
+
+      if (threadError || !conversation) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+      if (!internal && (!caller || conversation.user_id !== caller.id)) {
+        return res.status(403).json({ error: 'Conversation not found for this user' });
+      }
+      if (coachId && conversation.coach_id !== coachId) {
+        return res.status(400).json({ error: 'Conversation does not belong to this coach' });
+      }
+      thread = conversation;
     }
-    
-    // Generate response
-    console.log('Generating AI response...');
-    const response = await generateCoachResponse(coach, userMessage, userContext, relevantContent);
-    
-    // Log the interaction (optional - for analytics)
-    if (coachIdForLog) {
-      try {
-        await supabase.from('coach_test_messages').insert({
-          coach_id: coachIdForLog,
-          user_message: userMessage,
-          coach_response: response,
-          user_context: userContext,
-          emotional_need: userContext.emotionalNeed || detectEmotionalNeed(userMessage),
-          situation: userContext.situation || detectSituation(userMessage),
-          relevant_content_ids: relevantContent.map(c => c.id),
-          response_time_ms: Date.now() - startTime
+
+    const memberId = caller?.id || thread?.user_id || requestData.onBehalfOfUserId || null;
+
+    // ---- Entitlement ------------------------------------------------------
+    // Only enforced for member-initiated turns. A coach-initiated nudge is
+    // already gated by due_coach_nudges, which checks access itself.
+    if (caller && coachId) {
+      const { data: allowed, error: accessError } = await supabase.rpc('has_coach_access', {
+        p_user_id: caller.id,
+        p_coach_id: coachId,
+      });
+
+      if (accessError) {
+        console.error('Access check failed:', accessError);
+        return res.status(500).json({ error: 'Could not verify coach access' });
+      }
+      if (!allowed) {
+        return res.status(402).json({
+          error: 'subscription_required',
+          message: `Subscribe to ${coach.name} to keep the conversation going.`,
+          coachId,
         });
-      } catch (logError) {
-        console.warn('Failed to log interaction:', logError);
-        // Don't fail the request if logging fails
       }
     }
-    
-    console.log(`Generated response: "${response}"`);
-    
+
+    // ---- Context ----------------------------------------------------------
+    const previousMessages =
+      userContext.previousMessages && userContext.previousMessages.length > 0
+        ? userContext.previousMessages
+        : thread
+        ? await loadThreadHistory(thread.id)
+        : [];
+
+    const member = coachId ? await loadMemberContext(memberId, coachId) : {};
+
+    // ---- Mode: intake or coaching ----------------------------------------
+    const intake =
+      coachId &&
+      memberId &&
+      !suppressUserTurn &&
+      needsOnboarding(coach, member);
+
+    let responseText;
+    let promptVersion;
+    let onboardingState = null;
+    // Only populated on the coaching path; intake does not classify intent.
+    let detected = null;
+
+    if (intake) {
+      const turn = await runOnboardingTurn({
+        openai,
+        model: CHAT_MODEL,
+        coach,
+        member,
+        history: buildMessageHistory(previousMessages),
+        userMessage,
+      });
+
+      responseText = turn.reply;
+      promptVersion = 'onboarding';
+
+      const saved = await saveOnboardingProgress({
+        userId: memberId,
+        coachId,
+        member,
+        learned: turn.learned,
+        complete: turn.complete,
+      });
+
+      onboardingState = {
+        active: !turn.complete,
+        complete: turn.complete,
+        turn: saved.turns,
+        maxTurns: MAX_ONBOARDING_TURNS,
+        captured: saved.merged,
+      };
+    } else {
+      const emotionalNeed = userContext.emotionalNeed || detectEmotionalNeed(userMessage);
+      const sessionContext =
+        userContext.sessionContext ||
+        detectSessionContext(userMessage, coach.session_contexts || []);
+
+      const relevantContent = coachId ? await findRelevantContent(coachId, userMessage) : [];
+
+      const generated = await generateCoaching(coach, userMessage, {
+        emotionalNeed,
+        sessionContext,
+        relevantContent,
+        presentation,
+        previousMessages,
+        member,
+        initiatedByCoach: suppressUserTurn,
+      });
+
+      responseText = generated.text;
+      promptVersion = generated.promptVersion;
+
+      onboardingState = { active: false, complete: true };
+      detected = { emotionalNeed, sessionContext, relevantContent };
+    }
+
+    const latencyMs = Date.now() - startTime;
+
+    // ---- Persist ----------------------------------------------------------
+    let assistantMessageId = null;
+    if (thread) {
+      const rows = [];
+
+      if (!suppressUserTurn) {
+        rows.push({
+          conversation_id: thread.id,
+          role: 'user',
+          content: userMessage,
+          detected_intent: detected?.emotionalNeed ?? null,
+          detected_context: detected?.sessionContext ?? null,
+        });
+      }
+
+      rows.push({
+        conversation_id: thread.id,
+        role: 'assistant',
+        content: responseText,
+        model: CHAT_MODEL,
+        latency_ms: latencyMs,
+        detected_intent: detected?.emotionalNeed ?? null,
+        detected_context: detected?.sessionContext ?? null,
+        source_chunk_ids: (detected?.relevantContent || []).map((c) => c.id).filter(Boolean),
+        metadata: {
+          presentation,
+          prompt_version: promptVersion,
+          initiated_by: suppressUserTurn ? 'coach' : 'member',
+        },
+      });
+
+      const { data: inserted, error: persistError } = await supabase
+        .from('conversation_messages')
+        .insert(rows)
+        .select('id, role');
+
+      if (persistError) {
+        console.error('Failed to persist conversation messages:', persistError);
+      } else {
+        assistantMessageId = (inserted || []).find((row) => row.role === 'assistant')?.id ?? null;
+      }
+    }
+
+    // ---- Metering ---------------------------------------------------------
+    // Intake and coach-initiated messages are free: charging someone for
+    // answering "what are you working on?" is a bad first impression.
+    let freeMessagesRemaining = null;
+    if (caller && coachId && !intake && !suppressUserTurn) {
+      const { data: remaining, error: meterError } = await supabase.rpc('consume_free_message', {
+        p_user_id: caller.id,
+        p_coach_id: coachId,
+      });
+      if (meterError) console.error('Failed to meter free message:', meterError);
+      else freeMessagesRemaining = remaining;
+    }
+
     res.json({
       success: true,
-      response: response,
+      response: responseText,
       metadata: {
+        coachId,
         coachName: coach.name,
+        discipline: coach.discipline || null,
         responseStyle: coach.primary_response_style,
-        emotionalNeed: userContext.emotionalNeed || detectEmotionalNeed(userMessage),
-        situation: userContext.situation || detectSituation(userMessage),
-        relevantContentCount: relevantContent.length,
-        responseLength: response.length
-      }
+        emotionalNeed: detected?.emotionalNeed ?? null,
+        sessionContext: detected?.sessionContext ?? null,
+        presentation,
+        promptVersion,
+        model: CHAT_MODEL,
+        relevantContentCount: detected?.relevantContent?.length ?? 0,
+        responseLength: responseText.length,
+        latencyMs,
+        freeMessagesRemaining,
+        assistantMessageId,
+        onboarding: onboardingState,
+      },
     });
-    
   } catch (error) {
     console.error('Response generation error:', error);
-    
+
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        error: 'Invalid request data',
-        details: error.errors 
-      });
+      return res.status(400).json({ error: 'Invalid request data', details: error.errors });
     }
-    
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message 
+
+    res.status(500).json({
+      error: 'internal_error',
+      message: 'Your coach could not reply just now. Please try again.',
     });
   }
-}; 
+};

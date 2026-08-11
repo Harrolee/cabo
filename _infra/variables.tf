@@ -136,3 +136,57 @@ variable "coach_content_bucket_location" {
   type        = string
   default     = "US"
 } 
+# --- In-app purchases -------------------------------------------------------
+
+variable "apple_bundle_id" {
+  description = "Bundle identifier of the iOS app, used to validate App Store signed transactions"
+  type        = string
+  default     = ""
+}
+
+variable "apple_app_apple_id" {
+  description = "Numeric App Store app id (appAppleId), required to validate production transactions"
+  type        = string
+  default     = ""
+}
+
+variable "apple_root_certs_base64" {
+  description = "Comma-separated base64 DER of Apple's root CAs; generate with scripts/fetch-apple-root-certs.sh. The iap-validator fails closed without it."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# --- Push notifications -----------------------------------------------------
+
+variable "expo_access_token" {
+  description = "Optional Expo access token. Required only if push security is enabled on the Expo project."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "internal_service_key" {
+  description = "Shared secret used for service-to-service calls between Cloud Functions (e.g. the nudge dispatcher asking the response generator for a coach-initiated message)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "nudge_batch_size" {
+  description = "How many due (user, coach) pairs one hourly nudge sweep will process"
+  type        = string
+  default     = "100"
+}
+
+variable "openai_chat_model" {
+  description = "Chat model used for coach responses"
+  type        = string
+  default     = "gpt-4o"
+}
+
+variable "visualization_daily_limit" {
+  description = "How many aspiration images one member may generate per day"
+  type        = string
+  default     = "3"
+}

@@ -102,7 +102,6 @@ async function initializeConversation(phoneNumber, name) {
       }
     });
 
-    console.log(`Initialized conversation for ${phoneNumber}`);
   } catch (error) {
     console.error(`Error initializing conversation for ${phoneNumber}:`, error);
     // Don't fail signup if conversation init fails
@@ -110,26 +109,15 @@ async function initializeConversation(phoneNumber, name) {
 }
 
 exports.handleSignup = (req, res) => {
-  // Log incoming request details
-  console.log('Incoming request:', {
-    method: req.method,
-    headers: req.headers,
-    origin: req.headers.origin,
-    allowedOrigins: process.env.ALLOWED_ORIGINS.split(',')
-  });
-
   return cors(req, res, async () => {
     if (req.method === 'OPTIONS') {
-      console.log('Handling OPTIONS request');
       return res.status(204).send();
     }
 
     try {
       const { phone, name, email } = req.body;
-      console.log('Processing signup request for:', { name, phone: phone?.slice(-4), email }); 
-      
+
       if (!phone || !name || !email) {
-        console.log('Validation failed: missing required fields');
         return res.status(400).json({
           success: false,
           message: 'Phone, name, and email are required'
@@ -137,7 +125,6 @@ exports.handleSignup = (req, res) => {
       }
 
       const supabase = getSupabase();
-      console.log('Starting Supabase transaction');
 
       // Create user profile and trial subscription
       const { data, error } = await supabase.rpc('create_user_with_trial', {
@@ -160,8 +147,6 @@ exports.handleSignup = (req, res) => {
         throw error;
       }
 
-      // Add Supabase Auth user creation
-      console.log('Attempting to create Supabase auth user for:', email);
       const { data: authUserData, error: authError } = await supabase.auth.admin.createUser({
         email: email,
         phone: phone,
@@ -176,31 +161,24 @@ exports.handleSignup = (req, res) => {
           console.warn('Supabase auth user already exists for:', email, authError.message);
         } else {
           console.error('Error creating Supabase auth user:', authError);
-          // Depending on requirements, you might want to handle this more strictly,
-          // but for now, we'll log and continue the signup process.
         }
-      } else {
-        console.log('Supabase auth user created successfully:', authUserData.user.id);
       }
 
       // Initialize conversation history
       await initializeConversation(phone, name);
 
-      // Send welcome SMS
       try {
         await twilioClient.messages.create({
           body: getPreferencesMessage(name),
           to: phone,
           from: process.env.TWILIO_PHONE_NUMBER,
         });
-        console.log('Welcome SMS sent successfully');
       } catch (smsError) {
         console.error('Error sending welcome SMS:', smsError);
         // Don't fail the signup if SMS fails
       }
 
-      console.log('Signup successful');
-      res.status(200).json({ 
+      res.status(200).json({
         success: true, 
         message: 'Successfully signed up!' 
       });

@@ -48,6 +48,24 @@ resource "google_service_account" "coach_avatar_generator" {
   project      = var.project_id
 }
 
+resource "google_service_account" "coach_visualizer" {
+  account_id   = "coach-visualizer"
+  display_name = "Service Account for Goal Visualisation Function"
+  project      = var.project_id
+}
+
+resource "google_service_account" "coach_nudges" {
+  account_id   = "coach-nudges"
+  display_name = "Service Account for Coach Nudge Dispatcher"
+  project      = var.project_id
+}
+
+resource "google_service_account" "iap_validator" {
+  account_id   = "iap-validator"
+  display_name = "Service Account for In-App Purchase Validator Function"
+  project      = var.project_id
+}
+
 # Create conversation storage bucket
 resource "google_storage_bucket" "conversation_storage" {
   name          = "${var.project_id}-${var.conversation_bucket_name}"
@@ -137,6 +155,36 @@ resource "google_project_iam_member" "coach_file_uploader_roles" {
   project = var.project_id
   role    = each.key
   member  = "serviceAccount:${google_service_account.coach_file_uploader.email}"
+}
+
+resource "google_project_iam_member" "coach_visualizer_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/storage.objectUser",
+    "roles/logging.logWriter"
+  ])
+
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.coach_visualizer.email}"
+}
+
+resource "google_storage_bucket_iam_member" "coach_visualizer_bucket_access" {
+  bucket = "${var.project_id}-image-bucket"
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.coach_visualizer.email}"
+}
+
+resource "google_project_iam_member" "coach_nudges_roles" {
+  for_each = toset([
+    "roles/cloudfunctions.invoker",
+    "roles/run.invoker",
+    "roles/logging.logWriter"
+  ])
+
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.coach_nudges.email}"
 }
 
 resource "google_project_iam_member" "coach_avatar_generator_roles" {
@@ -325,6 +373,30 @@ data "archive_file" "engagement_orchestrator_zip" {
   excludes    = ["node_modules"]
 }
 
+# Goal-driven visualisation package
+data "archive_file" "coach_visualizer_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/coach-visualizer"
+  output_path = "${path.root}/tmp/coach-visualizer.zip"
+  excludes    = ["node_modules"]
+}
+
+# Coach nudges (push) package
+data "archive_file" "coach_nudges_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/coach-nudges"
+  output_path = "${path.root}/tmp/coach-nudges.zip"
+  excludes    = ["node_modules"]
+}
+
+# In-app purchase validator package
+data "archive_file" "iap_validator_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../functions/iap-validator"
+  output_path = "${path.root}/tmp/iap-validator.zip"
+  excludes    = ["node_modules"]
+}
+
 # Upload the function sources to Cloud Storage
 resource "google_storage_bucket_object" "motivational_images_source" {
   name   = "motivational-images-${data.archive_file.motivational_images_zip.output_md5}.zip"
@@ -409,6 +481,24 @@ resource "google_storage_bucket_object" "engagement_orchestrator_source" {
   name   = "engagement-orchestrator-${data.archive_file.engagement_orchestrator_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_bucket.name
   source = data.archive_file.engagement_orchestrator_zip.output_path
+}
+
+resource "google_storage_bucket_object" "coach_visualizer_source" {
+  name   = "coach-visualizer-${data.archive_file.coach_visualizer_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.coach_visualizer_zip.output_path
+}
+
+resource "google_storage_bucket_object" "coach_nudges_source" {
+  name   = "coach-nudges-${data.archive_file.coach_nudges_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.coach_nudges_zip.output_path
+}
+
+resource "google_storage_bucket_object" "iap_validator_source" {
+  name   = "iap-validator-${data.archive_file.iap_validator_zip.output_md5}.zip"
+  bucket = google_storage_bucket.function_bucket.name
+  source = data.archive_file.iap_validator_zip.output_path
 }
 
 # Deploy Cloud Functions using the module
@@ -650,6 +740,8 @@ module "coach_response_generator_function" {
     SUPABASE_URL            = var.supabase_url
     SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
     OPENAI_API_KEY          = var.openai_api_key
+    OPENAI_CHAT_MODEL       = var.openai_chat_model
+    INTERNAL_SERVICE_KEY    = var.internal_service_key
     ALLOWED_ORIGINS         = var.allowed_origins
   }
   depends_on = [google_storage_bucket_object.coach_response_generator_source]
@@ -723,6 +815,132 @@ module "engagement_orchestrator_function" {
     ALLOWED_ORIGINS           = var.allowed_origins
   }
   depends_on = [google_storage_bucket_object.engagement_orchestrator_source, module.coach_response_generator_function]
+}
+
+module "coach_visualizer_function" {
+  source = "./modules/cloud_function"
+
+  name        = "coach-visualizer"
+  description = "Renders the member's stated aspiration as an image"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.coach_visualizer_source.name
+  entry_point = "coachVisualizer"
+  memory      = "1Gi"
+  # Replicate image generation regularly takes 60s+.
+  timeout     = 540
+  service_account_email = google_service_account.coach_visualizer.email
+
+  environment_variables = {
+    PROJECT_ID                 = var.project_id
+    SUPABASE_URL               = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY  = var.supabase_service_role_key
+    OPENAI_API_KEY             = var.openai_api_key
+    OPENAI_CHAT_MODEL          = var.openai_chat_model
+    REPLICATE_API_TOKEN        = var.replicate_api_key
+    VISUALIZATION_DAILY_LIMIT  = var.visualization_daily_limit
+    ALLOWED_ORIGINS            = var.allowed_origins
+  }
+  depends_on = [google_storage_bucket_object.coach_visualizer_source]
+}
+
+resource "google_cloud_run_service_iam_member" "coach_visualizer_invoker" {
+  location = module.coach_visualizer_function.function.location
+  service  = module.coach_visualizer_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+module "coach_nudges_function" {
+  source = "./modules/cloud_function"
+
+  name        = "coach-nudges"
+  description = "Generates proactive coach messages and delivers them as push notifications"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.coach_nudges_source.name
+  entry_point = "coachNudges"
+  memory      = "512M"
+  # A sweep generates one message per due pair, sequentially.
+  timeout     = 540
+  service_account_email = google_service_account.coach_nudges.email
+
+  environment_variables = {
+    PROJECT_ID                    = var.project_id
+    SUPABASE_URL                  = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY     = var.supabase_service_role_key
+    COACH_RESPONSE_GENERATOR_URL  = module.coach_response_generator_function.url
+    INTERNAL_SERVICE_KEY          = var.internal_service_key
+    EXPO_ACCESS_TOKEN             = var.expo_access_token
+    NUDGE_BATCH_SIZE              = var.nudge_batch_size
+    ALLOWED_ORIGINS               = var.allowed_origins
+  }
+  depends_on = [
+    google_storage_bucket_object.coach_nudges_source,
+    module.coach_response_generator_function
+  ]
+}
+
+# The dispatcher is invoked by Cloud Scheduler with an OIDC token, and by the
+# app for /preview with a Supabase JWT, so it needs public ingress.
+resource "google_cloud_run_service_iam_member" "coach_nudges_invoker" {
+  location = module.coach_nudges_function.function.location
+  service  = module.coach_nudges_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Hourly, not daily: each user has their own local nudge_hour and quiet hours,
+# so the sweep has to come around often enough to catch every timezone.
+resource "google_cloud_scheduler_job" "hourly_coach_nudges" {
+  name        = "trigger-coach-nudges"
+  description = "Hourly sweep that pushes proactive coach messages to app users"
+  schedule    = "5 * * * *"
+  time_zone   = "Etc/UTC"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${module.coach_nudges_function.url}/dispatch"
+
+    oidc_token {
+      service_account_email = google_service_account.function_invoker.email
+      audience              = module.coach_nudges_function.url
+    }
+  }
+}
+
+module "iap_validator_function" {
+  source = "./modules/cloud_function"
+
+  name        = "iap-validator"
+  description = "Validates App Store / Play purchases and writes per-coach entitlements"
+  region      = var.region
+  bucket_name = google_storage_bucket.function_bucket.name
+  source_object = google_storage_bucket_object.iap_validator_source.name
+  entry_point = "iapValidator"
+  memory      = "512M"
+  timeout     = 60
+  service_account_email = google_service_account.iap_validator.email
+
+  environment_variables = {
+    PROJECT_ID                = var.project_id
+    SUPABASE_URL              = var.supabase_url
+    SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
+    APPLE_BUNDLE_ID           = var.apple_bundle_id
+    APPLE_APP_APPLE_ID        = var.apple_app_apple_id
+    APPLE_ROOT_CERTS_BASE64   = var.apple_root_certs_base64
+    ALLOWED_ORIGINS           = var.allowed_origins
+  }
+  depends_on = [google_storage_bucket_object.iap_validator_source]
+}
+
+# Public: the App Store Server Notifications webhook is authenticated by the
+# payload signature, not by IAM, and the app calls /verify with a Supabase JWT.
+resource "google_cloud_run_service_iam_member" "iap_validator_invoker" {
+  location = module.iap_validator_function.function.location
+  service  = module.iap_validator_function.function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 resource "google_cloud_run_service_iam_member" "engagement_orchestrator_invoker" {

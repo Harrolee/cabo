@@ -58,39 +58,48 @@ async function getCoachData(userData) {
         .single();
 
       if (error) {
-        console.error('Error fetching custom coach:', error);
-        // Fallback to default predefined coach
+        // Loud signal: a user with coach_type=custom hit the predefined fallback —
+        // their personalization is silently broken until the row is repaired.
+        console.error('CUSTOM_COACH_FALLBACK custom_coach_id=%s err=%s — falling back to gym_bro', userData.custom_coach_id, error?.message);
         return {
           type: 'predefined',
           data: COACH_PERSONAS.gym_bro,
-          name: 'gym_bro'
+          name: 'gym_bro',
+          fallback: true
         };
       }
 
-      // Convert custom coach to format expected by the system
+      // Convert custom coach to format expected by the system. The discipline
+      // comes off the row now, so a drummer or a yoga instructor describes
+      // themselves accurately instead of as "custom coaching".
+      const expertise = Array.isArray(customCoach.expertise) ? customCoach.expertise : [];
       return {
         type: 'custom',
         data: {
           name: customCoach.name,
+          discipline: customCoach.discipline || null,
           traits: [
+            customCoach.discipline ? `Works with people on: ${customCoach.discipline}` : null,
             `Primary style: ${customCoach.primary_response_style?.replace('_', ' ')}`,
             `Secondary style: ${customCoach.secondary_response_style?.replace('_', ' ')}`,
             `Energy level: ${customCoach.communication_traits?.energy_level || 5}/10`,
             `Directness: ${customCoach.communication_traits?.directness || 5}/10`,
             `Formality: ${customCoach.communication_traits?.formality || 5}/10`
-          ],
-          activities: ['Custom coaching', 'Personalized motivation', 'AI-powered guidance']
+          ].filter(Boolean),
+          activities: expertise.length > 0
+            ? expertise
+            : [customCoach.discipline || 'Personalized coaching'].filter(Boolean)
         },
         id: customCoach.id,
         handle: customCoach.handle
       };
     } catch (error) {
-      console.error('Error in getCoachData:', error);
-      // Fallback to default
+      console.error('CUSTOM_COACH_FALLBACK custom_coach_id=%s threw=%s — falling back to gym_bro', userData.custom_coach_id, error?.message);
       return {
         type: 'predefined',
         data: COACH_PERSONAS.gym_bro,
-        name: 'gym_bro'
+        name: 'gym_bro',
+        fallback: true
       };
     }
   } else {
@@ -295,10 +304,12 @@ async function getValidAIResponse(userMessage, userData, previousError = null, a
     const coachInfo = await getCoachData(userData);
     
     const publicCoaches = userData.publicCoaches || [];
-    const publicCoachList = publicCoaches.map(c => `- ${c.name}${c.handle ? ` (@${c.handle})` : ''} [${c.id}]`).join('\n');
+    const publicCoachList = publicCoaches
+      .map(c => `- ${c.name}${c.handle ? ` (@${c.handle})` : ''}${c.discipline ? ` — ${c.discipline}` : ''} [${c.id}]`)
+      .join('\n');
 
-    const systemPrompt = `You are an AI assistant for a fitness coaching app.
-User's current coach: ${coachInfo.data.name}
+    const systemPrompt = `You are an AI assistant for a coaching app. Coaches on the platform work in many disciplines — fitness, music, movement, creative practice and more.
+User's current coach: ${coachInfo.data.name}${coachInfo.data.discipline ? ` (${coachInfo.data.discipline})` : ''}
 Spice Level: ${userData.spice_level}/5
 Traits:\n${coachInfo.data.traits.map(trait => `- ${trait}`).join('\n')}
 
@@ -342,7 +353,6 @@ Return JSON exactly in this schema:
     });
 
     const responseText = completion.choices[0].message.content.trim();
-    console.log("Raw AI response:", responseText);
 
     // Robust JSON parsing: strip code fences and extract JSON object
     function parseJsonLoose(text) {
@@ -370,8 +380,6 @@ Return JSON exactly in this schema:
     }
 
     const validatedResponse = responseSchema.parse(parsedResponse);
-    console.log("Validated AI response:", validatedResponse);
-    
     return validatedResponse;
   } catch (error) {
     console.error(`AI response attempt ${attempt} failed:`, error);
@@ -422,7 +430,6 @@ async function saveMediaToGCS(mediaUrl, phoneNumber, contentType) {
       }
     });
 
-    console.log(`Media saved to GCS: ${fileName}`);
     return fileName;
   } catch (error) {
     console.error('Error saving media to GCS:', error);
@@ -435,7 +442,6 @@ async function deleteMediaFromTwilio(messageSid, mediaSid) {
   try {
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     await client.messages(messageSid).media(mediaSid).remove();
-    console.log(`Deleted media ${mediaSid} from message ${messageSid}`);
   } catch (error) {
     console.error('Error deleting media from Twilio:', error);
   }
@@ -499,7 +505,7 @@ async function findPublicCoachByQuery(rawQuery) {
 async function listPublicCoaches(limit = 50) {
   const { data, error } = await supabase
     .from('coach_profiles')
-    .select('id, name, handle, public, active')
+    .select('id, name, handle, discipline, public, active')
     .eq('public', true)
     .eq('active', true)
     .order('name', { ascending: true })
@@ -511,21 +517,61 @@ async function listPublicCoaches(limit = 50) {
   return data || [];
 }
 
-// Main function to process incoming SMS
-exports.processSms = async (req, res) => {
-  console.log('SMS processing started');
-  console.log('Request body:', req.body);
+// A2P opt-out / help keywords. Twilio sends carrier-mandated acks for these
+// automatically; we still must update our own state so outbound jobs stop
+// (and resume on START) to stay in compliance with carrier rules.
+const STOP_KEYWORDS = new Set(['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']);
+const START_KEYWORDS = new Set(['START', 'YES', 'UNSTOP']);
+const HELP_KEYWORDS = new Set(['HELP', 'INFO']);
 
+function classifyKeyword(messageBody) {
+  if (!messageBody) return null;
+  const trimmed = messageBody.trim().toUpperCase();
+  if (STOP_KEYWORDS.has(trimmed)) return 'stop';
+  if (START_KEYWORDS.has(trimmed)) return 'start';
+  if (HELP_KEYWORDS.has(trimmed)) return 'help';
+  return null;
+}
+
+async function handleOptOutKeyword(keyword, normalizedPhoneNumber, res) {
+  const twiml = new twilio.twiml.MessagingResponse();
+
+  if (keyword === 'stop') {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ active: false })
+      .eq('phone_number', normalizedPhoneNumber);
+    if (error) console.error('Failed to deactivate user on STOP:', error);
+    // Twilio injects the carrier-required unsubscribe ack; an empty TwiML reply avoids double-messaging.
+  } else if (keyword === 'start') {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ active: true })
+      .eq('phone_number', normalizedPhoneNumber);
+    if (error) console.error('Failed to reactivate user on START:', error);
+    twiml.message("You're back in! Reply STOP to unsubscribe.");
+  } else if (keyword === 'help') {
+    twiml.message('Cabo Fitness: daily coaching by text. Reply STOP to unsubscribe. Msg&data rates may apply.');
+  }
+
+  res.type('text/xml');
+  return res.send(twiml.toString());
+}
+
+exports.processSms = async (req, res) => {
   try {
     const { Body: messageBody, From: fromNumber, MediaUrl0, MediaContentType0, MessageSid, NumMedia } = req.body;
-    
+
     if (!messageBody && !MediaUrl0) {
-      console.log('No message body or media found');
       return res.status(400).send('No message content');
     }
 
     const normalizedPhoneNumber = formatPhoneNumber(fromNumber);
-    console.log(`Processing message from: ${fromNumber} -> ${normalizedPhoneNumber}`);
+
+    const keyword = classifyKeyword(messageBody);
+    if (keyword) {
+      return await handleOptOutKeyword(keyword, normalizedPhoneNumber, res);
+    }
 
     // Update the user data fetch to include custom coach information
     const { data: userData, error: userError } = await supabase
@@ -547,18 +593,13 @@ exports.processSms = async (req, res) => {
     }
 
     if (!userData) {
-      console.log('User not found for phone number:', normalizedPhoneNumber);
       return res.status(404).send('User not found');
     }
-
-    console.log('User data:', userData);
 
     const conversationHistory = await getConversationHistory(normalizedPhoneNumber);
     let responseMessage;
 
     if (MediaUrl0 && isImageMimeType(MediaContentType0)) {
-      console.log('Processing image message');
-      
       try {
         const gcsFileName = await saveMediaToGCS(MediaUrl0, normalizedPhoneNumber, MediaContentType0);
         await deleteMediaFromTwilio(MessageSid, req.body.MediaSid0);
@@ -574,7 +615,6 @@ exports.processSms = async (req, res) => {
         responseMessage = "Thanks for sharing! I'm having trouble processing your image right now, but keep up the great work! 💪";
       }
     } else {
-      console.log('Processing text message');
       await storeConversation(normalizedPhoneNumber, messageBody);
 
       // Provide AI a full list of available coaches (predefined + custom public)
@@ -627,8 +667,6 @@ exports.processSms = async (req, res) => {
 
           if (updateError) {
             console.error('Error updating user preferences:', updateError);
-          } else {
-            console.log('Updated user preferences:', updateData);
           }
         }
       }
@@ -660,9 +698,6 @@ exports.processSms = async (req, res) => {
 
     res.type('text/xml');
     res.send(twiml.toString());
-    
-    console.log('SMS processing completed successfully');
-    
   } catch (error) {
     console.error('Error in SMS processing:', error);
     
