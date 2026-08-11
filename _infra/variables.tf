@@ -135,7 +135,19 @@ variable "coach_content_bucket_location" {
   description = "Location for the coach content storage bucket"
   type        = string
   default     = "US"
-} 
+}
+
+variable "member_media_bucket_name" {
+  description = "Name of the private GCS bucket holding member-supplied media (reference photos for identity-preserving visualisations)"
+  type        = string
+  default     = "member-media"
+}
+
+variable "member_media_bucket_location" {
+  description = "Location for the member media storage bucket"
+  type        = string
+  default     = "US"
+}
 # --- In-app purchases -------------------------------------------------------
 
 variable "apple_bundle_id" {

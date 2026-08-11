@@ -12,7 +12,7 @@ const env = Object.fromEntries(
     return [l.slice(0, i), l.slice(i + 1).replace(/^"|"$/g, '')];
   })
 );
-const API = 'http://127.0.0.1:8790';
+const API = process.env.API_BASE || 'http://127.0.0.1:8790';
 const admin = createClient(env.API_URL, env.SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 let pass = 0, fail = 0;

@@ -35,6 +35,13 @@
         {
           "color": "#7C5CFF"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Pick a photo of yourself so the pictures your coaches make of you are drawn to look like you. Stored only until you delete it, and only ever one.",
+          "cameraPermission": "Take a photo of yourself so the pictures your coaches make of you are drawn to look like you. Stored only until you delete it, and only ever one."
+        }
       ]
     ],
     "experiments": {
@@ -43,7 +50,14 @@
     "extra": {
       "supabaseUrl": "$EXPO_PUBLIC_SUPABASE_URL",
       "supabaseAnonKey": "$EXPO_PUBLIC_SUPABASE_ANON_KEY",
-      "apiUrl": "$EXPO_PUBLIC_API_URL"
-    }
+      "apiUrl": "$EXPO_PUBLIC_API_URL",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "3b311f75-2e10-4105-b196-f4cc028a1719"
+      }
+    },
+    "owner": "harrolee"
   }
 }

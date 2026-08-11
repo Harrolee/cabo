@@ -5,11 +5,19 @@
  * scenario pair from a fixed table, the scene comes from what the member told
  * their coach they want to become.
  *
- *   POST /generate   { coachId, kind? }  -> creates and returns a visualization
- *   POST /history    { coachId? }        -> what has been made for this member
+ *   POST /generate          { coachId, kind? }        -> creates and returns a visualization
+ *   POST /history           { coachId? }              -> what has been made for this member
+ *   POST /likeness                                    -> consent + stored photo status
+ *   POST /likeness/grant    { consent, photoBase64 }  -> store a reference photo
+ *   POST /likeness/revoke                             -> delete it and withdraw consent
  *
- * Both require a Supabase JWT. Generation is slow (30-90s on Replicate) so the
+ * All require a Supabase JWT. Generation is slow (30-90s on Replicate) so the
  * row is written as `pending` first and the app can poll or subscribe.
+ *
+ * The likeness endpoints are the only writers of `user_profiles.likeness_consent`
+ * and `reference_photo_url` — a database trigger keeps members from setting
+ * either directly, so consent cannot be self-granted and the pointer cannot be
+ * aimed at a photograph of someone who never agreed to any of this.
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -17,7 +25,15 @@ const { Storage } = require('@google-cloud/storage');
 const OpenAI = require('openai');
 const Replicate = require('replicate');
 const { z } = require('zod');
-const { generateScene, chooseModel } = require('./visualization');
+const { MODELS, generateScene, chooseModel } = require('./visualization');
+const {
+  InvalidPhotoError,
+  decodeReferencePhoto,
+  deleteReferencePhotos,
+  referencePhotoExists,
+  signReferencePhoto,
+  storeReferencePhoto,
+} = require('./reference-photo');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -30,6 +46,13 @@ const storage = new Storage();
 const CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4o';
 const PROJECT_ID = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 const BUCKET_NAME = process.env.VISUALIZATION_BUCKET || `${PROJECT_ID}-image-bucket`;
+/*
+  Reference photos live apart from generated images: that bucket is public-read
+  for the finished pictures, and a photograph of a member must never be. This
+  one has public access prevention on and soft delete off, so "delete" means
+  the bytes are gone rather than recoverable for a week.
+*/
+const MEMBER_MEDIA_BUCKET = process.env.MEMBER_MEDIA_BUCKET || `${PROJECT_ID}-member-media`;
 // One generation costs real money; this is the guard against a member holding
 // down the button.
 const DAILY_LIMIT = Number(process.env.VISUALIZATION_DAILY_LIMIT || 3);
@@ -37,6 +60,16 @@ const DAILY_LIMIT = Number(process.env.VISUALIZATION_DAILY_LIMIT || 3);
 const GenerateRequest = z.object({
   coachId: z.string().uuid(),
   kind: z.enum(['becoming', 'milestone', 'today']).optional(),
+});
+
+/*
+  `consent` is a required literal `true` rather than a boolean the client may
+  omit: consent to a face being stored and sent to an image model has to be an
+  affirmative act, and a request that forgets to say so is a bug, not a grant.
+*/
+const GrantLikenessRequest = z.object({
+  consent: z.literal(true),
+  photoBase64: z.string().min(32),
 });
 
 async function resolveCaller(req) {
@@ -63,6 +96,228 @@ async function persistImage(sourceUrl, userId) {
   });
 
   return `https://storage.googleapis.com/${BUCKET_NAME}/${objectName}`;
+}
+
+// ---------------------------------------------------------------------------
+// Likeness: consent and the reference photo
+// ---------------------------------------------------------------------------
+
+const LIKENESS_COLUMNS = 'reference_photo_url, likeness_consent, likeness_consent_at, reference_photo_updated_at';
+
+async function readLikenessRow(userId) {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select(LIKENESS_COLUMNS)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || {};
+}
+
+/** Clear both columns together — the CHECK constraint requires it. */
+async function clearLikenessColumns(userId) {
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({
+      reference_photo_url: null,
+      likeness_consent: false,
+      likeness_consent_at: null,
+      reference_photo_updated_at: null,
+    })
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+/**
+ * Delete every stored photo for this member.
+ *
+ * Called on revocation, before a replacement is written, and whenever anything
+ * finds a stored photo that consent no longer covers. Failures are surfaced to
+ * the caller: an erasure that did not happen must never be reported as one.
+ */
+function deleteStoredPhotos(userId) {
+  return deleteReferencePhotos({ storage, bucketName: MEMBER_MEDIA_BUCKET, userId });
+}
+
+/**
+ * What the generator is allowed to use, right now.
+ *
+ * Consent and the stored file are checked together, and disagreement is always
+ * resolved against using the photo:
+ *
+ *   consent withdrawn but a photo is still pointed at  -> delete it, scene only
+ *   consent held but the object is gone                -> forget it, scene only
+ *
+ * so a member who has revoked cannot be rendered by a stale row, and a leftover
+ * object gets collected the next time anyone looks.
+ */
+async function resolveLikeness(userId, profile) {
+  const storedUri = profile?.reference_photo_url || null;
+  const consent = Boolean(profile?.likeness_consent);
+
+  if (!consent) {
+    if (storedUri) {
+      // Should be unreachable (the constraint forbids it) but if it ever
+      // happens the photo is the thing that has to go.
+      try {
+        await deleteStoredPhotos(userId);
+        await clearLikenessColumns(userId);
+      } catch (error) {
+        console.error('Could not clear an unconsented reference photo:', error.message);
+      }
+    }
+    return { consent: false, referenceUrl: null };
+  }
+
+  if (!storedUri) return { consent: true, referenceUrl: null };
+
+  // A URL that is not ours (legacy rows, support fixes) is passed through as
+  // given; anything in our own bucket is signed fresh and briefly.
+  if (!storedUri.startsWith('gs://')) return { consent: true, referenceUrl: storedUri };
+
+  if (!(await referencePhotoExists({ storage, uri: storedUri }))) {
+    console.warn('Reference photo pointer with no object behind it; clearing.');
+    await clearLikenessColumns(userId);
+    return { consent: false, referenceUrl: null };
+  }
+
+  return { consent: true, referenceUrl: await signReferencePhoto({ storage, uri: storedUri }) };
+}
+
+/** What the app renders: never the stored URI, only a short-lived preview. */
+async function likenessStatus(userId, profile) {
+  const row = profile || (await readLikenessRow(userId));
+  const storedUri = row.reference_photo_url || null;
+
+  let previewUrl = null;
+  if (storedUri?.startsWith('gs://')) {
+    previewUrl = await signReferencePhoto({ storage, uri: storedUri }).catch(() => null);
+  } else if (storedUri) {
+    previewUrl = storedUri;
+  }
+
+  return {
+    consent: Boolean(row.likeness_consent),
+    hasPhoto: Boolean(storedUri),
+    consentAt: row.likeness_consent_at ?? null,
+    photoUpdatedAt: row.reference_photo_updated_at ?? null,
+    previewUrl,
+  };
+}
+
+async function handleLikenessStatus(req, res) {
+  const caller = await resolveCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Authentication required' });
+
+  const profile = await readLikenessRow(caller.id);
+  // Reading the status is also a chance to notice an inconsistency and correct
+  // it in the member's favour.
+  if (profile.reference_photo_url && !profile.likeness_consent) {
+    await resolveLikeness(caller.id, profile);
+    return res.json({ success: true, likeness: await likenessStatus(caller.id) });
+  }
+
+  return res.json({ success: true, likeness: await likenessStatus(caller.id, profile) });
+}
+
+async function handleLikenessGrant(req, res) {
+  const caller = await resolveCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Authentication required' });
+
+  const { photoBase64 } = GrantLikenessRequest.parse(req.body || {});
+  const { buffer, mime } = decodeReferencePhoto({ photoBase64 });
+
+  const stored = await storeReferencePhoto({
+    storage,
+    bucketName: MEMBER_MEDIA_BUCKET,
+    userId: caller.id,
+    buffer,
+    mime,
+  });
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({
+      reference_photo_url: stored.uri,
+      likeness_consent: true,
+      likeness_consent_at: now,
+      reference_photo_updated_at: now,
+    })
+    .eq('user_id', caller.id);
+
+  if (error) {
+    // Never leave a photo behind that nothing is tracking.
+    await deleteStoredPhotos(caller.id).catch((cleanupError) =>
+      console.error('Orphaned reference photo after a failed grant:', cleanupError.message)
+    );
+    throw error;
+  }
+
+  return res.json({ success: true, likeness: await likenessStatus(caller.id) });
+}
+
+const REVOKED = {
+  consent: false,
+  hasPhoto: false,
+  consentAt: null,
+  photoUpdatedAt: null,
+  previewUrl: null,
+};
+
+/**
+ * Withdrawal.
+ *
+ * The file goes first, then the columns — that order is what closes the window
+ * the other way round would leave open: a generation already in flight is
+ * holding a signed URL, and deleting the object makes that URL 404 rather than
+ * letting one last picture through.
+ *
+ * If the delete fails we revoke anyway. A member who has said stop must stop
+ * being used immediately, whatever the bucket is doing. `photoDeleted: false`
+ * says so plainly instead of reporting an erasure that did not happen, and the
+ * next status or generate call sweeps the leftover.
+ */
+async function handleLikenessRevoke(req, res) {
+  const caller = await resolveCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Authentication required' });
+
+  const profile = await readLikenessRow(caller.id);
+
+  const storedUri = profile.reference_photo_url;
+  let photoDeleted = true;
+
+  if (storedUri?.startsWith('gs://')) {
+    try {
+      await deleteStoredPhotos(caller.id);
+    } catch (error) {
+      photoDeleted = false;
+      console.error('Reference photo delete failed during revoke:', error.message);
+    }
+  } else if (storedUri) {
+    // A pointer at something we never stored (legacy rows, support fixes):
+    // clearing it is the whole erasure. Sweep our own prefix anyway in case an
+    // older upload is still sitting there, but do not report a failure to
+    // delete a file we do not have.
+    await deleteStoredPhotos(caller.id).catch((error) =>
+      console.warn('Prefix sweep during revoke of an external pointer:', error.message)
+    );
+  }
+
+  await clearLikenessColumns(caller.id);
+
+  return res.json({
+    success: true,
+    photoDeleted,
+    likeness: REVOKED,
+    ...(photoDeleted
+      ? {}
+      : {
+          message:
+            'Your consent is withdrawn and your photo will not be used again, but the stored ' +
+            'file could not be deleted just now. We will keep trying.',
+        }),
+  });
 }
 
 /**
@@ -165,30 +420,33 @@ async function handleGenerate(req, res) {
     });
   }
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('reference_photo_url, likeness_consent, image_preference')
-    .eq('user_id', caller.id)
-    .maybeSingle();
-
-  const { data: goalRow } = await supabase
-    .from('member_goals')
-    .select('id')
-    .eq('user_id', caller.id)
-    .eq('coach_id', coachId)
-    .maybeSingle();
+  const profile = await readLikenessRow(caller.id);
+  const likeness = await resolveLikeness(caller.id, profile);
 
   const scene = await generateScene({ openai, model: CHAT_MODEL, coach, member, kind });
+
+  // PhotoMaker only when there is a photo we can still reach *and* consent that
+  // still stands; anything else renders nobody identifiable.
+  const model = chooseModel({
+    referencePhotoUrl: likeness.referenceUrl,
+    likenessConsent: likeness.consent,
+  });
 
   const { data: record, error: insertError } = await supabase
     .from('coach_visualizations')
     .insert({
       user_id: caller.id,
       coach_id: coachId,
-      goal_id: goalRow?.id ?? null,
+      // get_member_context already carries the goals row id, so this does not
+      // need a second query for it.
+      goal_id: member.goal_id ?? null,
       kind,
       scene: scene.scene,
       image_prompt: scene.image_prompt,
+      // Recorded before the call, not after, so a failed generation still says
+      // which model was asked — and so "did this use my face?" is answerable
+      // from the row either way.
+      model: model.id,
       status: 'pending',
     })
     .select()
@@ -196,15 +454,31 @@ async function handleGenerate(req, res) {
 
   if (insertError) throw insertError;
 
-  const model = chooseModel({
-    referencePhotoUrl: profile?.reference_photo_url,
-    likenessConsent: profile?.likeness_consent,
-  });
-
   try {
+    /*
+      Last look before the photo leaves the building. Generation is slow and
+      the member may have revoked in the seconds since we resolved: if so, the
+      object is already deleted (revoke deletes first), so the signed URL would
+      404 — but sending it at all is the wrong shape, so don't.
+    */
+    if (model.id === MODELS.WITH_LIKENESS.id) {
+      const stillConsented = (await readLikenessRow(caller.id)).likeness_consent;
+      if (!stillConsented) {
+        await supabase
+          .from('coach_visualizations')
+          .update({ status: 'failed', error: 'likeness_consent_withdrawn' })
+          .eq('id', record.id);
+
+        return res.status(409).json({
+          error: 'likeness_consent_withdrawn',
+          message: 'Your photo was removed while this was generating. Try again for a scene-only picture.',
+        });
+      }
+    }
+
     const output = await replicate.run(
       model.id,
-      { input: model.build(scene.image_prompt, profile?.reference_photo_url) }
+      { input: model.build(scene.image_prompt, likeness.referenceUrl) }
     );
 
     const generatedUrl = firstUrl(output);
@@ -214,7 +488,7 @@ async function handleGenerate(req, res) {
 
     const { data: ready } = await supabase
       .from('coach_visualizations')
-      .update({ image_url: imageUrl, model: model.id, status: 'ready' })
+      .update({ image_url: imageUrl, status: 'ready' })
       .eq('id', record.id)
       .select()
       .single();
@@ -261,14 +535,29 @@ exports.coachVisualizer = async (req, res) => {
 
   try {
     if (path.endsWith('/history')) return await handleHistory(req, res);
+    if (path.endsWith('/likeness/grant')) return await handleLikenessGrant(req, res);
+    if (path.endsWith('/likeness/revoke')) return await handleLikenessRevoke(req, res);
+    if (path.endsWith('/likeness')) return await handleLikenessStatus(req, res);
     return await handleGenerate(req, res);
   } catch (error) {
+    // The member can act on these: wrong format, too big, consent not given.
+    if (error instanceof InvalidPhotoError) {
+      return res.status(400).json({ error: error.code, message: error.message });
+    }
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Invalid request', details: error.errors });
     }
     // Never hand an internal error to the client: it is not actionable and it
     // leaks infrastructure detail (bucket names, stack shapes) into a UI alert.
     console.error('coach-visualizer error:', error);
+
+    if (path.includes('/likeness')) {
+      return res.status(500).json({
+        error: 'likeness_update_failed',
+        message: 'Could not save that just now. Please try again in a moment.',
+      });
+    }
+
     return res.status(500).json({
       error: 'generation_failed',
       message: 'Could not create the image right now. Please try again in a moment.',

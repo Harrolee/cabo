@@ -43,6 +43,25 @@ conversation_bucket_location = "US"
 coach_content_bucket_name    = "coach-content"
 coach_content_bucket_location = "US"
 
+# Multi-domain coach backend
+# internal_service_key is the shared secret for service-to-service calls. The
+# SAME value must reach coach-response-generator and coach-nudges, or the
+# dispatcher's suppressUserTurn / onBehalfOfUserId calls are rejected with 403.
+# Generate with: openssl rand -hex 32
+internal_service_key      = "generate-with-openssl-rand-hex-32"
+# Only needed if push security is enabled on the Expo project.
+expo_access_token         = ""
+nudge_batch_size          = "100"
+openai_chat_model         = "gpt-4o-mini"
+visualization_daily_limit = "3"
+
+# In-app purchases. iap-validator fails closed while apple_root_certs_base64 is
+# empty, which is the intended state until the App Store app record exists.
+# Generate the certs with scripts/fetch-apple-root-certs.sh
+apple_bundle_id         = "fit.cabo.app"
+apple_app_apple_id      = ""
+apple_root_certs_base64 = ""
+
 # Container Configuration
 repository_name = "workout-app"
 image_name      = "workout-webapp" 

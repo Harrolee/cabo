@@ -1,13 +1,13 @@
 {
   "name": "motivational-images",
   "version": "1.0.0",
-  "description": "Generate and send motivational images to users",
+  "description": "Daily goal-driven image for members on the SMS channel",
   "main": "index.js",
   "dependencies": {
     "@google-cloud/storage": "^7.15.1",
     "@supabase/supabase-js": "^2.47.0",
     "openai": "^4.80.0",
-    "replicate": "latest",
+    "replicate": "^1.0.1",
     "twilio": "^5.4.0"
   }
 }

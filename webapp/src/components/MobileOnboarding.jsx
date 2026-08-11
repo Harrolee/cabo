@@ -9,8 +9,8 @@ export function MobileOnboarding({ handleInitialSubscribe }) {
 
   const steps = [
     {
-      title: "Describe Yourself 🤔",
-      description: "Send your coach a selfie"
+      title: "Pick Your Coach 🤔",
+      description: "Choose a discipline and tell your coach what you're working on"
     },
     {
       title: "Get Motivated 👀",
@@ -86,14 +86,14 @@ export function MobileOnboarding({ handleInitialSubscribe }) {
             {currentImageIndex === previewImages.length - 1 ? (
               <div className="h-full w-full flex flex-col items-center justify-center p-6 text-white">
                 <h2 className="text-3xl font-bold mb-4 text-center">
-                  Your Personal Fitness Journey Awaits
+                  Find a Coach for What You're Working On
                 </h2>
                 <div className="space-y-4 mb-8">
                   <p className="text-lg text-center">
-                    • A supportive coach who gets you
+                    • Drumming, songwriting, yoga, training — pick your practice
                   </p>
                   <p className="text-lg text-center">
-                    • Daily motivation that speaks to you
+                    • A coach who knows your discipline, not just motivation
                   </p>
                   <p className="text-lg text-center">
                     • Real conversations about your progress
