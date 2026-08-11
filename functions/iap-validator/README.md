@@ -43,17 +43,43 @@ Populate it with:
 
 ## Wiring up a coach for sale
 
-1. Create an auto-renewing subscription in App Store Connect. Use a product id
-   that encodes the coach, e.g. `coach.marisol.monthly`.
-2. Insert the mapping:
+Run `scripts/provision-appstore-subscriptions.mjs`. It creates the subscription
+group, the subscription, its localizations and its $4.99 price for every
+sellable coach, then writes the matching `coach_iap_products` rows. It is
+idempotent, and it dry-runs unless you pass `--apply`.
+
+```sh
+node scripts/provision-appstore-subscriptions.mjs            # show the plan
+node scripts/provision-appstore-subscriptions.mjs --apply    # do it
+```
+
+The mapping it writes is one row per coach:
 
 ```sql
 insert into coach_iap_products (coach_id, platform, product_id, period, price_cents, currency)
-values ('<coach uuid>', 'ios', 'coach.marisol.monthly', 'monthly', 999, 'USD');
+values ('<coach uuid>', 'ios', 'coach.marisol.monthly', 'monthly', 499, 'USD');
 ```
 
 `get_coach_roster()` joins this in, so the app knows which product to buy the
 moment the coach appears in the roster.
+
+### The one step that cannot be automated
+
+App Store Connect refuses `POST /v1/apps` — "The resource 'apps' does not allow
+'CREATE'" — so the **app record** must be made by hand, once, in the web UI:
+Apps → + → New App, platform iOS, bundle ID `com.cabo.coaches`, SKU
+`cabo-coaches`, primary language English (U.S.). The numeric app id it returns
+is `apple_app_apple_id`. Everything else hangs off that record, including the
+subscription groups the script creates.
+
+While you are in there, set **App Store Server Notifications V2** for both
+Sandbox and Production to:
+
+```
+https://us-central1-cabo-446722.cloudfunctions.net/iap-validator/apple-notifications
+```
+
+Version 2 only — the function decodes `signedPayload` and has no V1 parser.
 
 ## appAccountToken
 

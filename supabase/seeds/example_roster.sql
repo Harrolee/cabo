@@ -147,11 +147,21 @@ ON CONFLICT (id) DO UPDATE SET
 -- What each one costs in the App Store
 -- ---------------------------------------------------------------------------
 
+-- Every sellable coach is $4.99/month. The price is flat across the roster, so
+-- these rows must not drift from the real App Store products — a coach whose
+-- `price_cents` disagrees with its subscription shows one price in the roster
+-- and charges another at the till. `scripts/provision-appstore-subscriptions.mjs`
+-- is the source of truth; keep this in step with it.
 INSERT INTO public.coach_iap_products (coach_id, platform, product_id, period, price_cents, currency)
 VALUES
-    ('a1000000-0000-4000-8000-000000000001', 'ios', 'coach.pocket.monthly',       'monthly',  999, 'USD'),
-    ('a1000000-0000-4000-8000-000000000002', 'ios', 'coach.junewrites.monthly',   'monthly',  899, 'USD'),
-    ('a1000000-0000-4000-8000-000000000003', 'ios', 'coach.marisolyoga.monthly',  'monthly', 1299, 'USD')
-ON CONFLICT (platform, product_id) DO NOTHING;
+    ('a1000000-0000-4000-8000-000000000001', 'ios', 'coach.pocket.monthly',       'monthly', 499, 'USD'),
+    ('a1000000-0000-4000-8000-000000000002', 'ios', 'coach.junewrites.monthly',   'monthly', 499, 'USD'),
+    ('a1000000-0000-4000-8000-000000000003', 'ios', 'coach.marisolyoga.monthly',  'monthly', 499, 'USD')
+ON CONFLICT (platform, product_id) DO UPDATE SET
+    coach_id    = EXCLUDED.coach_id,
+    period      = EXCLUDED.period,
+    price_cents = EXCLUDED.price_cents,
+    currency    = EXCLUDED.currency,
+    active      = true;
 
 COMMIT;
