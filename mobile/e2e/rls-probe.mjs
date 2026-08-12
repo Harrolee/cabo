@@ -270,5 +270,90 @@ section('Cross-tenant isolation');
   check('another member cannot see this device', (theirDevices?.length ?? 0) === 0, JSON.stringify(theirDevices));
 }
 
+// --- grant matrix (issue #25) ----------------------------------------------
+// Negative assertions. Everything above proves the app works; this proves the
+// things that must NOT work still don't. See docs/grant-matrix.md.
+section('Grant matrix — negatives');
+{
+  // The drift detector. Fails the moment a migration adds a SECURITY DEFINER
+  // function without revoking the PUBLIC default, which is the bug behind #25.
+  const { data: drift, error: driftErr } = await admin.rpc('security_definer_grant_audit');
+  check('no SECURITY DEFINER function is callable by PUBLIC or anon',
+        !driftErr && Array.isArray(drift) && drift.length === 0,
+        driftErr?.message ?? JSON.stringify(drift));
+
+  // Backend-only functions, called with the key that ships in the web bundle.
+  // Before the sweep every one of these returned 200.
+  const backendOnly = [
+    ['due_coach_nudges',         { p_limit: 5 }],
+    ['consume_free_message',     { p_user_id: userId, p_coach_id: POCKET }],
+    ['check_subscription_access',{ p_email: 'someone@example.com' }],
+    ['get_trial_days_remaining', { p_email: 'someone@example.com' }],
+    ['can_publish_coaches',      { user_email: 'someone@example.com' }],
+    ['get_or_create_user',       { user_email: 'someone@example.com' }],
+    ['create_user_with_trial',   { p_phone: '+15550000000', p_name: 'x', p_email: 'x@example.com', p_image_preference: 'a' }],
+    ['delete_member_account',    { p_user_id: userId }],
+    ['security_definer_grant_audit', {}],
+  ];
+  for (const [fn, args] of backendOnly) {
+    const { error } = await anon.rpc(fn, args);
+    check(`anon may NOT call ${fn}()`, error?.code === '42501',
+          error ? `got ${error.code}` : 'call succeeded!');
+  }
+
+  // Caller-scoped functions are for signed-in members only.
+  for (const [fn, args] of [
+    ['register_push_device', { p_expo_token: 'ExponentPushToken[probe]', p_platform: 'ios', p_device_name: 'x', p_app_version: '1' }],
+    ['release_push_device',  { p_expo_token: 'ExponentPushToken[probe]' }],
+    ['open_coach_conversation', { p_coach_id: POCKET }],
+    ['get_my_coaches', {}],
+  ]) {
+    const { error } = await anon.rpc(fn, args);
+    check(`anon may NOT call ${fn}()`, error?.code === '42501',
+          error ? `got ${error.code}` : 'call succeeded!');
+  }
+
+  // ...but the logged-out browse must still work.
+  const { error: rosterErr } = await anon.rpc('get_coach_roster',
+    { p_category: null, p_search: null, p_limit: 5, p_offset: 0 });
+  check('anon may still call get_coach_roster()', !rosterErr, rosterErr?.message);
+
+  // Tables anon must not reach at all.
+  for (const t of ['user_profiles', 'subscriptions', 'conversation_messages',
+                   'conversations', 'member_goals', 'push_devices', 'coach_nudges']) {
+    const { data, error } = await anon.from(t).select('*').limit(1);
+    check(`anon may NOT read ${t}`, !!error || (data?.length ?? 0) === 0,
+          error ? '' : `returned ${data?.length} rows`);
+  }
+
+  // creator_profiles is column-scoped for anon: the public columns are fine,
+  // the commercial ones are not. This is the negative #25 asks for by name.
+  const { error: pubColsErr } = await anon.from('creator_profiles').select('id, slug, display_name').limit(1);
+  check('anon may read creator public columns', !pubColsErr, pubColsErr?.message);
+  for (const col of ['revenue_share_bps', 'payout_provider', 'payout_account_id']) {
+    const { error } = await anon.from('creator_profiles').select(col).limit(1);
+    check(`anon may NOT read creator_profiles.${col}`, !!error,
+          error ? '' : 'column was readable!');
+  }
+
+  // A signed-in member may ask about their own entitlement, but not anyone
+  // else's — the function takes a user id, so the grant alone is not enough.
+  const { data: selfAccess, error: selfErr } = await user.rpc('has_coach_access',
+    { p_user_id: userId, p_coach_id: POCKET });
+  check('member may ask has_coach_access about themselves', !selfErr, selfErr?.message);
+
+  const { data: svcTruth } = await admin.rpc('has_coach_access', { p_user_id: userId, p_coach_id: POCKET });
+  check('  → and the answer matches what service_role sees', selfAccess === svcTruth,
+        `member=${selfAccess} service=${svcTruth}`);
+
+  const other = createClient(URL, ANON, { auth: { persistSession: false } });
+  const otherEmail = `probe-other-${Date.now()}@example.com`;
+  await admin.auth.admin.createUser({ email: otherEmail, password: 'probe-password-123', email_confirm: true });
+  await other.auth.signInWithPassword({ email: otherEmail, password: 'probe-password-123' });
+  const { data: crossAccess } = await other.rpc('has_coach_access', { p_user_id: userId, p_coach_id: POCKET });
+  check('another member may NOT probe this member\'s entitlement', crossAccess === false,
+        `got ${crossAccess}`);
+}
+
 console.log(`\n=== ${pass} passed, ${fail} failed ===`);
 process.exit(fail > 0 ? 1 : 0);
