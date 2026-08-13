@@ -93,7 +93,23 @@ Bodies filter on `auth.uid()`. Granted to `authenticated`, never `anon`.
 `release_push_device(text)`, `creator_slug_available(text)`, `owns_coach(uuid)`,
 `unread_message_count(uuid)`, `has_coach_access(uuid,uuid)`,
 `get_member_context(uuid,uuid)`, `is_club_owner(uuid)`, `is_club_member(uuid)`,
-`club_roster(uuid)`, `club_billing(uuid)`
+`club_roster(uuid)`, `club_billing(uuid)`, `club_member_activity(uuid)`,
+`club_engagement_summary(uuid)`, `club_engagement_timeseries(uuid,int)`,
+`club_min_cohort()`
+
+The four club-engagement functions carry a constraint the grant alone cannot
+express: **none of them may return `conversation_messages.content`.** A club
+owner must not be able to read what their members told a coach — members
+disclose injuries they are hiding, why they stopped coming, and (see #30)
+mental-health crises. An AI summary of a named member's thread is still
+disclosure.
+
+`content` therefore appears in no `RETURNS TABLE` in
+`20260812140000_club_engagement.sql`, and `club-probe.mjs` plants recognisable
+strings in a member's messages and scans every field of every owner-reachable
+payload for them. `coach_nudges.body` is excluded on the same grounds: it is
+coach-authored, so it looks safe, but nudges are generated from the member's
+goals and can quote them back.
 
 `is_club_owner` / `is_club_member` are `SECURITY DEFINER` for a structural
 reason, not convenience: the RLS policies on `club_members` need to ask "is the

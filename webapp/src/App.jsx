@@ -29,6 +29,7 @@ import CoachEdit from './components/MyCoaches/CoachEdit';
 import CoachAvatarEdit from './components/MyCoaches/CoachAvatarEdit';
 import CreatorProfilePage from './components/Creator/CreatorProfilePage';
 import AdminDashboard from './components/AdminDashboard';
+import ClubDashboard from './components/Club/ClubDashboard';
 import { AdminProtectedRoute } from './components/AdminProtectedRoute';
 
 const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
@@ -128,6 +129,7 @@ export function App() {
         <Route path="/my-coaches/:coachId/content" element={<CoachContentManager />} />
         <Route path="/my-coaches/:coachId/edit" element={<CoachEdit />} />
         <Route path="/my-coaches/:coachId/avatar" element={<CoachAvatarEdit />} />
+        <Route path="/club" element={<ClubDashboard />} />
         <Route path="/admin" element={<AdminProtectedRoute session={session}><AdminDashboard /></AdminProtectedRoute>} />
       </Route>
 
