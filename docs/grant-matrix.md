@@ -48,6 +48,9 @@ the next function that forgets fails the probes rather than shipping.
 | `coach_prompt_version_rollout` | — | — | — | on | Platform-only, reached through `SECURITY DEFINER` functions. |
 | `user_profiles` | — | SELECT, UPDATE | SELECT, INSERT, UPDATE, DELETE | on | `UPDATE` is narrowed by `protect_likeness_fields()`. **Anon must never hold SELECT** — see below. |
 | `subscriptions` | — | SELECT | SELECT, INSERT, UPDATE, DELETE | on | Legacy billing table. |
+| `clubs` | — | SELECT *(6 columns)*, UPDATE *(name, slug)* | ALL | on | Column-scoped: `id, slug, name, status, creator_id, created_at`. The commercial columns (`seats`, `plan`, `billing_email`, `external_billing_ref`, `notes`) are **not granted to `authenticated` at all** — an owner reads them through `club_billing()`. A policy mistake therefore cannot leak them. |
+| `club_members` | — | SELECT | ALL | on | Policy: own row, or any row if `is_club_owner()`. A member must not be able to enumerate the squad. |
+| `club_coaches` | — | SELECT | ALL | on | Visible to members of that club. |
 
 ### Why `anon` must not hold SELECT on `user_profiles`
 
@@ -89,7 +92,19 @@ Bodies filter on `auth.uid()`. Granted to `authenticated`, never `anon`.
 `open_coach_conversation(uuid)`, `register_push_device(text,text,text,text)`,
 `release_push_device(text)`, `creator_slug_available(text)`, `owns_coach(uuid)`,
 `unread_message_count(uuid)`, `has_coach_access(uuid,uuid)`,
-`get_member_context(uuid,uuid)`
+`get_member_context(uuid,uuid)`, `is_club_owner(uuid)`, `is_club_member(uuid)`,
+`club_roster(uuid)`, `club_billing(uuid)`
+
+`is_club_owner` / `is_club_member` are `SECURITY DEFINER` for a structural
+reason, not convenience: the RLS policies on `club_members` need to ask "is the
+caller an owner of this club", which is itself a question about `club_members`.
+Asking it through a policy-bound query recurses. Reading the table with RLS
+bypassed breaks the cycle.
+
+`club_roster` and `club_billing` are granted to `authenticated` but each embeds
+`is_club_owner(p_club_id)` in its own `WHERE`, so a non-owner gets zero rows
+rather than an error. That is deliberate: it means an owner of club A probing
+club B learns nothing about whether club B exists.
 
 `has_coach_access` and `get_member_context` take a `p_user_id` rather than
 reading `auth.uid()` directly, because the Cloud Functions call them on a
@@ -106,7 +121,13 @@ No client role has any business calling these.
 `create_user_with_trial(text,text,text,text)`, `get_or_create_user(text,text,text)`,
 `check_subscription_access(text)`, `get_trial_days_remaining(text)`,
 `can_publish_coaches(text)`, `search_similar_content(uuid,vector,int)`,
-`security_definer_grant_audit()`
+`security_definer_grant_audit()`, `club_add_members(uuid,text[])`,
+`grant_club_seat(uuid,uuid,uuid)`, `revoke_club_seats(uuid,uuid)`
+
+Seat granting is backend-only on purpose. If `grant_club_seat` were reachable by
+`authenticated`, any signed-in member could mint themselves a comped entitlement
+to any coach — the entitlement system's own bypass. `club-probe.mjs` asserts
+both `anon` and a signed-in member get `42501` from all three.
 
 ### Trigger functions
 
