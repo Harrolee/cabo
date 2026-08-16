@@ -10,6 +10,7 @@ and through the Cloud Functions over HTTP.
 | `flow-probe.mjs` | Goal intake, prompt v1/v2 selection, free-tier metering, the 402 paywall, entitlement restore, coach-initiated nudges, `suppressUserTurn` auth, the nudge dispatcher sweep |
 | `viz-realtime-probe.mjs` | Visualiser guards (`no_aspiration`, entitlement, daily limit), prompt hygiene, likeness consent and reference photos, and realtime delivery of a coach-initiated message |
 | `sms-image-probe.mjs` | The daily SMS image job across three disciplines: channel scoping, coach resolution, goal-driven prompts, likeness consent, and that no member can receive fitness before/after imagery |
+| `club-probe.mjs` | Clubs: seats granted through `coach_subscriptions` so `has_coach_access()` stays the only gate, the invite-on-signup path, revocation by removal / deletion / club lapse, and the negatives — a member cannot enumerate the squad, read what the club pays, or mint themselves a seat |
 | `account-deletion-probe.mjs` | Account deletion: that no row in any affected table survives, that the reference photo **object** is gone from the bucket, what happens to coaches the member created and to the people subscribed to them, and that a photo we cannot delete stops the whole deletion |
 
 ## Setting up a local stack
@@ -68,6 +69,7 @@ persistence, metering and auth, not the model's prose.
 ```sh
 cd mobile
 ENV_FILE=/tmp/cabo-local/local.env node e2e/rls-probe.mjs
+ENV_FILE=/tmp/cabo-local/local.env node e2e/club-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/flow-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/viz-realtime-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/sms-image-probe.mjs
