@@ -253,6 +253,99 @@ try {
   check('owner of club A cannot even see club B', (crossClub?.length ?? 0) === 0,
         JSON.stringify(crossClub));
 
+  // --- engagement dashboard (issue #32) -------------------------------------
+  // The privacy constraint is the point of this section. A club owner must see
+  // whether the thing is working without seeing what anyone said.
+  section('Engagement dashboard — activity signals, never content');
+
+  const activeEmail = memberEmails[3];   // messages today
+  const dormantEmail = memberEmails[4];  // last spoke 20 days ago
+  const neverEmail = memberEmails[5];    // has never messaged
+
+  const convFor = {};
+  for (const e of [activeEmail, dormantEmail]) {
+    const uid = uidByEmail.get(e);
+    const { data: conv, error: convErr } = await admin.from('conversations')
+      .insert({ user_id: uid, coach_id: coach.id, channel: 'app' })
+      .select('id').single();
+    if (convErr) throw new Error(`conversation for ${e}: ${convErr.message}`);
+    convFor[e] = conv.id;
+  }
+
+  const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
+  const { error: msgErr } = await admin.from('conversation_messages').insert([
+    { conversation_id: convFor[activeEmail], role: 'user',
+      content: 'PRIVATE-DISCLOSURE-ACTIVE hiding a hamstring strain', created_at: daysAgo(1) },
+    { conversation_id: convFor[activeEmail], role: 'assistant',
+      content: 'coach reply', created_at: daysAgo(1) },
+    { conversation_id: convFor[dormantEmail], role: 'user',
+      content: 'PRIVATE-DISCLOSURE-DORMANT why I stopped coming', created_at: daysAgo(20) },
+  ]);
+  check('seeded a fixture: one active, one dormant, one never', !msgErr, msgErr?.message);
+
+  const { data: activity, error: actErr } = await ownerClient.rpc('club_member_activity', { p_club_id: club.id });
+  check('owner reads per-member activity', !actErr && (activity?.length ?? 0) > 0, actErr?.message);
+
+  const byUser = Object.fromEntries((activity ?? []).map(a => [a.user_id, a]));
+  check('  → the active member reads as active',
+        byUser[uidByEmail.get(activeEmail)]?.state === 'active',
+        JSON.stringify(byUser[uidByEmail.get(activeEmail)]?.state));
+  check('  → the 20-day-quiet member reads as dormant',
+        byUser[uidByEmail.get(dormantEmail)]?.state === 'dormant',
+        JSON.stringify(byUser[uidByEmail.get(dormantEmail)]?.state));
+  check('  → the silent member reads as never',
+        byUser[uidByEmail.get(neverEmail)]?.state === 'never',
+        JSON.stringify(byUser[uidByEmail.get(neverEmail)]?.state));
+  check('  → dormant member carries a days-since-active figure',
+        byUser[uidByEmail.get(dormantEmail)]?.days_since_active >= 19,
+        JSON.stringify(byUser[uidByEmail.get(dormantEmail)]?.days_since_active));
+
+  const { data: summary, error: sumErr } = await ownerClient.rpc('club_engagement_summary', { p_club_id: club.id });
+  const s = Array.isArray(summary) ? summary[0] : summary;
+  check('owner reads the squad summary', !sumErr && !!s, sumErr?.message);
+  check('  → counts add up to the membership',
+        Number(s?.active_this_week) + Number(s?.slowing) + Number(s?.dormant_14d) + Number(s?.never_messaged)
+          === Number(s?.members_total),
+        JSON.stringify(s));
+  check('  → messages_this_week counts only member turns, not coach replies',
+        Number(s?.messages_this_week) === 1, JSON.stringify(s?.messages_this_week));
+
+  const { data: series, error: seriesErr } = await ownerClient.rpc('club_engagement_timeseries',
+    { p_club_id: club.id, p_days: 30 });
+  check('owner reads engagement over time', !seriesErr && (series?.length ?? 0) >= 30, seriesErr?.message);
+
+  // THE assertion this whole issue exists for. Not "review checked it" —
+  // every value of every row of every reachable endpoint, scanned for the
+  // disclosures we planted above.
+  const planted = ['PRIVATE-DISCLOSURE-ACTIVE', 'PRIVATE-DISCLOSURE-DORMANT',
+                   'hamstring', 'why I stopped coming'];
+  const payloads = [activity, summary, series, ownerRoster];
+  const serialised = JSON.stringify(payloads);
+  check('NO club-owner endpoint returns message content',
+        !planted.some(p => serialised.includes(p)),
+        planted.filter(p => serialised.includes(p)).join(', '));
+  check('  → and no returned column is even named `content`',
+        !payloads.some(rows => (rows ?? []).some(r => Object.keys(r ?? {}).some(
+          k => k === 'content' || k === 'body'))),
+        JSON.stringify(Object.keys(activity?.[0] ?? {})));
+
+  // A member of the club is not an owner of it.
+  const { data: memberActivity } = await memberClient.rpc('club_member_activity', { p_club_id: club.id });
+  check('a member may NOT read the squad activity', (memberActivity?.length ?? 0) === 0,
+        JSON.stringify(memberActivity?.length));
+  const { data: memberSummary } = await memberClient.rpc('club_engagement_summary', { p_club_id: club.id });
+  check('a member may NOT read the squad summary', (memberSummary?.length ?? 0) === 0,
+        JSON.stringify(memberSummary));
+
+  // Cross-club.
+  const { data: crossActivity } = await ownerClient.rpc('club_member_activity', { p_club_id: club2.id });
+  check('owner of club A reads nothing about club B', (crossActivity?.length ?? 0) === 0,
+        JSON.stringify(crossActivity?.length));
+
+  const { error: anonActivityErr } = await anon.rpc('club_member_activity', { p_club_id: club.id });
+  check('anon may NOT call club_member_activity()', anonActivityErr?.code === '42501',
+        anonActivityErr ? `got ${anonActivityErr.code}` : 'call succeeded!');
+
   // --- club lapses ----------------------------------------------------------
   section('A club that lapses revokes every seat');
   const { data: stillActive } = await admin.from('coach_subscriptions')
