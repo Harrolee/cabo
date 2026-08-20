@@ -1,6 +1,6 @@
 # End-to-end probes
 
-Five suites that exercise the backend the way the app does — through
+Eight suites that exercise the backend the way the app does — through
 PostgREST as a real `anon`/`authenticated` user, so RLS is actually in play,
 and through the Cloud Functions over HTTP.
 
@@ -11,7 +11,9 @@ and through the Cloud Functions over HTTP.
 | `viz-realtime-probe.mjs` | Visualiser guards (`no_aspiration`, entitlement, daily limit), prompt hygiene, likeness consent and reference photos, and realtime delivery of a coach-initiated message |
 | `sms-image-probe.mjs` | The daily SMS image job across three disciplines: channel scoping, coach resolution, goal-driven prompts, likeness consent, and that no member can receive fitness before/after imagery |
 | `club-probe.mjs` | Clubs: seats granted through `coach_subscriptions` so `has_coach_access()` stays the only gate, the invite-on-signup path, revocation by removal / deletion / club lapse, and the negatives — a member cannot enumerate the squad, read what the club pays, or mint themselves a seat |
+| `creator-probe.mjs` | Creator onboarding and publishing: profile creation, `protect_creator_platform_fields()` and `enforce_coach_listing_rules()`, that publishing fails while under review, that a creator can neither approve themselves nor credit a coach to someone else, and that suspension pulls the listings |
 | `account-deletion-probe.mjs` | Account deletion: that no row in any affected table survives, that the reference photo **object** is gone from the bucket, what happens to coaches the member created and to the people subscribed to them, and that a photo we cannot delete stops the whole deletion |
+| `avatar-auth-probe.mjs` | Who may call `coach-avatar-generator` and what it costs them: the pre-signup builder path stays open, anonymous callers are held to one style and an IP ceiling, a real coach id needs a token, an owner may only touch their own coach, and every rejection is proved to reach generation zero times |
 
 ## Setting up a local stack
 
@@ -74,7 +76,23 @@ ENV_FILE=/tmp/cabo-local/local.env node e2e/flow-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/viz-realtime-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/sms-image-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/account-deletion-probe.mjs
+ENV_FILE=/tmp/cabo-local/local.env node e2e/creator-probe.mjs
+ENV_FILE=/tmp/cabo-local/local.env node e2e/avatar-auth-probe.mjs
 ```
+
+A green run across all eight is 403 checks. `creator-probe.mjs` needs neither
+the gateway nor the mock model — it goes through PostgREST only.
+
+`avatar-auth-probe.mjs` needs the stack but not the gateway. It loads the real
+`functions/coach-avatar-generator/index.js` with `./avatar-generation` replaced
+by a recording stub — the technique `prompt-eval/crisis-probe.mjs` uses on
+`openai` — so it spends no Replicate credits, and it resolves that function's
+`@supabase/supabase-js` and `multer` itself rather than needing an `npm install`
+in the function directory. Supabase is deliberately *not* stubbed: token
+verification and the ownership lookup run against the real stack. The stub is
+what makes the load-bearing assertion possible — that a rejected call reaches
+generation zero times, since a 403 that still burned a credit looks identical
+from the outside.
 
 `sms-image-probe.mjs` needs the mock model but not the gateway: it calls the
 daily job's modules in-process and fakes Replicate, Twilio and GCS, so it needs
@@ -95,6 +113,22 @@ on any failure.
 Ports are overridable, so a second stack can run beside the first without the
 two gateways fighting over 8790: `PORT` on both harness processes,
 `MOCK_OPENAI_URL` on the gateway, and `API_BASE` on the probes.
+
+`MOCK_OPENAI_URL` means the OpenAI *base* URL (`http://127.0.0.1:8791/v1`) to
+the gateway, because the SDK appends the route itself, but
+`sms-image-probe.mjs` calls the endpoint directly and needs
+`.../v1/chat/completions`. The probe now accepts either form; if you write your
+own harness, note that a mismatch here returns 404 and reads as twenty
+unrelated failures ("no scene was sent", "0 Replicate calls") rather than as a
+wiring mistake.
+
+Realtime replays the WAL in order, so `viz-realtime-probe.mjs` run straight
+after the write-heavy suites may see its event arrive seconds late while the
+backlog drains. Its realtime assertions wait for delivery rather than sleeping
+a fixed interval, and the no-leak assertion is pinned to a positive delivery on
+a second subscription — a bare sleep would pass just as happily against a
+realtime server that had stopped delivering anything at all. Keep that shape if
+you add realtime coverage.
 
 The visualiser's likeness endpoints need GCS credentials to store or delete a
 photo, so `/likeness/grant` cannot be exercised locally. Everything the choice

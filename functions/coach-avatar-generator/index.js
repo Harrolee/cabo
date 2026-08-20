@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const { generateCoachAvatars } = require('./avatar-generation');
+const { generateCoachAvatars, AVATAR_STYLES } = require('./avatar-generation');
 const multer = require('multer');
 
 // Initialize Supabase (service-role for storage/coach_profiles writes)
@@ -45,6 +45,29 @@ function setCors(res, origin) {
 const UNAUTH_RATE_LIMIT = parseInt(process.env.UNAUTH_RATE_LIMIT || '6', 10); // generations per window
 const UNAUTH_WINDOW_MS = parseInt(process.env.UNAUTH_WINDOW_MS || '3600000', 10); // 1 hour
 const ipHits = new Map(); // ip -> { count, windowStart }
+
+/**
+ * The caller's address, as seen from behind Cloud Run's front end.
+ *
+ * `X-Forwarded-For` is checked first and the *left-most* entry taken: Express
+ * only populates `req.ip` from that header when `trust proxy` is set, which the
+ * functions framework does not do here, so `req.ip` is the front end's own
+ * address. Keying the limiter on it would put every anonymous caller in one
+ * bucket and turn a per-IP ceiling into a global one — the pre-signup avatar
+ * step would start returning 429 to everybody after a handful of builds, which
+ * is precisely the funnel this endpoint exists to serve.
+ *
+ * Left-most rather than right-most because Google appends the immediate peer;
+ * the originating client is the first entry. It is client-supplied and so
+ * spoofable — that is inherent to IP rate limiting and is why this is a cost
+ * ceiling rather than an access control. The access control is the `temp-`
+ * prefix check and the token check above.
+ */
+function clientIp(req) {
+  const forwarded = req.get('x-forwarded-for') || '';
+  const first = forwarded.split(',')[0].trim();
+  return first || req.ip || 'unknown';
+}
 
 function checkIpRateLimit(ip) {
   const now = Date.now();
@@ -211,12 +234,12 @@ exports.generateCoachAvatar = async (req, res) => {
     if (!style) {
       return res.status(400).json({
         error: 'style is required for unauthenticated requests (set to one of the supported styles)',
-        supported_styles: require('./avatar-generation').AVATAR_STYLES,
+        supported_styles: AVATAR_STYLES,
       });
     }
 
     // 3. IP rate limit
-    const ip = req.ip || req.get('x-forwarded-for') || 'unknown';
+    const ip = clientIp(req);
     const rateCheck = checkIpRateLimit(ip);
     if (!rateCheck.allowed) {
       res.set('Retry-After', String(Math.ceil(rateCheck.retryAfter / 1000)));
@@ -259,67 +282,22 @@ exports.generateCoachAvatar = async (req, res) => {
   }
 };
 
-/**
- * Save selected avatar to coach profile.
- * Requires authentication and coach ownership.
- */
-exports.saveSelectedAvatar = async (req, res) => {
-  const origin = req.get('origin') || '';
-  setCors(res, origin);
+/*
+  There is no second export here on purpose. A `saveSelectedAvatar` handler used
+  to live below this line: it took a `coachId` and an avatar URL from the request
+  body and wrote them straight onto that row in `coach_profiles`, with no token
+  check and no ownership check.
 
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
+  Terraform gives this directory exactly one `entry_point`, `generateCoachAvatar`
+  (`_infra/cloud_functions.tf`), so a second export is not deployed and not
+  reachable — the webapp's old calls to `/coach-avatar-generator/save-avatar`
+  (removed in #22) hit the generator above, which does not route on path.
 
-  const caller = await resolveCaller(req);
-  if (!caller) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  try {
-    const { coachId, selectedAvatarUrl, avatarStyle, originalSelfieUrl } = req.body;
-
-    if (!coachId || !selectedAvatarUrl || !avatarStyle) {
-      return res.status(400).json({
-        error: 'coachId, selectedAvatarUrl, and avatarStyle are required'
-      });
-    }
-
-    const owned = await isCoachOwner(caller.id, coachId);
-    if (!owned) {
-      return res.status(403).json({ error: 'You do not own this coach profile' });
-    }
-
-    console.log(`Saving selected avatar for coach ${coachId}: ${avatarStyle}`);
-
-    const { data, error } = await supabase
-      .from('coach_profiles')
-      .update({
-        avatar_url: selectedAvatarUrl,
-        avatar_style: avatarStyle,
-        original_selfie_url: originalSelfieUrl,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', coachId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Database error:', error);
-      throw error;
-    }
-
-    res.status(200).json({
-      success: true,
-      coach: data,
-      message: 'Avatar saved successfully'
-    });
-
-  } catch (error) {
-    console.error('Save avatar error:', error);
-    res.status(500).json({
-      error: error.message || 'Failed to save selected avatar'
-    });
-  }
-};
+  PR #46 restored the handler with `resolveCaller()` and `isCoachOwner()` in
+  front of it, which fixes the IDOR but leaves it dead. It is removed again here
+  rather than shipped dormant: an unreachable write path is one Terraform line
+  away from being live, and the next person to add that line will not
+  necessarily re-derive why the checks matter. Both helpers are still above, so
+  bringing saving back is a small change — give it an `entry_point` and a caller
+  in the same PR, and keep the ownership check.
+*/

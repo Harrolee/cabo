@@ -263,25 +263,74 @@ section('Realtime: a coach-initiated message reaches an open thread');
   check('subscribed to the thread channel', subscribed);
 
   if (subscribed) {
+    /*
+      Wait for the event rather than sleeping a fixed interval. Realtime replays
+      the WAL in order, so when this suite runs straight after the write-heavy
+      ones it can still be chewing through their backlog when our insert lands —
+      a fixed 4s wait then reports "realtime is broken" for what is really a
+      queue that had not reached us yet. Poll to a generous ceiling instead: a
+      healthy stack satisfies this in well under a second, and a genuinely
+      broken one still fails, just later.
+    */
+    const waitFor = async (predicate, ms = 30000) => {
+      const deadline = Date.now() + ms;
+      while (Date.now() < deadline) {
+        if (predicate()) return true;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return predicate();
+    };
+
     // Exactly what the nudge dispatcher does: a service-role assistant insert.
     await admin.from('conversation_messages').insert({
       conversation_id: conversationId, role: 'assistant',
       content: 'Morning. Twenty minutes on the kit today — what tempo?',
     });
 
-    await new Promise((r) => setTimeout(r, 4000));
+    await waitFor(() => received.length >= 1);
     check('the message arrived over realtime', received.length === 1, `received ${received.length}`);
     check('  → it is the coach turn', received[0]?.role === 'assistant', JSON.stringify(received[0]?.role));
     check('  → content intact', received[0]?.content?.includes('Twenty minutes'), received[0]?.content);
 
-    // Another member's thread must not leak through the same socket.
+    /*
+      Another member's thread must not leak through the same socket. Proving a
+      negative needs a positive to pin it to: subscribe as the other member too,
+      and wait for *their* channel to see the message. Once it has been
+      delivered there, realtime has demonstrably processed that insert, so
+      "nothing arrived on our channel" means it was filtered rather than merely
+      still in flight. A bare sleep here would pass just as happily against a
+      realtime server that had stopped delivering anything at all.
+    */
     const { data: other } = await admin.auth.admin.createUser({ email: `other${Date.now()}@example.com`, password: 'x-password-123', email_confirm: true });
-    const otherClient = createClient(env.API_URL, env.ANON_KEY, { auth: { persistSession: false } });
+    const otherClient = createClient(env.API_URL, env.ANON_KEY, {
+      auth: { persistSession: false },
+      realtime: { params: { eventsPerSecond: 10 } },
+    });
     await otherClient.auth.signInWithPassword({ email: other.user.email, password: 'x-password-123' });
     const otherConv = (await otherClient.rpc('open_coach_conversation', { p_coach_id: POCKET })).data;
+
+    const otherReceived = [];
+    const otherChannel = otherClient
+      .channel(`thread:${otherConv}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'conversation_messages',
+        filter: `conversation_id=eq.${otherConv}`,
+      }, (payload) => otherReceived.push(payload.new));
+    const otherSubscribed = await new Promise((resolve) => {
+      otherChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') resolve(true);
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') resolve(false);
+      });
+      setTimeout(() => resolve(false), 12000);
+    });
+    check('  → the other member subscribed to their own thread', otherSubscribed);
+
     await admin.from('conversation_messages').insert({ conversation_id: otherConv, role: 'assistant', content: 'not for you' });
-    await new Promise((r) => setTimeout(r, 3000));
+    const deliveredThere = await waitFor(() => otherReceived.length >= 1);
+    check('  → their message reached them', deliveredThere, `received ${otherReceived.length}`);
     check('another member\'s message did not leak in', received.length === 1, `received ${received.length}`);
+
+    await otherClient.removeChannel(otherChannel);
   }
 
   await user.removeChannel(channel);
