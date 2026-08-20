@@ -33,7 +33,20 @@ const env = Object.fromEntries(
   })
 );
 
-const MOCK_MODEL = process.env.MOCK_OPENAI_URL || 'http://127.0.0.1:8791/v1/chat/completions';
+/*
+  `MOCK_OPENAI_URL` is also read by `harness/function-gateway.js`, which wants
+  the OpenAI *base* URL (`.../v1`) because the SDK appends the route itself.
+  This probe calls the endpoint directly, so it needs the full chat-completions
+  URL. One variable, two meanings: pointing this at the base URL makes every
+  model call 404, and a 404 here surfaces as ~20 unrelated-looking assertion
+  failures ("no scene was sent", "0 Replicate calls") rather than as a wiring
+  mistake. Accept either form so the same value works for both.
+*/
+const MOCK_MODEL = (() => {
+  const raw = process.env.MOCK_OPENAI_URL || 'http://127.0.0.1:8791/v1/chat/completions';
+  const trimmed = raw.replace(/\/+$/, '');
+  return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
+})();
 
 // The function reads these at require time.
 process.env.PROJECT_ID = 'local-test';

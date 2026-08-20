@@ -55,14 +55,60 @@ const { buildSystemPromptV2 } = require(path.join(FN, 'coach-prompt-v2.js'));
 
 section('The deployed copies are the shared file');
 {
-  const shared = fs.readFileSync(path.join(REPO, 'functions/shared/crisis.js'), 'utf8');
-  for (const dir of ['coach-response-generator', 'coach-nudges', 'process-sms']) {
-    const copy = path.join(REPO, 'functions', dir, 'crisis.js');
-    check(
-      `functions/${dir}/crisis.js is an exact copy of functions/shared/crisis.js`,
-      fs.existsSync(copy) && fs.readFileSync(copy, 'utf8') === shared
-    );
+  /*
+    Cloud Functions are zipped per-directory, so `require('../shared/...')` does
+    not survive deploy and each function carries its own copy. The duplication is
+    deliberate; the drift is not. These modules have already drifted apart once
+    (a `coach.tagline` fix landed in `shared/` and never reached the deployed
+    copy), and nothing caught it, because a prompt change that silently does not
+    apply in production looks exactly like a prompt change that did not work.
+
+    Every shared module belongs in this table. Adding a fourth copy of something
+    without adding it here is how the next drift gets in.
+  */
+  const DUPLICATED = {
+    'crisis.js': ['coach-response-generator', 'coach-nudges', 'process-sms'],
+    'coach-domain.js': ['coach-response-generator'],
+    'coach-prompt-v2.js': ['coach-response-generator'],
+    'goal-onboarding.js': ['coach-response-generator'],
+    'visualization.js': ['coach-visualizer', 'motivational-images'],
+    'coach-personas.js': ['process-sms', 'signup'],
+    'reference-photo.js': ['account-deletion', 'coach-visualizer'],
+  };
+
+  /*
+    Some copies carry a leading "this is a duplicate, shared/ is the source of
+    truth" banner, which is a comment about provenance rather than a difference
+    in behaviour. Strip one leading block comment before comparing so the banner
+    stays allowed and everything after it still has to match exactly.
+  */
+  const body = (text) => text.replace(/^\uFEFF?\s*\/\*[\s\S]*?\*\/\s*/, '');
+
+  for (const [file, dirs] of Object.entries(DUPLICATED)) {
+    const sharedPath = path.join(REPO, 'functions/shared', file);
+    const shared = fs.existsSync(sharedPath) ? fs.readFileSync(sharedPath, 'utf8') : null;
+    check(`functions/shared/${file} exists`, shared !== null);
+    if (shared === null) continue;
+
+    for (const dir of dirs) {
+      const copy = path.join(REPO, 'functions', dir, file);
+      check(
+        `functions/${dir}/${file} is an exact copy of functions/shared/${file}`,
+        fs.existsSync(copy) && body(fs.readFileSync(copy, 'utf8')) === body(shared)
+      );
+    }
   }
+
+  // A shared module with no copy listed above is unguarded — catch that here
+  // rather than discovering it the next time one drifts.
+  const sharedDir = path.join(REPO, 'functions/shared');
+  const unguarded = fs.readdirSync(sharedDir)
+    .filter((f) => f.endsWith('.js') && !(f in DUPLICATED));
+  check(
+    'every module in functions/shared/ is covered by this table',
+    unguarded.length === 0,
+    unguarded.join(', ')
+  );
 }
 
 // ---------------------------------------------------------------------------
