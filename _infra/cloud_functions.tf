@@ -850,6 +850,8 @@ module "coach_avatar_generator_function" {
     SUPABASE_SERVICE_ROLE_KEY = var.supabase_service_role_key
     REPLICATE_API_TOKEN     = var.replicate_api_key
     ALLOWED_ORIGINS         = var.allowed_origins
+    UNAUTH_RATE_LIMIT       = "6"     # max anonymous generations per IP per window
+    UNAUTH_WINDOW_MS        = "3600000" # rate-limit window in ms (1 hour)
   }
   depends_on = [google_storage_bucket_object.coach_avatar_generator_source]
 }
