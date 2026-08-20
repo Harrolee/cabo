@@ -59,8 +59,22 @@ node mock-openai.js
 ENV_FILE=/tmp/cabo-local/local.env node function-gateway.js
 ```
 
-Set `USE_REAL_OPENAI=1` on the gateway to hit the live API instead of the mock;
-it reads `openai_api_key` / `replicate_api_key` from `_infra/terraform.tfvars`.
+Both paid APIs are opt-in, and neither is reachable unless you ask for it:
+
+- `USE_REAL_OPENAI=1` hits the live chat API instead of the mock.
+- `USE_REAL_REPLICATE=1` makes real image predictions.
+
+Each reads its key (`openai_api_key` / `replicate_api_key`) from
+`_infra/terraform.tfvars` only when set, and the gateway refuses to start if you
+ask for one without a key. **Set either and you are spending real money.**
+
+Replicate used to be wired up unconditionally, which meant every local
+`viz-realtime-probe.mjs` run billed real predictions and made that suite slow
+and intermittently red on a third-party network round trip. It is now off by
+default: predictions fail immediately at the boundary, which is exactly what
+that suite's likeness assertions already assumed, since
+`coach_visualizations.model` is written before the call and the model *choice*
+is what is under test.
 
 The mock exists so the pipeline can be tested without spending credits — and
 because what is under test here is the routing, extraction merging,

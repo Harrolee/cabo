@@ -82,8 +82,11 @@ section('Unauthenticated access');
 section('Scene generation (image model stubbed at the Replicate boundary)');
 {
   const r = await viz('/generate', { coachId: POCKET, kind: 'becoming' });
-  // Replicate is real here; the run may succeed or fail on network/credits.
-  // Either way the row must be written and the scene must exist.
+  // The prediction fails at the Replicate boundary unless the gateway was
+  // started with USE_REAL_REPLICATE=1, so this normally spends nothing. Either
+  // way the row must be written and the scene must exist — the scene and the
+  // prompt come from the chat model, and the row is written before the image
+  // call, so none of the assertions below depend on a prediction succeeding.
   const { data: rows } = await admin.from('coach_visualizations').select('*').eq('user_id', userId).order('created_at', { ascending: false });
   check('a visualization row was written', (rows?.length ?? 0) >= 1, JSON.stringify(rows?.length));
   const row = rows?.[0];
