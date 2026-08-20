@@ -33,7 +33,32 @@ function tfvar(name) {
 process.env.SUPABASE_URL = localEnv.API_URL;
 process.env.SUPABASE_SERVICE_ROLE_KEY = localEnv.SERVICE_ROLE_KEY;
 process.env.OPENAI_API_KEY = tfvar('openai_api_key');
-process.env.REPLICATE_API_TOKEN = tfvar('replicate_api_key');
+/*
+  Replicate is opt-in, like OpenAI, and for the same reason: it costs money.
+
+  This used to read `replicate_api_key` from terraform.tfvars unconditionally,
+  so every local `viz-realtime-probe.mjs` run made real, billed predictions —
+  while the probe's own comments said the opposite ("without spending anything
+  at Replicate... the runs below fail at the Replicate boundary (no token in the
+  harness)"). It also made that suite slow and intermittently red, because the
+  assertions then depended on a network round trip to a third party.
+
+  Without USE_REAL_REPLICATE=1 the token is left unset, predictions fail
+  immediately at the boundary, and the probe asserts what it always meant to:
+  that the model choice and the failure handling are correct. The chosen model
+  is written to `coach_visualizations.model` before the call, so nothing about
+  that coverage needs a real prediction.
+*/
+if (process.env.USE_REAL_REPLICATE === '1') {
+  process.env.REPLICATE_API_TOKEN = tfvar('replicate_api_key');
+  if (!process.env.REPLICATE_API_TOKEN) {
+    console.error('USE_REAL_REPLICATE=1 but no replicate_api_key found');
+    process.exit(1);
+  }
+  console.warn('USE_REAL_REPLICATE=1 — predictions will be billed to the real account');
+} else {
+  delete process.env.REPLICATE_API_TOKEN;
+}
 process.env.OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4o';
 // USE_REAL_OPENAI=1 to hit the live API; otherwise the local stand-in.
 if (process.env.USE_REAL_OPENAI !== '1') {

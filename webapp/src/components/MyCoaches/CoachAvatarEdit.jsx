@@ -147,9 +147,16 @@ const CoachAvatarEdit = () => {
         import.meta.env.VITE_COACH_AVATAR_GENERATOR_URL ||
         `${import.meta.env.VITE_API_URL}/coach-avatar-generator`;
 
+      // Send the Supabase session token so the function can verify ownership.
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch(generatorUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           coachId,
           selfie_base64: await readAsBase64(selfieFile),

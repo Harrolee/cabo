@@ -1,6 +1,6 @@
 # End-to-end probes
 
-Seven suites that exercise the backend the way the app does — through
+Eight suites that exercise the backend the way the app does — through
 PostgREST as a real `anon`/`authenticated` user, so RLS is actually in play,
 and through the Cloud Functions over HTTP.
 
@@ -13,6 +13,7 @@ and through the Cloud Functions over HTTP.
 | `club-probe.mjs` | Clubs: seats granted through `coach_subscriptions` so `has_coach_access()` stays the only gate, the invite-on-signup path, revocation by removal / deletion / club lapse, and the negatives — a member cannot enumerate the squad, read what the club pays, or mint themselves a seat |
 | `creator-probe.mjs` | Creator onboarding and publishing: profile creation, `protect_creator_platform_fields()` and `enforce_coach_listing_rules()`, that publishing fails while under review, that a creator can neither approve themselves nor credit a coach to someone else, and that suspension pulls the listings |
 | `account-deletion-probe.mjs` | Account deletion: that no row in any affected table survives, that the reference photo **object** is gone from the bucket, what happens to coaches the member created and to the people subscribed to them, and that a photo we cannot delete stops the whole deletion |
+| `avatar-auth-probe.mjs` | Who may call `coach-avatar-generator` and what it costs them: the pre-signup builder path stays open, anonymous callers are held to one style and an IP ceiling, a real coach id needs a token, an owner may only touch their own coach, and every rejection is proved to reach generation zero times |
 
 ## Setting up a local stack
 
@@ -58,8 +59,22 @@ node mock-openai.js
 ENV_FILE=/tmp/cabo-local/local.env node function-gateway.js
 ```
 
-Set `USE_REAL_OPENAI=1` on the gateway to hit the live API instead of the mock;
-it reads `openai_api_key` / `replicate_api_key` from `_infra/terraform.tfvars`.
+Both paid APIs are opt-in, and neither is reachable unless you ask for it:
+
+- `USE_REAL_OPENAI=1` hits the live chat API instead of the mock.
+- `USE_REAL_REPLICATE=1` makes real image predictions.
+
+Each reads its key (`openai_api_key` / `replicate_api_key`) from
+`_infra/terraform.tfvars` only when set, and the gateway refuses to start if you
+ask for one without a key. **Set either and you are spending real money.**
+
+Replicate used to be wired up unconditionally, which meant every local
+`viz-realtime-probe.mjs` run billed real predictions and made that suite slow
+and intermittently red on a third-party network round trip. It is now off by
+default: predictions fail immediately at the boundary, which is exactly what
+that suite's likeness assertions already assumed, since
+`coach_visualizations.model` is written before the call and the model *choice*
+is what is under test.
 
 The mock exists so the pipeline can be tested without spending credits — and
 because what is under test here is the routing, extraction merging,
@@ -76,10 +91,22 @@ ENV_FILE=/tmp/cabo-local/local.env node e2e/viz-realtime-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/sms-image-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/account-deletion-probe.mjs
 ENV_FILE=/tmp/cabo-local/local.env node e2e/creator-probe.mjs
+ENV_FILE=/tmp/cabo-local/local.env node e2e/avatar-auth-probe.mjs
 ```
 
-A green run across all seven is 378 checks. `creator-probe.mjs` needs neither
+A green run across all eight is 403 checks. `creator-probe.mjs` needs neither
 the gateway nor the mock model — it goes through PostgREST only.
+
+`avatar-auth-probe.mjs` needs the stack but not the gateway. It loads the real
+`functions/coach-avatar-generator/index.js` with `./avatar-generation` replaced
+by a recording stub — the technique `prompt-eval/crisis-probe.mjs` uses on
+`openai` — so it spends no Replicate credits, and it resolves that function's
+`@supabase/supabase-js` and `multer` itself rather than needing an `npm install`
+in the function directory. Supabase is deliberately *not* stubbed: token
+verification and the ownership lookup run against the real stack. The stub is
+what makes the load-bearing assertion possible — that a rejected call reaches
+generation zero times, since a 403 that still burned a credit looks identical
+from the outside.
 
 `sms-image-probe.mjs` needs the mock model but not the gateway: it calls the
 daily job's modules in-process and fakes Replicate, Twilio and GCS, so it needs
