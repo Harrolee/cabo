@@ -150,60 +150,16 @@ exports.generateCoachAvatar = async (req, res) => {
   });
 };
 
-/**
- * Function to save selected avatar to coach profile
- */
-exports.saveSelectedAvatar = async (req, res) => {
-  // Set CORS headers
-  Object.keys(corsHeaders).forEach(key => {
-    res.set(key, corsHeaders[key]);
-  });
+/*
+  There is no second export here on purpose. A `saveSelectedAvatar` handler used
+  to live below this line: it took a `coachId` and an avatar URL from the request
+  body and wrote them straight onto that row in `coach_profiles`, with no token
+  check and no ownership check. Terraform never gave it an `entry_point`, so it
+  was never deployed and never reachable — the webapp's calls to
+  `/coach-avatar-generator/save-avatar` (removed in #22) hit the generator above,
+  which does not route on path, rather than that handler.
 
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-
-  try {
-    const { coachId, selectedAvatarUrl, avatarStyle, originalSelfieUrl } = req.body;
-
-    if (!coachId || !selectedAvatarUrl || !avatarStyle) {
-      return res.status(400).json({ 
-        error: 'coachId, selectedAvatarUrl, and avatarStyle are required' 
-      });
-    }
-
-    console.log(`Saving selected avatar for coach ${coachId}: ${avatarStyle}`);
-
-    // Update coach profile with selected avatar
-    const { data, error } = await supabase
-      .from('coach_profiles')
-      .update({
-        avatar_url: selectedAvatarUrl,
-        avatar_style: avatarStyle,
-        original_selfie_url: originalSelfieUrl,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', coachId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Database error:', error);
-      throw error;
-    }
-
-    res.status(200).json({
-      success: true,
-      coach: data,
-      message: 'Avatar saved successfully'
-    });
-
-  } catch (error) {
-    console.error('Save avatar error:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to save selected avatar'
-    });
-  }
-}; 
+  It is deleted rather than left dormant because the only thing it was still
+  doing was waiting for someone to wire it up and ship an IDOR. Saving a chosen
+  avatar belongs on an authenticated path that checks the caller owns the coach.
+*/
